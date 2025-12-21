@@ -1,12 +1,11 @@
 import * as vscode from 'vscode';
-
-const selectionRequiredMessage = '操作する対象を選択してください。';
+import { messages } from '../i18n';
 
 export function ensureSelection<T>(item: T | undefined): item is T {
 	if (item) {
 		return true;
 	}
 
-	vscode.window.showInformationMessage(selectionRequiredMessage);
+	vscode.window.showInformationMessage(messages.selectionRequired);
 	return false;
 }

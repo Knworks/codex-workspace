@@ -80,7 +80,7 @@ codex-workspace/
 
 - **フォルダを開く**
   - 入力：コマンド実行
-  - 処理：`.codex` / `.codex/templates` を OS の Explorer/Finder で開く
+  - 処理：`.codex` を OS の Explorer/Finder で開く
   - 出力：OS 側のフォルダ表示
   - 検索条件：なし
   - ソート：なし
@@ -125,17 +125,17 @@ codex-workspace/
   - Template Explorer
   - MCP Explorer
   - Codex Core
+  - UI 最上部の共通ボタンで追加/削除/リネーム/Refresh/.codex を開く
 - **Prompts/Skills/Templates**
   - ルートに固定フォルダ（`prompts` / `skills` / `templates`）
   - ファイルはエディタで開く
-  - 操作：追加/削除/リネーム/Refresh（未選択時はメッセージ）
+  - 操作：UI 最上部の共通ボタンで追加/削除/リネーム/Refresh（未選択時はメッセージ）
 - **MCP Explorer**
   - サーバー一覧をスイッチ風 UI で表示
   - クリックで ON/OFF を切替
   - 成功時に再起動が必要な旨を通知
 - **Codex Core**
-  - `config.toml` / `AGENT.md` のショートカット
-  - `.codex` / `.codex/templates` を開く操作
+  - `config.toml` / `AGENTS.md` のショートカット
 - **利用不可時**
   - 各ビューに `? Codex Workspace を開けません: <理由>` を 1 件表示
 
@@ -148,7 +148,7 @@ flowchart TB
     Ext[Extension Host\nCodex Workspace]
   end
 
-  FS[~/.codex\nconfig.toml / AGENT.md /\nprompts / skills / templates]
+  FS[~/.codex\nconfig.toml / AGENTS.md /\nprompts / skills / templates]
   OS[OS Explorer / Finder]
 
   UI -->|コマンド/Tree 操作| Ext
@@ -159,7 +159,7 @@ flowchart TB
 ## 8.🔌外部インターフェース
 
 - **ローカルファイルシステム**：`~/.codex` 配下の読み書き
-- **OS Explorer/Finder**：`.codex` / `.codex/templates` のフォルダ表示
+- **OS Explorer/Finder**：`.codex` のフォルダ表示
 - **VS Code Extension API**：TreeDataProvider、コマンド、UI メッセージ
 
 ## 9. 🧪テスト戦略
@@ -179,15 +179,16 @@ flowchart TB
 ## 10. 🛡️非機能要件
 
 - **ユーザビリティ**
-  - Explorer 上部のボタン操作で InputBox を順に入力して各操作を実行できる
+  - UI 最上部の共通ボタン操作で InputBox を順に入力して各操作を実行できる
+  - ボタンは codicon を使用し、`new-folder` / `new-file` / `trash` / `edit` / `refresh` / `folder-opened` を表示する
   - 未選択時にメッセージを表示し選択を促す
   - MCP の ON/OFF をスイッチ風 UI で直感的に切り替えられる
   - アイコンによりプロンプトファイル/フォルダと MCP の視認性を高める
   - ファイルを選択した場合は通常の Explorer と同様に開いて編集できる
 - **ブランド要件**
   - 拡張名：Codex Workspace
-  - タグライン：Explore and edit your .codex workspace (config.toml, AGENT.md, prompts, skill, mcp) in VS Code.
-  - Keywords：`codex`, `.codex`, `codex-cli`, `workspace`, `config`, `config.toml`, `toml`, `agent`, `AGENT.md`, `prompts`, `prompt`, `skills`, `mcp`, `mcp server`, `explorer`, `tree view`, `editor`
+  - タグライン：Explore and edit your .codex workspace (config.toml, AGENTS.md, prompts, skill, mcp) in VS Code.
+  - Keywords：`codex`, `.codex`, `codex-cli`, `workspace`, `config`, `config.toml`, `toml`, `agent`, `AGENTS.md`, `prompts`, `prompt`, `skills`, `mcp`, `mcp server`, `explorer`, `tree view`, `editor`
 - **保守性**
   - ビューごとに責務を分離し拡張しやすい構造とする
   - UI とファイル操作ロジックを分離しテスト容易性を確保する

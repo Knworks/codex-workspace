@@ -12,7 +12,7 @@
 
 * 利用者
 
-  * Codex を利用し、`~/.codex` の設定（`config.toml`, `AGENT.md`）、プロンプト、スキル、テンプレート、MCP サーバー設定を日常的に編集する開発者
+  * Codex を利用し、`~/.codex` の設定（`config.toml`, `AGENTS.md`）、プロンプト、スキル、テンプレート、MCP サーバー設定を日常的に編集する開発者
 * ステークホルダー
 
   * 拡張機能開発者（作者）
@@ -26,7 +26,7 @@
 | ------------- | ------------------------------------------------------- | ---------------------------------------------- |
 | `.codex`      | Codex のグローバル設定ディレクトリ。各 OS のホームディレクトリ直下の `~/.codex` を指す。 | Windows/macOS/Linux でホームパスは異なる                 |
 | `config.toml` | Codex の設定ファイル（TOML形式）。MCP 設定を含む。                        | 破損（TOML parse 不可）の場合は拡張を利用不可                   |
-| `AGENT.md`    | Codex のエージェント設定/説明用ファイル（Markdown）。                      | 直接エディタで編集可能                                    |
+| `AGENTS.md`   | Codex のエージェント設定/説明用ファイル（Markdown）。                      | 直接エディタで編集可能                                    |
 | `prompts`     | プロンプトファイル/フォルダを格納するフォルダ（`.codex/prompts`）。階層は自由。        | ルートフォルダ名は固定／リネーム不可                             |
 | `skills`      | スキルファイル/フォルダを格納するフォルダ（`.codex/skills`）。階層は自由。           | ルートフォルダ名は固定／リネーム不可                             |
 | `templates`   | テンプレートファイル/フォルダを格納するフォルダ（`.codex/templates`）。           | 固定パス／ルートフォルダ名は固定／リネーム不可                        |
@@ -38,13 +38,13 @@
 
 ## 4. 🎭ユースケース / ユーザーストーリー
 
-* ユーザーは VS Code の専用 Explorer（複数ビュー）から `config.toml` / `AGENT.md` を開き、エディタで編集できる。
+* ユーザーは VS Code の専用 Explorer（複数ビュー）から `config.toml` / `AGENTS.md` を開き、エディタで編集できる。
 * ユーザーは Prompts Explorer からプロンプトファイル/フォルダを作成・編集・リネーム・削除できる。
 * ユーザーは Skills Explorer からスキルファイル/フォルダを作成・編集・リネーム・削除できる。
 * ユーザーは Template Explorer からテンプレートファイル/フォルダを閲覧し、テンプレートファイルを開いて編集できる。
 * ユーザーはファイル作成時に `.codex/templates` 配下にテンプレートファイルが存在する場合、テンプレートを選択して雛形を適用できる。
 * ユーザーは MCP Explorer で MCP サーバー一覧を閲覧し、スイッチ風 UI で `enabled` を ON/OFF 切り替えできる。
-* ユーザーは `.codex` フォルダおよび `.codex/templates` を OS のエクスプローラ/Finder で開ける。
+* ユーザーは `.codex` フォルダを OS のエクスプローラ/Finder で開ける。
 * ユーザーは Refresh 操作により全ビューを更新できる。
 * `.codex` や `config.toml` が存在しない/壊れている場合、ユーザーは「拡張が利用できない」ことを UI 上で確認できる。
 * ユーザーは VS Code の表示言語に応じて、日本語または英語で拡張の表示（ラベル/メッセージ）を利用できる。
@@ -61,7 +61,7 @@
   * Skills Explorer
   * Template Explorer
   * MCP Explorer
-  * Codex Core（`config.toml` / `AGENT.md` / `.codex フォルダを開く` / `.codex/templates を開く` 等）
+  * Codex Core（`config.toml` / `AGENTS.md`）
 * 各 Explorer のルートには以下の固定ルートフォルダを表示する。
 
   * Prompts Explorer：`prompts`（`.codex/prompts`）
@@ -197,7 +197,6 @@
 ### 5.8 フォルダを開く
 
 * `.codex` フォルダを OS のエクスプローラ/Finder で開く機能を提供する。
-* `.codex/templates` を OS のエクスプローラ/Finder で開く機能を提供する。
 
 ### 5.9 Refresh
 
@@ -215,7 +214,8 @@
 
 * ユーザビリティ（操作性、UI/UX要件）
 
-  * Explorer 上部のボタン操作により、InputBox を順に入力して各操作（追加/編集/削除/更新等）を行えること。
+  * UI 最上部の共通ボタン操作により、InputBox を順に入力して各操作（追加/編集/削除/更新/.codex を開く）を行えること。
+  * ボタンは codicon を使用し、`new-folder` / `new-file` / `trash` / `edit` / `refresh` / `folder-opened` を表示する。
   * 操作対象が未選択の場合は右下にメッセージを表示し、選択を促すこと。
   * MCP の ON/OFF はスイッチ風 UI で直感的に切り替えられること。
   * アイコンにより、プロンプトファイル/フォルダおよび MCP の視認性が高いこと。
@@ -223,8 +223,8 @@
 * ブランド要件（製品名、ブランド、アイコン、メタ情報など）
 
   * 拡張名：Codex Workspace
-  * タグライン：Explore and edit your .codex workspace (config.toml, AGENT.md, prompts, skill, mcp) in VS Code.
-  * Keywords：`codex`, `.codex`, `codex-cli`, `workspace`, `config`, `config.toml`, `toml`, `agent`, `AGENT.md`, `prompts`, `prompt`, `skills`, `mcp`, `mcp server`, `explorer`, `tree view`, `editor`
+  * タグライン：Explore and edit your .codex workspace (config.toml, AGENTS.md, prompts, skill, mcp) in VS Code.
+  * Keywords：`codex`, `.codex`, `codex-cli`, `workspace`, `config`, `config.toml`, `toml`, `agent`, `AGENTS.md`, `prompts`, `prompt`, `skills`, `mcp`, `mcp server`, `explorer`, `tree view`, `editor`
 * 保守性（拡張性、コード品質、ドキュメント）
 
   * ビュー（prompts/skills/templates/mcp/core）ごとに責務を分離し、将来拡張（再起動支援等）を追加しやすい構造とすること。

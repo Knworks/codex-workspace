@@ -33,7 +33,10 @@ suite('Extension Test Suite', () => {
 		const views = packageJson?.contributes?.views?.['codex-workspace'];
 		assert.ok(Array.isArray(views));
 		assert.ok(
-			views.some((view: { id: string }) => view.id === 'codex-workspace.sidebar'),
+			views.some((view: { id: string }) => view.id === 'codex-workspace.core'),
+		);
+		assert.ok(
+			views.some((view: { id: string }) => view.id === 'codex-workspace.prompts'),
 		);
 	});
 });

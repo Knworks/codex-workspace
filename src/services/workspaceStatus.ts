@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { parse } from 'toml';
+import { messages } from '../i18n';
 
 export type WorkspaceStatus = {
 	isAvailable: boolean;
@@ -14,13 +15,13 @@ export type WorkspacePaths = {
 };
 
 export const UNAVAILABLE_REASONS = {
-	codexMissing: '.codex が存在しません',
-	configMissing: 'config.toml が存在しません',
-	configUnreadable: 'config.toml を読み取れません',
-	configInvalid: 'config.toml を解析できません',
+	codexMissing: messages.reasonCodexMissing,
+	configMissing: messages.reasonConfigMissing,
+	configUnreadable: messages.reasonConfigUnreadable,
+	configInvalid: messages.reasonConfigInvalid,
 } as const;
 
-export const UNAVAILABLE_PREFIX = '? Codex Workspace を開けません: ';
+export const UNAVAILABLE_PREFIX = messages.unavailablePrefix;
 
 export function getUnavailableLabel(reason: string): string {
 	return `${UNAVAILABLE_PREFIX}${reason}`;

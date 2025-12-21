@@ -1,8 +1,10 @@
 {
   "name": "codex-workspace",
-  "displayName": "Codex Workspace",
-  "description": "Explore and edit your .codex workspace (config.toml, AGENT.md, prompts, skill, mcp) in VS Code.",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "publisher": "Knworks",
   "icon": "images/codex-workspace.png",
+  "repository": "https://github.com/Knworks/codex-workspace",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.107.0"
@@ -11,7 +13,11 @@
     "Other"
   ],
   "activationEvents": [
-    "onView:codex-workspace.sidebar"
+    "onView:codex-workspace.core",
+    "onView:codex-workspace.prompts",
+    "onView:codex-workspace.skills",
+    "onView:codex-workspace.templates",
+    "onView:codex-workspace.mcp"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -19,7 +25,7 @@
       "activitybar": [
         {
           "id": "codex-workspace",
-          "title": "Codex Workspace",
+          "title": "%viewContainer.codexWorkspace.title%",
           "icon": "images/sidebar.png"
         }
       ]
@@ -27,17 +33,105 @@
     "views": {
       "codex-workspace": [
         {
-          "id": "codex-workspace.sidebar",
-          "name": "Workspace"
+          "id": "codex-workspace.core",
+          "name": "%view.core.name%"
+        },
+        {
+          "id": "codex-workspace.prompts",
+          "name": "%view.prompts.name%"
+        },
+        {
+          "id": "codex-workspace.skills",
+          "name": "%view.skills.name%"
+        },
+        {
+          "id": "codex-workspace.templates",
+          "name": "%view.templates.name%"
+        },
+        {
+          "id": "codex-workspace.mcp",
+          "name": "%view.mcp.name%"
         }
       ]
     },
     "commands": [
       {
         "command": "codex-workspace.helloWorld",
-        "title": "Hello World"
+        "title": "%command.helloWorld%"
+      },
+      {
+        "command": "codex-workspace.openFile",
+        "title": "%command.openFile%"
+      },
+      {
+        "command": "codex-workspace.openCodexFolder",
+        "title": "%command.openCodexFolder%",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "codex-workspace.refreshAll",
+        "title": "%command.refresh%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "codex-workspace.addFile",
+        "title": "%command.addFile%",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "codex-workspace.addFolder",
+        "title": "%command.addFolder%",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "codex-workspace.rename",
+        "title": "%command.rename%",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "codex-workspace.delete",
+        "title": "%command.delete%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "codex-workspace.mcp.toggle",
+        "title": "%command.mcp.toggle%"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "codex-workspace.addFolder",
+          "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codex-workspace.addFile",
+          "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates'",
+          "group": "navigation@2"
+        },
+        {
+          "command": "codex-workspace.delete",
+          "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates'",
+          "group": "navigation@3"
+        },
+        {
+          "command": "codex-workspace.rename",
+          "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates'",
+          "group": "navigation@4"
+        },
+        {
+          "command": "codex-workspace.refreshAll",
+          "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates'",
+          "group": "navigation@5"
+        },
+        {
+          "command": "codex-workspace.openCodexFolder",
+          "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates'",
+          "group": "navigation@6"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -67,6 +161,7 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "toml": "^3.0.0"
+    "toml": "^3.0.0",
+    "vscode-nls": "^5.2.0"
   }
 }

@@ -36,11 +36,11 @@
 - 規模：0.5〜1日
 - 作業内容：
   - View Container に Prompts/Skills/Templates/MCP/Core を配置する
-  - Codex Core に `config.toml` と `AGENT.md` を表示しクリックで開く
-  - UI/イベント/保存先：Core アイテムクリックでエディタを開く（保存先: `~/.codex/config.toml`, `~/.codex/AGENT.md`）
+  - Codex Core に `config.toml` と `AGENTS.md` を表示しクリックで開く
+  - UI/イベント/保存先：Core アイテムクリックでエディタを開く（保存先: `~/.codex/config.toml`, `~/.codex/AGENTS.md`）
 - AC：
   - [ ] [UI/UX] アクティビティバーに Codex Workspace の View Container が表示される
-  - [ ] [機能] Core の `config.toml` と `AGENT.md` をクリックするとエディタで開ける
+  - [ ] [機能] Core の `config.toml` と `AGENTS.md` をクリックするとエディタで開ける
   - [ ] [状態/エラー] 利用不可時は Core でも共通エラーノードのみが表示される
   - [ ] [テスト] Core の表示/非表示切替が統合テストで確認できる
 
@@ -70,10 +70,10 @@
 - 規模：0.5日
 - 作業内容：
   - 全 Explorer を更新する Refresh コマンドを実装
-  - UI/イベント/保存先：各 Explorer のビュー上部ボタンから Refresh を実行（保存先なし）
+  - UI/イベント/保存先：UI 最上部の共通ボタンから Refresh を実行（保存先なし）
 - AC：
   - [ ] [機能] Refresh 実行で Prompts/Skills/Templates/MCP/Core の全ビューが更新される
-  - [ ] [UI/UX] 各 Explorer の上部操作から Refresh を実行できる
+  - [ ] [UI/UX] UI 最上部の共通ボタンから Refresh を実行できる
   - [ ] [状態/エラー] 利用不可時は Refresh しても状態が変化しない
   - [ ] [テスト] Refresh 実行後に Tree が再取得されることをテストで確認できる
 
@@ -87,7 +87,7 @@
 - 作業内容：
   - 追加/削除/リネームのコマンドと InputBox フローを実装
   - ルートフォルダの自動作成、拡張子付与、禁止文字置換、重複名回避を実装
-  - UI/イベント/保存先：Explorer 上部ボタン/コンテキストから操作し `~/.codex/prompts` / `~/.codex/skills` に保存
+  - UI/イベント/保存先：UI 最上部の共通ボタンから操作し `~/.codex/prompts` / `~/.codex/skills` に保存
   - Prompts のファイル/フォルダに `markdown32.png` / `folder32.png` を設定
 - AC：
   - [ ] [機能] 追加操作で未存在のルートフォルダが自動作成される
@@ -140,14 +140,13 @@
 - タイトル：`フォルダを開くコマンドを実装する`
 - フェーズ：`機能網羅・自動化`
 - 要件：5.8
-- DependsOn：`CORE-001`（Core view に操作項目を配置するため）
+- DependsOn：`CORE-001`（View Container が必要なため）
 - 規模：0.5日
 - 作業内容：
-  - `.codex` と `.codex/templates` を OS の Explorer/Finder で開くコマンドを実装
-  - UI/イベント/保存先：Core の項目クリックで OS を起動（保存先なし）
+  - `.codex` を OS の Explorer/Finder で開くコマンドを実装
+  - UI/イベント/保存先：UI 最上部の共通ボタンから OS を起動（保存先なし）
 - AC：
   - [ ] [機能] `.codex` を OS のエクスプローラ/Finder で開ける
-  - [ ] [機能] `.codex/templates` を OS のエクスプローラ/Finder で開ける
   - [ ] [状態/エラー] 対象パスが存在しない場合はエラーメッセージが表示される
   - [ ] [テスト] コマンドが正しいパスで OS 起動 API を呼ぶことをテストで検証できる
 
@@ -252,7 +251,7 @@ flowchart TD
 | FILE-001  | VIEW-001（Prompts 表示基盤が必要）, BASE-001（選択ガードを利用）                     | VIEW-001 後に着手             |
 | FILE-002  | FILE-001（作成フローを共有するため）                                             | FILE-001 後に着手             |
 | MCP-001   | BASE-001（config.toml パース結果に依存）                                     | BASE-001 後に着手             |
-| CORE-002  | CORE-001（Core view に操作項目を配置するため）                                  | CORE-001 後に着手             |
+| CORE-002  | CORE-001（View Container が必要なため）                                  | CORE-001 後に着手             |
 | I18N-001  | CORE-001, FILE-001, MCP-001, CORE-002（表示文言が出揃う必要があるため）            | Phase2 後半で並行可             |
 | TEST-001  | FILE-001, FILE-002, MCP-001, I18N-001（機能実装後に検証するため）               | 機能完了後に着手                 |
 | MAINT-001 | FILE-001, MCP-001（主要ロジックの実装後に整理するため）                               | Phase3 で実施、TEST-001 と並行可 |
