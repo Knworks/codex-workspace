@@ -1,0 +1,63 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "shell": {
+      "executable": "C:\\Windows\\System32\\cmd.exe",
+      "args": ["/d", "/c"]
+    }
+  },
+  "tasks": [
+    {
+      "label": "build: compile-once",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "compile"],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+
+    {
+      "label": "watch",
+      "dependsOn": [
+        "watch: tsc",
+        "watch: esbuild"
+      ],
+      "presentation": {
+        "reveal": "never"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+
+    {
+      "label": "watch: tsc",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "watch:tsc"],
+      "isBackground": true,
+      "problemMatcher": "$tsc-watch",
+      "presentation": {
+        "group": "watch",
+        "reveal": "never"
+      }
+    },
+
+    {
+      "label": "watch: esbuild",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "watch:esbuild"],
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "group": "watch",
+        "reveal": "never"
+      }
+    }
+  ]
+}
