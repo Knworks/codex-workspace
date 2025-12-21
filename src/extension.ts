@@ -1,6 +1,8 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { ensureSelection } from './services/selectionGuard';
+import { getUnavailableLabel, getWorkspaceStatus } from './services/workspaceStatus';
 
 class WorkspaceSidebarProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
 	getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
@@ -8,6 +10,12 @@ class WorkspaceSidebarProvider implements vscode.TreeDataProvider<vscode.TreeIte
 	}
 
 	getChildren(): vscode.ProviderResult<vscode.TreeItem[]> {
+		const status = getWorkspaceStatus();
+		if (!status.isAvailable) {
+			const label = getUnavailableLabel(status.reason ?? '不明な理由です');
+			return [new vscode.TreeItem(label)];
+		}
+
 		return [];
 	}
 }
@@ -29,11 +37,20 @@ export function activate(context: vscode.ExtensionContext) {
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('codex-workspace.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from Codex Workspace!');
-	});
+	const disposable = vscode.commands.registerCommand(
+		'codex-workspace.helloWorld',
+		(item?: vscode.TreeItem) => {
+			if (!getWorkspaceStatus().isAvailable) {
+				return;
+			}
+			if (!ensureSelection(item)) {
+				return;
+			}
+			// The code you place here will be executed every time your command is executed
+			// Display a message box to the user
+			vscode.window.showInformationMessage('Hello World from Codex Workspace!');
+		},
+	);
 
 	context.subscriptions.push(disposable);
 }
