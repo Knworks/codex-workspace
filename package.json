@@ -2,6 +2,7 @@
   "name": "codex-workspace",
   "displayName": "Codex Workspace",
   "description": "Explore and edit your .codex workspace (config.toml, AGENT.md, prompts, skill, mcp) in VS Code.",
+  "icon": "images/codex-workspace.png",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.107.0"
@@ -9,9 +10,28 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:codex-workspace.sidebar"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codex-workspace",
+          "title": "Codex Workspace",
+          "icon": "images/sidebar.png"
+        }
+      ]
+    },
+    "views": {
+      "codex-workspace": [
+        {
+          "id": "codex-workspace.sidebar",
+          "name": "Workspace"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "codex-workspace.helloWorld",
