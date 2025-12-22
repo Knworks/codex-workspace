@@ -54,7 +54,9 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 	}
 
 	private readDirectory(targetPath: string): CodexTreeItem[] {
-		const entries = this.listEntries(targetPath);
+		const entries = this.listEntries(targetPath).filter(
+			(entry) => !this.isHiddenName(entry.name),
+		);
 		return entries.map((entry) => {
 			if (entry.isDirectory) {
 				const folderItem = new CodexTreeItem(
@@ -85,6 +87,10 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 			fileItem.iconPath = this.getFileIcon();
 			return fileItem;
 		});
+	}
+
+	private isHiddenName(name: string): boolean {
+		return name.startsWith('.');
 	}
 
 	private getFolderIcon():

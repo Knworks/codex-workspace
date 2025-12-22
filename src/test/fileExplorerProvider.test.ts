@@ -55,4 +55,49 @@ suite('File explorer provider', () => {
 		const fileItem = children[0];
 		assert.strictEqual(fileItem.command?.command, 'codex-workspace.openFile');
 	});
+
+	test('Given hidden entries When listing children Then they are excluded', () => {
+		// Arrange
+		const provider = new FileExplorerProvider(
+			'prompts',
+			contextStub,
+			() => ({ isAvailable: true }),
+			'root',
+			() => [
+				{
+					name: '.hidden.md',
+					fullPath: path.join('root', '.hidden.md'),
+					isDirectory: false,
+					isFile: true,
+				},
+				{
+					name: 'visible.md',
+					fullPath: path.join('root', 'visible.md'),
+					isDirectory: false,
+					isFile: true,
+				},
+				{
+					name: '.secret',
+					fullPath: path.join('root', '.secret'),
+					isDirectory: true,
+					isFile: false,
+				},
+				{
+					name: 'public',
+					fullPath: path.join('root', 'public'),
+					isDirectory: true,
+					isFile: false,
+				},
+			],
+		);
+
+		// Act
+		const roots = provider.getChildren() as vscode.TreeItem[];
+		const rootItem = roots[0] as vscode.TreeItem;
+		const children = provider.getChildren(rootItem as never) as vscode.TreeItem[];
+		const labels = children.map((item) => item.label as string);
+
+		// Assert
+		assert.deepStrictEqual(labels, ['visible.md', 'public']);
+});
 });
