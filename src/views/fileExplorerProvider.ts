@@ -54,6 +54,47 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		return [];
 	}
 
+	getParent(element: CodexTreeItem): vscode.ProviderResult<CodexTreeItem> {
+		if (!element.fsPath) {
+			return undefined;
+		}
+		if (element.nodeType === 'root') {
+			return undefined;
+		}
+
+		const parentPath = path.dirname(element.fsPath);
+		if (!parentPath || parentPath === element.fsPath) {
+			return undefined;
+		}
+
+		const rootPath = this.getRootPath();
+		if (parentPath === rootPath) {
+			const rootItem = new CodexTreeItem(
+				'root',
+				this.kind,
+				this.kind,
+				vscode.TreeItemCollapsibleState.Expanded,
+				rootPath,
+			);
+			rootItem.id = rootItem.fsPath ?? this.kind;
+			rootItem.contextValue = 'codex-root';
+			rootItem.iconPath = this.getFolderIcon();
+			return rootItem;
+		}
+
+		const folderItem = new CodexTreeItem(
+			'folder',
+			this.kind,
+			path.basename(parentPath),
+			vscode.TreeItemCollapsibleState.Collapsed,
+			parentPath,
+		);
+		folderItem.id = parentPath;
+		folderItem.contextValue = 'codex-folder';
+		folderItem.iconPath = this.getFolderIcon();
+		return folderItem;
+	}
+
 	private readDirectory(targetPath: string): CodexTreeItem[] {
 		const entries = this.listEntries(targetPath).filter(
 			(entry) => !this.isHiddenName(entry.name),

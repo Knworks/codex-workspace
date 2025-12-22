@@ -5,9 +5,6 @@ export async function expandParentFolder(
 	selection: CodexTreeItem,
 	views: Record<FileViewKind, vscode.TreeView<CodexTreeItem>>,
 ): Promise<void> {
-	if (selection.nodeType === 'file') {
-		return;
-	}
 	if (
 		selection.kind !== 'prompts' &&
 		selection.kind !== 'skills' &&

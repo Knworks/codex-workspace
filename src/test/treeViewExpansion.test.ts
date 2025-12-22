@@ -50,12 +50,18 @@ suite('Tree view expansion', () => {
 		});
 	});
 
-	test('Given file selection When expanding Then reveal is not called', async () => {
+	test('Given file selection When expanding Then reveal is called', async () => {
 		// Arrange
-		let revealCalls = 0;
+		const reveals: Array<{
+			item: CodexTreeItem;
+			options: RevealOptions | undefined;
+		}> = [];
 		const viewStub = {
-			reveal: async () => {
-				revealCalls += 1;
+			reveal: async (
+				item: CodexTreeItem,
+				options?: RevealOptions,
+			) => {
+				reveals.push({ item, options });
 			},
 		} as unknown as vscode.TreeView<CodexTreeItem>;
 		const views = {
@@ -75,6 +81,12 @@ suite('Tree view expansion', () => {
 		await expandParentFolder(selection, views);
 
 		// Assert
-		assert.strictEqual(revealCalls, 0);
-});
+		assert.strictEqual(reveals.length, 1);
+		assert.strictEqual(reveals[0].item, selection);
+		assert.deepStrictEqual(reveals[0].options, {
+			expand: true,
+			focus: false,
+			select: false,
+		});
+	});
 });
