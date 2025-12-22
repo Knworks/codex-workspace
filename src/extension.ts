@@ -169,6 +169,11 @@ export function activate(context: vscode.ExtensionContext) {
 			skills: skillsProvider,
 			templates: templatesProvider,
 		},
+		views: {
+			prompts: promptsView,
+			skills: skillsView,
+			templates: templatesView,
+		},
 	});
 }
 

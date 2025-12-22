@@ -23,17 +23,19 @@ import {
 } from '../services/templateService';
 import { FileExplorerProvider } from '../views/fileExplorerProvider';
 import { runSafely } from '../services/errorHandling';
+import { expandParentFolder } from '../services/treeViewExpansion';
 
 type FileCommandContext = {
 	getSelection: () => CodexTreeItem | undefined;
 	providers: Record<FileViewKind, FileExplorerProvider>;
+	views: Record<FileViewKind, vscode.TreeView<CodexTreeItem>>;
 };
 
 export function registerFileCommands(
 	context: vscode.ExtensionContext,
 	config: FileCommandContext,
 ): vscode.Disposable[] {
-	const { getSelection, providers } = config;
+	const { getSelection, providers, views } = config;
 	const disposables: vscode.Disposable[] = [];
 
 	disposables.push(
@@ -77,6 +79,7 @@ export function registerFileCommands(
 					}
 
 					createFile(targetDir, resolvedName, templateContent);
+					await expandParentFolder(selection, views);
 					provider.refresh();
 				}),
 		),
@@ -117,6 +120,7 @@ export function registerFileCommands(
 
 					const resolvedName = resolveUniqueName(targetDir, normalizedName);
 					createFolder(targetDir, resolvedName);
+					await expandParentFolder(selection, views);
 					provider.refresh();
 				}),
 		),

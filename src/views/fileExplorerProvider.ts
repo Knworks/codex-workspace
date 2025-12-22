@@ -41,6 +41,7 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 				vscode.TreeItemCollapsibleState.Collapsed,
 				this.getRootPath(),
 			);
+			rootItem.id = rootItem.fsPath ?? this.kind;
 			rootItem.contextValue = 'codex-root';
 			rootItem.iconPath = this.getFolderIcon();
 			return [rootItem];
@@ -66,6 +67,7 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 					vscode.TreeItemCollapsibleState.Collapsed,
 					entry.fullPath,
 				);
+				folderItem.id = entry.fullPath;
 				folderItem.contextValue = 'codex-folder';
 				folderItem.iconPath = this.getFolderIcon();
 				return folderItem;
@@ -78,6 +80,7 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 				vscode.TreeItemCollapsibleState.None,
 				entry.fullPath,
 			);
+			fileItem.id = entry.fullPath;
 			fileItem.contextValue = 'codex-file';
 			fileItem.command = {
 				command: 'codex-workspace.openFile',
