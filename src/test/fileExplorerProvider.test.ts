@@ -19,6 +19,10 @@ suite('File explorer provider', () => {
 		const items = provider.getChildren() as vscode.TreeItem[];
 		assert.strictEqual(items.length, 1);
 		assert.strictEqual(items[0].label, 'prompts');
+		assert.strictEqual(
+			items[0].collapsibleState,
+			vscode.TreeItemCollapsibleState.Expanded,
+		);
 	});
 
 	test('returns unavailable item when not available', () => {

@@ -38,7 +38,7 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 				'root',
 				this.kind,
 				this.kind,
-				vscode.TreeItemCollapsibleState.Collapsed,
+				vscode.TreeItemCollapsibleState.Expanded,
 				this.getRootPath(),
 			);
 			rootItem.id = rootItem.fsPath ?? this.kind;
