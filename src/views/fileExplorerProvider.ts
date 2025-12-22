@@ -84,7 +84,7 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 				title: 'Open file',
 				arguments: [fileItem],
 			};
-			fileItem.iconPath = this.getFileIcon();
+			fileItem.iconPath = this.getFileIcon(entry.name);
 			return fileItem;
 		});
 	}
@@ -97,24 +97,23 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		| vscode.ThemeIcon
 		| { light: vscode.Uri; dark: vscode.Uri }
 		| undefined {
-		if (this.kind !== 'prompts') {
-			return undefined;
-		}
-
 		const iconPath = this.context.asAbsolutePath(path.join('images', 'folder32.png'));
 		const iconUri = vscode.Uri.file(iconPath);
 		return { light: iconUri, dark: iconUri };
 	}
 
-	private getFileIcon():
+	private getFileIcon(fileName: string):
 		| vscode.ThemeIcon
 		| { light: vscode.Uri; dark: vscode.Uri }
 		| undefined {
-		if (this.kind !== 'prompts') {
-			return undefined;
-		}
-
-		const iconPath = this.context.asAbsolutePath(path.join('images', 'markdown32.png'));
+		const extension = path.extname(fileName).toLowerCase();
+		const iconFileName =
+			extension === '.md'
+				? 'markdown32.png'
+				: extension === '.py'
+					? 'python32.png'
+					: 'text32.png';
+		const iconPath = this.context.asAbsolutePath(path.join('images', iconFileName));
 		const iconUri = vscode.Uri.file(iconPath);
 		return { light: iconUri, dark: iconUri };
 	}
