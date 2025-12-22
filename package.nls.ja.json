@@ -34,6 +34,7 @@
   "message.renameFolderExists": "同名のフォルダが存在します。",
   "message.deleteFileConfirm": "このファイルを削除してもよろしいですか？",
   "message.deleteFolderConfirm": "このフォルダ以下をすべて削除してもよろしいですか？",
+  "message.deleteRootNotAllowed": "ルートフォルダは削除できません。",
   "message.overwriteFileConfirm": "同名ファイルを上書きします。既存ファイルは削除されますがよろしいですか？",
   "message.overwrite": "上書きする",
   "message.useDifferentName": "別名にする（_1）",

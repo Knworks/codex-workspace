@@ -35,6 +35,7 @@ suite('Localization keys', () => {
 			'message.renameFolderExists',
 			'message.deleteFileConfirm',
 			'message.deleteFolderConfirm',
+			'message.deleteRootNotAllowed',
 			'message.overwriteFileConfirm',
 			'message.overwrite',
 			'message.useDifferentName',

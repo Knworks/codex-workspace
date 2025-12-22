@@ -1,6 +1,41 @@
-import * as nls from 'vscode-nls';
+import * as vscode from 'vscode';
+import fs from 'fs';
+import path from 'path';
 
-const localize = nls.loadMessageBundle();
+type MessageBundle = Record<string, string>;
+
+let cachedBundle: MessageBundle | null = null;
+
+function loadBundle(): MessageBundle {
+	if (cachedBundle) {
+		return cachedBundle;
+	}
+
+	const language = (vscode.env.language ?? 'en').toLowerCase();
+	const extensionRoot = path.resolve(__dirname, '..');
+	const candidates = language.startsWith('ja')
+		? ['package.nls.ja.json', 'package.nls.json']
+		: ['package.nls.json'];
+
+	for (const fileName of candidates) {
+		try {
+			const bundlePath = path.join(extensionRoot, fileName);
+			const contents = fs.readFileSync(bundlePath, 'utf8');
+			cachedBundle = JSON.parse(contents) as MessageBundle;
+			return cachedBundle;
+		} catch {
+			// ignore and try next candidate
+		}
+	}
+
+	cachedBundle = {};
+	return cachedBundle;
+}
+
+function localize(key: string, fallback: string): string {
+	const bundle = loadBundle();
+	return bundle[key] ?? fallback;
+}
 
 export const messages = {
 	selectionRequired: localize(
@@ -76,6 +111,10 @@ export const messages = {
 		deleteFolderConfirm: localize(
 			'message.deleteFolderConfirm',
 			'Are you sure you want to delete this folder and its contents?',
+		),
+		deleteRootNotAllowed: localize(
+			'message.deleteRootNotAllowed',
+			'Root folders cannot be deleted.',
 		),
 		overwriteFileConfirm: localize(
 			'message.overwriteFileConfirm',

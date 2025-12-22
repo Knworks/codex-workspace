@@ -144,7 +144,7 @@ export function registerFileCommands(
 					if (!provider) {
 						return;
 					}
-					if (selection.nodeType === 'root') {
+					if (isRootNode(selection)) {
 						vscode.window.showErrorMessage(messages.file.renameRootNotAllowed);
 						return;
 					}
@@ -224,6 +224,10 @@ export function registerFileCommands(
 					if (!provider) {
 						return;
 					}
+					if (isRootNode(selection)) {
+						vscode.window.showErrorMessage(messages.file.deleteRootNotAllowed);
+						return;
+					}
 
 					const message =
 						selection.nodeType === 'folder'
@@ -245,6 +249,10 @@ export function registerFileCommands(
 
 function ensureAvailable(): boolean {
 	return getWorkspaceStatus().isAvailable;
+}
+
+export function isRootNode(item: CodexTreeItem): boolean {
+	return item.nodeType === 'root';
 }
 
 const FILE_VIEW_KINDS: FileViewKind[] = ['prompts', 'skills', 'templates'];
