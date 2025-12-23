@@ -8,6 +8,12 @@ import {
 } from '../services/workspaceStatus';
 import { FileEntry, listFileEntries } from '../services/fileTreeService';
 
+const FILE_ICON_MAP: Record<string, string> = {
+	'.md': 'markdown32.png',
+	'.py': 'python32.png',
+	'.txt': 'text32.png',
+};
+
 export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 	private readonly kind: FileViewKind;
 	private readonly context: vscode.ExtensionContext;
@@ -158,12 +164,7 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		| { light: vscode.Uri; dark: vscode.Uri }
 		| undefined {
 		const extension = path.extname(fileName).toLowerCase();
-		const iconFileName =
-			extension === '.md'
-				? 'markdown32.png'
-				: extension === '.py'
-					? 'python32.png'
-					: 'text32.png';
+		const iconFileName = FILE_ICON_MAP[extension] ?? 'text32.png';
 		const iconPath = this.context.asAbsolutePath(path.join('images', iconFileName));
 		const iconUri = vscode.Uri.file(iconPath);
 		return { light: iconUri, dark: iconUri };
