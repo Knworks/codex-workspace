@@ -29,7 +29,7 @@
 | `AGENTS.md`   | Codex のエージェント設定/説明用ファイル（Markdown）。                      | 直接エディタで編集可能                                    |
 | `prompts`     | プロンプトファイル/フォルダを格納するフォルダ（`.codex/prompts`）。階層は自由。        | ルートフォルダ名は固定／リネーム不可                             |
 | `skills`      | スキルファイル/フォルダを格納するフォルダ（`.codex/skills`）。階層は自由。           | ルートフォルダ名は固定／リネーム不可                             |
-| `templates`   | テンプレートファイル/フォルダを格納するフォルダ（`.codex/templates`）。           | 固定パス／ルートフォルダ名は固定／リネーム不可                        |
+| `codex-templates`   | テンプレートファイル/フォルダを格納するフォルダ（`.codex/codex-templates`）。           | 固定パス／ルートフォルダ名は固定／リネーム不可                        |
 | MCP           | Model Context Protocol のサーバー設定群。                        | `[mcp_servers.<id>]` テーブルとして `config.toml` に定義 |
 | MCP サーバー      | `config.toml` の `[mcp_servers.<id>]` ブロック1つを指す。         | `<id>` がサーバー表示名                                |
 | `enabled`     | MCP サーバーの有効/無効を表す設定値。                                   | 省略時は ON 扱い                                     |
@@ -42,7 +42,7 @@
 * ユーザーは Prompts Explorer からプロンプトファイル/フォルダを作成・編集・リネーム・削除できる。
 * ユーザーは Skills Explorer からスキルファイル/フォルダを作成・編集・リネーム・削除できる。
 * ユーザーは Template Explorer からテンプレートファイル/フォルダを閲覧し、テンプレートファイルを開いて編集できる。
-* ユーザーはファイル作成時に `.codex/templates` 配下にテンプレートファイルが存在する場合、テンプレートを選択して雛形を適用できる。
+* ユーザーはファイル作成時に `.codex/codex-templates` 配下にテンプレートファイルが存在する場合、テンプレートを選択して雛形を適用できる。
 * ユーザーは MCP Explorer で MCP サーバー一覧を閲覧し、スイッチ風 UI で `enabled` を ON/OFF 切り替えできる。
 * ユーザーは `.codex` フォルダを OS のエクスプローラ/Finder で開ける。
 * ユーザーは Refresh 操作により全ビューを更新できる。
@@ -66,7 +66,7 @@
 
   * Prompts Explorer：`prompts`（`.codex/prompts`）
   * Skills Explorer：`skills`（`.codex/skills`）
-  * Template Explorer：`templates`（`.codex/templates`）
+  * Template Explorer：`codex-templates`（`.codex/codex-templates`）
 * 上記の固定ルートフォルダは **リネーム不可**とする。
 
 ### 5.2 利用可否判定（共通）
@@ -97,14 +97,14 @@
   * MCP サーバー：`mcp32.png`
 * MCP の ON/OFF はスイッチ風 UI として視認できること（アイコン表現を含む）。
 
-### 5.5 ファイル/フォルダ操作（prompts / skills / templates）
+### 5.5 ファイル/フォルダ操作（prompts / skills / codex-templates）
 
 * フォルダ階層は自由。
 * ファイルを選択した場合は、通常の VS Code Explorer と同様にエディタで開く（テキスト編集）。
 
 #### 5.5.1 初回作成時のルートフォルダ自動作成
 
-* ファイル追加/フォルダ追加の実行時に、対象 Explorer のルートフォルダ（`.codex/prompts` / `.codex/skills` / `.codex/templates`）が存在しない場合は、拡張が自動で作成する。
+* ファイル追加/フォルダ追加の実行時に、対象 Explorer のルートフォルダ（`.codex/prompts` / `.codex/skills` / `.codex/codex-templates`）が存在しない場合は、拡張が自動で作成する。
 
 #### 5.5.2 追加（ファイル/フォルダ）
 
@@ -142,7 +142,7 @@
 
 * 対象：ファイル/フォルダ
 * ファイルは拡張子込みでリネーム対象とする。
-* 固定ルートフォルダ（`prompts` / `skills` / `templates`）は常にリネーム不可とする。
+* 固定ルートフォルダ（`prompts` / `skills` / `codex-templates`）は常にリネーム不可とする。
 
 **ファイル**
 
@@ -161,10 +161,10 @@
 
 * 目標名が存在する場合：リネーム不可（エラー表示）
 
-### 5.6 テンプレート機能（`.codex/templates` 固定）
+### 5.6 テンプレート機能（`.codex/codex-templates` 固定）
 
-* テンプレートフォルダは `.codex/templates` に固定する（設定値は存在しない）。
-* `.codex/templates` 配下にテンプレートファイルが存在する場合のみ、ファイル作成時にテンプレート選択を可能とする。
+* テンプレートフォルダは `.codex/codex-templates` に固定する（設定値は存在しない）。
+* `.codex/codex-templates` 配下にテンプレートファイルが存在する場合のみ、ファイル作成時にテンプレート選択を可能とする。
 * テンプレート選択対象は「ファイルのみ」とし、隠しファイル（`.` 始まり）は除外する。
 * 選択したテンプレートファイルの内容を新規作成ファイルに適用する。
 * Template Explorer ではテンプレートファイルを開いて編集できる。
@@ -253,10 +253,10 @@
   * `config.toml` のフォーマットや MCP 設定の仕様変更により、`[mcp_servers.<id>]` 抽出や `enabled` 行のパッチが将来的に動作しなくなる可能性。
   * ファイル/フォルダの物理削除や上書き削除を伴う操作により、ユーザーが意図せずデータを失うリスク（確認ダイアログで緩和）。
   * OS 依存のファイル名禁則（特に Windows）による作成/リネーム失敗（禁止文字 `_` 置換で緩和）。
-  * `.codex/prompts` / `.codex/skills` / `.codex/templates` の初回自動作成により、ユーザーの意図しないディレクトリ生成が発生する可能性（初回操作時に限定）。
+  * `.codex/prompts` / `.codex/skills` / `.codex/codex-templates` の初回自動作成により、ユーザーの意図しないディレクトリ生成が発生する可能性（初回操作時に限定）。
   * 多言語対応により、文言の更新や追加時に翻訳漏れが発生する可能性。
 * 解決すべき前提条件や依存関係
 
   * `enabled = true/false` が Codex 側で MCP の有効/無効として解釈されること（前提）。
-  * `.codex/templates` 配下にテンプレートファイルが存在する場合のみテンプレ選択が可能であること。
+  * `.codex/codex-templates` 配下にテンプレートファイルが存在する場合のみテンプレ選択が可能であること。
   * VS Code の表示言語判定（日本語か否か）に基づき表示言語を切り替えられること。

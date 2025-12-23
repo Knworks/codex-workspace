@@ -11,10 +11,10 @@
 
 ## 🛠️スコープ / 作業内容
 
-- Templates Explorer を追加し固定ルート `templates` を表示する
+- Templates Explorer を追加し固定ルート `codex-templates` を表示する
 - テンプレート選択 UI を実装し、新規ファイル作成時に内容を反映する
 - 隠しファイル（`.` 始まり）はテンプレート候補から除外する
-- UI/イベント/保存先: 作成操作でテンプレートを選択（保存先: `~/.codex/templates`）
+- UI/イベント/保存先: 作成操作でテンプレートを選択（保存先: `~/.codex/codex-templates`）
 - 参照: `docs/01_requirements.md`, `docs/02_architect.md`
 
 ## ✅AC（受け入れ基準）
@@ -33,5 +33,4 @@
 
 - (ユニット / 統合)
 - 検証方法：`npm test` でテンプレート適用と候補抽出のテストを実行する
-
 

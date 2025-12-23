@@ -14,6 +14,9 @@ export type WorkspacePaths = {
 	configPath: string;
 };
 
+// NOTE: Use a distinct folder name to avoid VS Code language heuristics (e.g., Django templates) in user template files.
+export const TEMPLATE_FOLDER_NAME = 'codex-templates';
+
 export const UNAVAILABLE_REASONS = {
 	codexMissing: messages.reasonCodexMissing,
 	configMissing: messages.reasonConfigMissing,

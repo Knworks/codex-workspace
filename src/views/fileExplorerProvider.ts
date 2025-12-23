@@ -2,7 +2,10 @@ import * as vscode from 'vscode';
 import path from 'path';
 import { CodexTreeDataProvider, WorkspaceStatusProvider } from './codexTreeProvider';
 import { CodexTreeItem, FileViewKind } from '../models/treeItems';
-import { resolveCodexPaths } from '../services/workspaceStatus';
+import {
+	resolveCodexPaths,
+	TEMPLATE_FOLDER_NAME,
+} from '../services/workspaceStatus';
 import { FileEntry, listFileEntries } from '../services/fileTreeService';
 
 export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
@@ -29,17 +32,21 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		if (this.rootPathOverride) {
 			return this.rootPathOverride;
 		}
+		if (this.kind === 'templates') {
+			return path.join(resolveCodexPaths().codexDir, TEMPLATE_FOLDER_NAME);
+		}
 		return path.join(resolveCodexPaths().codexDir, this.kind);
 	}
 
 	protected getAvailableChildren(element?: CodexTreeItem): vscode.ProviderResult<CodexTreeItem[]> {
 		if (!element) {
+			const rootPath = this.getRootPath();
 			const rootItem = new CodexTreeItem(
 				'root',
 				this.kind,
-				this.kind,
+				path.basename(rootPath),
 				vscode.TreeItemCollapsibleState.Expanded,
-				this.getRootPath(),
+				rootPath,
 			);
 			rootItem.id = rootItem.fsPath ?? this.kind;
 			rootItem.contextValue = 'codex-root';
@@ -72,7 +79,7 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 			const rootItem = new CodexTreeItem(
 				'root',
 				this.kind,
-				this.kind,
+				path.basename(rootPath),
 				vscode.TreeItemCollapsibleState.Expanded,
 				rootPath,
 			);

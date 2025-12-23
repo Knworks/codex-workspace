@@ -8,7 +8,7 @@ suite('Template service', () => {
 	test('lists non-hidden template files recursively', () => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-template-'));
 		try {
-			const root = path.join(tempDir, 'templates');
+			const root = path.join(tempDir, 'codex-templates');
 			const nestedDir = path.join(root, 'nested');
 			fs.mkdirSync(nestedDir, { recursive: true });
 			fs.writeFileSync(path.join(root, 'a.md'), 'a', 'utf8');

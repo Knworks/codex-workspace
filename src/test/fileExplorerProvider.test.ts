@@ -18,7 +18,7 @@ suite('File explorer provider', () => {
 		);
 		const items = provider.getChildren() as vscode.TreeItem[];
 		assert.strictEqual(items.length, 1);
-		assert.strictEqual(items[0].label, 'prompts');
+		assert.strictEqual(items[0].label, path.basename('root'));
 		assert.strictEqual(
 			items[0].collapsibleState,
 			vscode.TreeItemCollapsibleState.Expanded,
@@ -105,16 +105,20 @@ suite('File explorer provider', () => {
 		const markdownItem = byLabel('note.md');
 		const pythonItem = byLabel('script.py');
 		const defaultItem = byLabel('plain.txt');
+		const expectedIconPath = (fileName: string): string =>
+			vscode.Uri.file(
+				contextStub.asAbsolutePath(path.join('images', fileName)),
+			).fsPath;
 
 		// Assert
 		const folderIconPath = folderItem.iconPath as { light: vscode.Uri; dark: vscode.Uri };
 		assert.strictEqual(
 			folderIconPath.light.fsPath,
-			path.join('root', 'images', 'folder32.png'),
+			expectedIconPath('folder32.png'),
 		);
 		assert.strictEqual(
 			folderIconPath.dark.fsPath,
-			path.join('root', 'images', 'folder32.png'),
+			expectedIconPath('folder32.png'),
 		);
 
 		const markdownIconPath = markdownItem.iconPath as {
@@ -123,21 +127,21 @@ suite('File explorer provider', () => {
 		};
 		assert.strictEqual(
 			markdownIconPath.light.fsPath,
-			path.join('root', 'images', 'markdown32.png'),
+			expectedIconPath('markdown32.png'),
 		);
 		assert.strictEqual(
 			markdownIconPath.dark.fsPath,
-			path.join('root', 'images', 'markdown32.png'),
+			expectedIconPath('markdown32.png'),
 		);
 
 		const pythonIconPath = pythonItem.iconPath as { light: vscode.Uri; dark: vscode.Uri };
 		assert.strictEqual(
 			pythonIconPath.light.fsPath,
-			path.join('root', 'images', 'python32.png'),
+			expectedIconPath('python32.png'),
 		);
 		assert.strictEqual(
 			pythonIconPath.dark.fsPath,
-			path.join('root', 'images', 'python32.png'),
+			expectedIconPath('python32.png'),
 		);
 
 		const defaultIconPath = defaultItem.iconPath as {
@@ -146,11 +150,11 @@ suite('File explorer provider', () => {
 		};
 		assert.strictEqual(
 			defaultIconPath.light.fsPath,
-			path.join('root', 'images', 'text32.png'),
+			expectedIconPath('text32.png'),
 		);
 		assert.strictEqual(
 			defaultIconPath.dark.fsPath,
-			path.join('root', 'images', 'text32.png'),
+			expectedIconPath('text32.png'),
 		);
 	});
 

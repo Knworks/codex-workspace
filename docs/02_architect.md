@@ -57,18 +57,18 @@ codex-workspace/
   - 検索条件：なし
   - ソート：VS Code 標準の表示順（ファイルシステムに準拠）
   - バリデーション：
-    - ルートフォルダ（`prompts/skills/templates`）はリネーム不可
+    - ルートフォルダ（`prompts/skills/codex-templates`）はリネーム不可
     - 禁止文字は `_` に置換
     - 拡張子なしは `.md` を付与
     - 命名重複時は `_1`, `_2` で回避
 
 - **テンプレート機能**
-  - 入力：テンプレート選択（`.codex/templates` 配下のファイルのみ）
+  - 入力：テンプレート選択（`.codex/codex-templates` 配下のファイルのみ）
   - 処理：テンプレート内容を新規作成ファイルへ適用
   - 出力：テンプレ内容の反映済みファイル
   - 検索条件：隠しファイル（`.` 始まり）は除外
   - ソート：VS Code 標準の表示順
-  - バリデーション：テンプレートフォルダは固定（`.codex/templates`）
+  - バリデーション：テンプレートフォルダは固定（`.codex/codex-templates`）
 
 - **MCP Explorer（一覧・トグル）**
   - 入力：`config.toml` の `[mcp_servers.<id>]` 定義、クリック操作
@@ -127,7 +127,7 @@ codex-workspace/
   - Codex Core
   - UI 最上部の共通ボタンで追加/削除/リネーム/Refresh/.codex を開く
 - **Prompts/Skills/Templates**
-  - ルートに固定フォルダ（`prompts` / `skills` / `templates`）
+  - ルートに固定フォルダ（`prompts` / `skills` / `codex-templates`）
   - ファイルはエディタで開く
   - 操作：UI 最上部の共通ボタンで追加/削除/リネーム/Refresh（未選択時はメッセージ）
 - **MCP Explorer**
@@ -148,7 +148,7 @@ flowchart TB
     Ext[Extension Host\nCodex Workspace]
   end
 
-  FS[~/.codex\nconfig.toml / AGENTS.md /\nprompts / skills / templates]
+  FS[~/.codex\nconfig.toml / AGENTS.md /\nprompts / skills / codex-templates]
   OS[OS Explorer / Finder]
 
   UI -->|コマンド/Tree 操作| Ext
