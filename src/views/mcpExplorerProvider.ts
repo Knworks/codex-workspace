@@ -17,11 +17,10 @@ export class McpExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		const configPath = resolveCodexPaths().configPath;
 		const servers = readMcpServers(configPath);
 		return servers.map((server) => {
-			const label = `${server.enabled ? '$(toggle-on)' : '$(toggle-off)'} ${server.id}`;
 			const item = new CodexTreeItem(
 				'mcpServer',
 				'mcp',
-				label,
+				server.id,
 				vscode.TreeItemCollapsibleState.None,
 			);
 			item.contextValue = 'codex-mcp-server';
@@ -30,7 +29,8 @@ export class McpExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 				title: 'Toggle MCP',
 				arguments: [server.id],
 			};
-			const iconPath = this.context.asAbsolutePath(path.join('images', 'mcp32.png'));
+			const iconFileName = server.enabled ? 'status_run32.png' : 'status_run_grey32.png';
+			const iconPath = this.context.asAbsolutePath(path.join('images', iconFileName));
 			const iconUri = vscode.Uri.file(iconPath);
 			item.iconPath = { light: iconUri, dark: iconUri };
 			return item;
