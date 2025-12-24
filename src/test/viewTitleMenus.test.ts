@@ -18,8 +18,6 @@ suite('View title menus', () => {
 		assert.ok(Array.isArray(commandDefinitions));
 
 		const commonCommands = [
-			'codex-workspace.addFolder',
-			'codex-workspace.addFile',
 			'codex-workspace.delete',
 			'codex-workspace.rename',
 			'codex-workspace.refreshAll',
@@ -32,6 +30,30 @@ suite('View title menus', () => {
 		];
 
 		const perViewCommands = [
+			{
+				command: 'codex-workspace.addPromptsFolder',
+				viewId: 'codex-workspace.prompts',
+			},
+			{
+				command: 'codex-workspace.addPromptsFile',
+				viewId: 'codex-workspace.prompts',
+			},
+			{
+				command: 'codex-workspace.addSkillsFolder',
+				viewId: 'codex-workspace.skills',
+			},
+			{
+				command: 'codex-workspace.addSkillsFile',
+				viewId: 'codex-workspace.skills',
+			},
+			{
+				command: 'codex-workspace.addTemplatesFolder',
+				viewId: 'codex-workspace.templates',
+			},
+			{
+				command: 'codex-workspace.addTemplatesFile',
+				viewId: 'codex-workspace.templates',
+			},
 			{
 				command: 'codex-workspace.openPromptsFolder',
 				viewId: 'codex-workspace.prompts',

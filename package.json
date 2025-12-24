@@ -99,6 +99,36 @@
         "icon": "$(new-folder)"
       },
       {
+        "command": "codex-workspace.addPromptsFile",
+        "title": "%command.addFile%",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "codex-workspace.addPromptsFolder",
+        "title": "%command.addFolder%",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "codex-workspace.addSkillsFile",
+        "title": "%command.addFile%",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "codex-workspace.addSkillsFolder",
+        "title": "%command.addFolder%",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "codex-workspace.addTemplatesFile",
+        "title": "%command.addFile%",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "codex-workspace.addTemplatesFolder",
+        "title": "%command.addFolder%",
+        "icon": "$(new-folder)"
+      },
+      {
         "command": "codex-workspace.rename",
         "title": "%command.rename%",
         "icon": "$(edit)"
@@ -116,13 +146,33 @@
     "menus": {
       "view/title": [
         {
-          "command": "codex-workspace.addFolder",
-          "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates'",
+          "command": "codex-workspace.addPromptsFolder",
+          "when": "view == 'codex-workspace.prompts'",
           "group": "navigation@1"
         },
         {
-          "command": "codex-workspace.addFile",
-          "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates'",
+          "command": "codex-workspace.addPromptsFile",
+          "when": "view == 'codex-workspace.prompts'",
+          "group": "navigation@2"
+        },
+        {
+          "command": "codex-workspace.addSkillsFolder",
+          "when": "view == 'codex-workspace.skills'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codex-workspace.addSkillsFile",
+          "when": "view == 'codex-workspace.skills'",
+          "group": "navigation@2"
+        },
+        {
+          "command": "codex-workspace.addTemplatesFolder",
+          "when": "view == 'codex-workspace.templates'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codex-workspace.addTemplatesFile",
+          "when": "view == 'codex-workspace.templates'",
           "group": "navigation@2"
         },
         {

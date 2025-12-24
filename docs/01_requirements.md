@@ -63,7 +63,7 @@
   * Template Explorer
   * MCP Explorer
   * Codex Core（`config.toml` / `AGENTS.md`）
-* 各 Explorer のルートには以下の固定ルートフォルダを表示する。
+* 各 Explorer は以下の固定ルートフォルダを持つ（UI ではルート直下の階層を表示し、ルート自体は表示しない）。
 
   * Prompts Explorer：`prompts`（`.codex/prompts`）
   * Skills Explorer：`skills`（`.codex/skills`）
@@ -85,7 +85,7 @@
 
 ### 5.3 選択必須（共通）
 
-* 全操作は対象選択が必須。
+* 削除/リネームなどの操作は対象選択が必須。
 * 対象が未選択の場合は操作を実行せず、右下に簡易メッセージを表示する。
 
   * `showInformationMessage("操作する対象を選択してください。")`（英語環境では英語表示）
@@ -113,6 +113,7 @@
 
   * 選択対象がフォルダ：そのフォルダ配下に作成
   * 選択対象がファイル：そのファイルの親フォルダ配下に作成
+  * 未選択：対象 Explorer のルートフォルダ配下に作成
 * ファイル作成時の拡張子
 
   * 入力が拡張子なし：`.md` を付与

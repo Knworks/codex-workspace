@@ -9,19 +9,27 @@ const contextStub = {
 } as vscode.ExtensionContext;
 
 suite('File explorer provider', () => {
-	test('returns root item when available', () => {
+	test('returns root children when available', () => {
 		const provider = new FileExplorerProvider(
 			'prompts',
 			contextStub,
 			() => ({ isAvailable: true }),
 			'root',
+			() => [
+				{
+					name: 'docs',
+					fullPath: path.join('root', 'docs'),
+					isDirectory: true,
+					isFile: false,
+				},
+			],
 		);
 		const items = provider.getChildren() as vscode.TreeItem[];
 		assert.strictEqual(items.length, 1);
-		assert.strictEqual(items[0].label, path.basename('root'));
+		assert.strictEqual(items[0].label, 'docs');
 		assert.strictEqual(
 			items[0].collapsibleState,
-			vscode.TreeItemCollapsibleState.Expanded,
+			vscode.TreeItemCollapsibleState.Collapsed,
 		);
 	});
 
@@ -52,9 +60,7 @@ suite('File explorer provider', () => {
 				},
 			],
 		);
-		const roots = provider.getChildren() as vscode.TreeItem[];
-		const rootItem = roots[0] as vscode.TreeItem;
-		const children = provider.getChildren(rootItem as never) as vscode.TreeItem[];
+		const children = provider.getChildren() as vscode.TreeItem[];
 		assert.strictEqual(children.length, 1);
 		const fileItem = children[0];
 		assert.strictEqual(fileItem.command?.command, 'codex-workspace.openFile');
@@ -114,9 +120,7 @@ suite('File explorer provider', () => {
 		);
 
 		// Act
-		const roots = provider.getChildren() as vscode.TreeItem[];
-		const rootItem = roots[0] as vscode.TreeItem;
-		const children = provider.getChildren(rootItem as never) as vscode.TreeItem[];
+		const children = provider.getChildren() as vscode.TreeItem[];
 		const byLabel = (label: string): vscode.TreeItem =>
 			children.find((item) => item.label === label) as vscode.TreeItem;
 		const folderItem = byLabel('docs');
@@ -248,9 +252,7 @@ suite('File explorer provider', () => {
 		);
 
 		// Act
-		const roots = provider.getChildren() as vscode.TreeItem[];
-		const rootItem = roots[0] as vscode.TreeItem;
-		const children = provider.getChildren(rootItem as never) as vscode.TreeItem[];
+		const children = provider.getChildren() as vscode.TreeItem[];
 		const labels = children.map((item) => item.label as string);
 
 		// Assert

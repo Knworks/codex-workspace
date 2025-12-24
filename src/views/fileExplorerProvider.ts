@@ -67,18 +67,7 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 
 	protected getAvailableChildren(element?: CodexTreeItem): vscode.ProviderResult<CodexTreeItem[]> {
 		if (!element) {
-			const rootPath = this.getRootPath();
-			const rootItem = new CodexTreeItem(
-				'root',
-				this.kind,
-				path.basename(rootPath),
-				vscode.TreeItemCollapsibleState.Expanded,
-				rootPath,
-			);
-			rootItem.id = rootItem.fsPath ?? this.kind;
-			rootItem.contextValue = 'codex-root';
-			rootItem.iconPath = this.getFolderIcon();
-			return [rootItem];
+			return this.readDirectory(this.getRootPath());
 		}
 
 		if (element.nodeType === 'root' || element.nodeType === 'folder') {
@@ -103,17 +92,7 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 
 		const rootPath = this.getRootPath();
 		if (parentPath === rootPath) {
-			const rootItem = new CodexTreeItem(
-				'root',
-				this.kind,
-				path.basename(rootPath),
-				vscode.TreeItemCollapsibleState.Expanded,
-				rootPath,
-			);
-			rootItem.id = rootItem.fsPath ?? this.kind;
-			rootItem.contextValue = 'codex-root';
-			rootItem.iconPath = this.getFolderIcon();
-			return rootItem;
+			return undefined;
 		}
 
 		const folderItem = new CodexTreeItem(

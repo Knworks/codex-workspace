@@ -52,11 +52,11 @@
 - DependsOn：`BASE-001`（利用可否判定の結果を反映させるため）
 - 規模：0.5〜1日
 - 作業内容：
-  - Prompts Explorer に固定ルート `prompts` を表示する
+  - Prompts Explorer は固定ルート `prompts` を持ち、ルート直下を表示する
   - ファイル選択時にエディタで開く（フォルダは開かない）
   - UI/イベント/保存先：Tree クリックでファイルを開く（保存先: `~/.codex/prompts` 配下）
 - AC：
-  - [ ] [機能] Prompts Explorer のルートに `prompts` が表示される
+  - [ ] [機能] Prompts Explorer は `prompts` 配下の階層が表示される
   - [ ] [UI/UX] ファイルをクリックするとエディタで開く
   - [ ] [状態/エラー] フォルダ選択時は編集操作が発生しない
   - [ ] [テスト] Prompts の表示とファイルオープンが統合テストで検証できる
@@ -105,7 +105,7 @@
 - DependsOn：`FILE-001`（作成フローを共有するため）
 - 規模：0.5〜1日
 - 作業内容：
-  - Templates Explorer に固定ルート `codex-templates` を表示し編集可能にする
+  - Templates Explorer は固定ルート `codex-templates` を持ち、ルート直下を表示し編集可能にする
   - テンプレート選択 UI を実装し、選択した内容を新規ファイルに反映
   - UI/イベント/保存先：作成時にテンプレート選択（保存先: `~/.codex/codex-templates`）
 - AC：

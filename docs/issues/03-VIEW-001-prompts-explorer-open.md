@@ -11,7 +11,7 @@
 
 ## 🛠️スコープ / 作業内容
 
-- Prompts Explorer を追加し、固定ルート `prompts` を表示する
+- Prompts Explorer を追加し、固定ルート `prompts` 配下の階層を表示する
 - ファイル選択時はエディタで開く（フォルダ選択時は何もしない）
 - `src/extension.ts` の登録に Prompts 用 TreeDataProvider を追加する
 - UI/イベント/保存先: Tree クリックでファイルを開く（保存先: `~/.codex/prompts`）
@@ -19,7 +19,7 @@
 
 ## ✅AC（受け入れ基準）
 
-- [x] [機能] Prompts Explorer のルートに `prompts` が表示される
+- [x] [機能] Prompts Explorer は `prompts` 配下の階層が表示される
 - [x] [UI/UX] ファイルをクリックするとエディタで開く
 - [x] [状態/エラー] フォルダ選択時は編集操作が発生しない
 - [x] [テスト] Prompts の表示とファイルオープンがテストで検証できる
@@ -32,5 +32,4 @@
 
 - (統合)
 - 検証方法：`npm test` で Tree 表示とファイルオープンの確認を行う
-
 

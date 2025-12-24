@@ -10,6 +10,40 @@ type RevealOptions = {
 };
 
 suite('Tree view expansion', () => {
+	test('Given root selection When expanding Then reveal is not called', async () => {
+		// Arrange
+		const reveals: Array<{
+			item: CodexTreeItem;
+			options: RevealOptions | undefined;
+		}> = [];
+		const viewStub = {
+			reveal: async (
+				item: CodexTreeItem,
+				options?: RevealOptions,
+			) => {
+				reveals.push({ item, options });
+			},
+		} as unknown as vscode.TreeView<CodexTreeItem>;
+		const views = {
+			prompts: viewStub,
+			skills: viewStub,
+			templates: viewStub,
+		};
+		const selection = new CodexTreeItem(
+			'root',
+			'prompts',
+			'prompts',
+			vscode.TreeItemCollapsibleState.Expanded,
+			'/root/prompts',
+		);
+
+		// Act
+		await expandParentFolder(selection, views);
+
+		// Assert
+		assert.strictEqual(reveals.length, 0);
+	});
+
 	test('Given folder selection When expanding Then reveal is called', async () => {
 		// Arrange
 		const reveals: Array<{

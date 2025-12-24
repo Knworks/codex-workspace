@@ -37,6 +37,55 @@ export function registerFileCommands(
 ): vscode.Disposable[] {
 	const { getSelection, providers, views } = config;
 	const disposables: vscode.Disposable[] = [];
+	const registerAddFileForView = (
+		commandId: string,
+		viewKind: FileViewKind,
+	) => {
+		disposables.push(
+			vscode.commands.registerCommand(
+				commandId,
+				(item?: CodexTreeItem) =>
+					runSafely(async () => {
+						if (!ensureAvailable()) {
+							return;
+						}
+						const provider = providers[viewKind];
+						const selection = resolveSelectionForView(
+							viewKind,
+							item,
+							getSelection(),
+							provider.getRootPath(),
+						);
+						await addFileWithSelection(selection, provider, views);
+					}),
+			),
+		);
+	};
+
+	const registerAddFolderForView = (
+		commandId: string,
+		viewKind: FileViewKind,
+	) => {
+		disposables.push(
+			vscode.commands.registerCommand(
+				commandId,
+				(item?: CodexTreeItem) =>
+					runSafely(async () => {
+						if (!ensureAvailable()) {
+							return;
+						}
+						const provider = providers[viewKind];
+						const selection = resolveSelectionForView(
+							viewKind,
+							item,
+							getSelection(),
+							provider.getRootPath(),
+						);
+						await addFolderWithSelection(selection, provider, views);
+					}),
+			),
+		);
+	};
 
 	disposables.push(
 		vscode.commands.registerCommand(
@@ -53,34 +102,7 @@ export function registerFileCommands(
 						return;
 					}
 
-					const targetDir = resolveTargetDirectory(selection, provider);
-					if (!targetDir) {
-						return;
-					}
-
-					const fileNameInput = await vscode.window.showInputBox({
-						prompt: messages.file.inputFileName,
-					});
-					if (!fileNameInput) {
-						return;
-					}
-
-					const normalizedName = sanitizeName(fileNameInput);
-					if (!normalizedName) {
-						vscode.window.showErrorMessage(messages.file.invalidName);
-						return;
-					}
-
-					const fileName = applyDefaultExtension(normalizedName);
-					const resolvedName = resolveUniqueName(targetDir, fileName);
-					const templateContent = await pickTemplateContents();
-					if (templateContent === null) {
-						return;
-					}
-
-					createFile(targetDir, resolvedName, templateContent);
-					await expandParentFolder(selection, views);
-					provider.refresh();
+					await addFileWithSelection(selection, provider, views);
 				}),
 		),
 	);
@@ -100,31 +122,17 @@ export function registerFileCommands(
 						return;
 					}
 
-					const targetDir = resolveTargetDirectory(selection, provider);
-					if (!targetDir) {
-						return;
-					}
-
-					const folderNameInput = await vscode.window.showInputBox({
-						prompt: messages.file.inputFolderName,
-					});
-					if (!folderNameInput) {
-						return;
-					}
-
-					const normalizedName = sanitizeName(folderNameInput);
-					if (!normalizedName) {
-						vscode.window.showErrorMessage(messages.file.invalidName);
-						return;
-					}
-
-					const resolvedName = resolveUniqueName(targetDir, normalizedName);
-					createFolder(targetDir, resolvedName);
-					await expandParentFolder(selection, views);
-					provider.refresh();
+					await addFolderWithSelection(selection, provider, views);
 				}),
 		),
 	);
+
+	registerAddFolderForView('codex-workspace.addPromptsFolder', 'prompts');
+	registerAddFolderForView('codex-workspace.addSkillsFolder', 'skills');
+	registerAddFolderForView('codex-workspace.addTemplatesFolder', 'templates');
+	registerAddFileForView('codex-workspace.addPromptsFile', 'prompts');
+	registerAddFileForView('codex-workspace.addSkillsFile', 'skills');
+	registerAddFileForView('codex-workspace.addTemplatesFile', 'templates');
 
 	disposables.push(
 		vscode.commands.registerCommand(
@@ -264,6 +272,21 @@ function resolveSelection(
 	return item ?? getSelection();
 }
 
+export function resolveSelectionForView(
+	viewKind: FileViewKind,
+	item: CodexTreeItem | undefined,
+	selection: CodexTreeItem | undefined,
+	rootPath: string,
+): CodexTreeItem {
+	if (item?.kind === viewKind) {
+		return item;
+	}
+	if (selection?.kind === viewKind) {
+		return selection;
+	}
+	return createRootItem(viewKind, rootPath);
+}
+
 function isFileViewKind(kind: string): kind is FileViewKind {
 	return FILE_VIEW_KINDS.includes(kind as FileViewKind);
 }
@@ -297,6 +320,83 @@ function resolveTargetDirectory(
 
 	ensureDirectoryExists(item.fsPath);
 	return item.fsPath || provider.getRootPath();
+}
+
+function createRootItem(viewKind: FileViewKind, rootPath: string): CodexTreeItem {
+	const rootItem = new CodexTreeItem(
+		'root',
+		viewKind,
+		path.basename(rootPath),
+		vscode.TreeItemCollapsibleState.Collapsed,
+		rootPath,
+	);
+	rootItem.id = rootPath;
+	rootItem.contextValue = 'codex-root';
+	return rootItem;
+}
+
+async function addFileWithSelection(
+	selection: CodexTreeItem,
+	provider: FileExplorerProvider,
+	views: Record<FileViewKind, vscode.TreeView<CodexTreeItem>>,
+): Promise<void> {
+	const targetDir = resolveTargetDirectory(selection, provider);
+	if (!targetDir) {
+		return;
+	}
+
+	const fileNameInput = await vscode.window.showInputBox({
+		prompt: messages.file.inputFileName,
+	});
+	if (!fileNameInput) {
+		return;
+	}
+
+	const normalizedName = sanitizeName(fileNameInput);
+	if (!normalizedName) {
+		vscode.window.showErrorMessage(messages.file.invalidName);
+		return;
+	}
+
+	const fileName = applyDefaultExtension(normalizedName);
+	const resolvedName = resolveUniqueName(targetDir, fileName);
+	const templateContent = await pickTemplateContents();
+	if (templateContent === null) {
+		return;
+	}
+
+	createFile(targetDir, resolvedName, templateContent);
+	await expandParentFolder(selection, views);
+	provider.refresh();
+}
+
+async function addFolderWithSelection(
+	selection: CodexTreeItem,
+	provider: FileExplorerProvider,
+	views: Record<FileViewKind, vscode.TreeView<CodexTreeItem>>,
+): Promise<void> {
+	const targetDir = resolveTargetDirectory(selection, provider);
+	if (!targetDir) {
+		return;
+	}
+
+	const folderNameInput = await vscode.window.showInputBox({
+		prompt: messages.file.inputFolderName,
+	});
+	if (!folderNameInput) {
+		return;
+	}
+
+	const normalizedName = sanitizeName(folderNameInput);
+	if (!normalizedName) {
+		vscode.window.showErrorMessage(messages.file.invalidName);
+		return;
+	}
+
+	const resolvedName = resolveUniqueName(targetDir, normalizedName);
+	createFolder(targetDir, resolvedName);
+	await expandParentFolder(selection, views);
+	provider.refresh();
 }
 
 async function pickTemplateContents(): Promise<string | null> {

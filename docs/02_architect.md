@@ -127,9 +127,9 @@ codex-workspace/
   - Codex Core
   - UI 最上部のボタンで追加/削除/リネーム/Refresh/フォルダを開く
 - **Prompts/Skills/Templates**
-  - ルートに固定フォルダ（`prompts` / `skills` / `codex-templates`）
+  - 固定ルートフォルダ（`prompts` / `skills` / `codex-templates`）を持ち、UI はルート直下を表示
   - ファイルはエディタで開く
-  - 操作：UI 最上部のボタンで追加/削除/リネーム/Refresh/各ルートフォルダを開く（未選択時はメッセージ）
+  - 操作：UI 最上部のボタンで追加/削除/リネーム/Refresh/各ルートフォルダを開く（削除/リネームは未選択時メッセージ、追加はルートに作成）
 - **MCP Explorer**
   - サーバー一覧をスイッチ風 UI で表示
   - クリックで ON/OFF を切替
@@ -171,7 +171,7 @@ flowchart TB
   - 禁止文字置換、拡張子付与、重複名回避
   - ルートフォルダのリネーム禁止
 - **統合テスト**
-  - 各 Explorer の Tree 表示（ルート固定、利用不可表示）
+  - 各 Explorer の Tree 表示（ルート直下表示、利用不可表示）
   - 追加/削除/リネーム操作の UI フロー（未選択時のメッセージ含む）
   - MCP トグル後の通知表示
 - **ローカライズ確認**
@@ -182,7 +182,7 @@ flowchart TB
 - **ユーザビリティ**
   - UI 最上部の共通ボタン操作で InputBox を順に入力して各操作を実行できる
   - ボタンは codicon を使用し、`new-folder` / `new-file` / `trash` / `edit` / `refresh` / `folder-opened` を表示する
-  - 未選択時にメッセージを表示し選択を促す
+  - 削除/リネームなど未選択時にメッセージを表示し選択を促す
   - MCP の ON/OFF をスイッチ風 UI で直感的に切り替えられる
   - アイコンによりプロンプトファイル/フォルダと MCP の視認性を高める
   - ファイルを選択した場合は通常の Explorer と同様に開いて編集できる
