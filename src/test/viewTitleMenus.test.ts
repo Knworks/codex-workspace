@@ -17,13 +17,12 @@ suite('View title menus', () => {
 		const commandDefinitions = packageJson?.contributes?.commands;
 		assert.ok(Array.isArray(commandDefinitions));
 
-		const commands = [
+		const commonCommands = [
 			'codex-workspace.addFolder',
 			'codex-workspace.addFile',
 			'codex-workspace.delete',
 			'codex-workspace.rename',
 			'codex-workspace.refreshAll',
-			'codex-workspace.openCodexFolder',
 		];
 
 		const viewIds = [
@@ -32,19 +31,37 @@ suite('View title menus', () => {
 			'codex-workspace.templates',
 		];
 
+		const perViewCommands = [
+			{
+				command: 'codex-workspace.openPromptsFolder',
+				viewId: 'codex-workspace.prompts',
+			},
+			{
+				command: 'codex-workspace.openSkillsFolder',
+				viewId: 'codex-workspace.skills',
+			},
+			{
+				command: 'codex-workspace.openTemplatesFolder',
+				viewId: 'codex-workspace.templates',
+			},
+		];
+
 		const excludedViewIds = [
 			'codex-workspace.core',
 			'codex-workspace.mcp',
 			'codex-workspace.menu',
 		];
 
-		for (const command of commands) {
+		const assertCommandDefinition = (command: string): void => {
 			const commandEntry = commandDefinitions.find(
 				(item: { command?: string }) => item.command === command,
 			);
 			assert.ok(commandEntry, `Missing command definition for ${command}`);
 			assert.ok(commandEntry.icon, `Missing icon for ${command}`);
+		};
 
+		for (const command of commonCommands) {
+			assertCommandDefinition(command);
 			const entry = viewTitle.find(
 				(item: { command?: string }) => item.command === command,
 			);
@@ -60,6 +77,31 @@ suite('View title menus', () => {
 				assert.ok(
 					!when.includes(`view == '${viewId}'`),
 					`${command} should not target ${viewId}`,
+				);
+			}
+		}
+
+		for (const { command, viewId } of perViewCommands) {
+			assertCommandDefinition(command);
+			const entry = viewTitle.find(
+				(item: { command?: string }) => item.command === command,
+			);
+			assert.ok(entry, `Missing view/title menu for ${command}`);
+			const when = entry.when ?? '';
+			assert.ok(
+				when.includes(`view == '${viewId}'`),
+				`${command} is missing view condition for ${viewId}`,
+			);
+			for (const otherViewId of viewIds.filter((id) => id !== viewId)) {
+				assert.ok(
+					!when.includes(`view == '${otherViewId}'`),
+					`${command} should not target ${otherViewId}`,
+				);
+			}
+			for (const excludedViewId of excludedViewIds) {
+				assert.ok(
+					!when.includes(`view == '${excludedViewId}'`),
+					`${command} should not target ${excludedViewId}`,
 				);
 			}
 		}

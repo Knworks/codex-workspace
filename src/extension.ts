@@ -2,8 +2,13 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import fs from 'fs';
+import path from 'path';
 import { ensureSelection } from './services/selectionGuard';
-import { getWorkspaceStatus, resolveCodexPaths } from './services/workspaceStatus';
+import {
+	getWorkspaceStatus,
+	resolveCodexPaths,
+	TEMPLATE_FOLDER_NAME,
+} from './services/workspaceStatus';
 import { CodexTreeItem } from './models/treeItems';
 import { registerFileCommands } from './commands/fileCommands';
 import { CoreExplorerProvider } from './views/coreExplorerProvider';
@@ -99,22 +104,47 @@ export function activate(context: vscode.ExtensionContext) {
 			}),
 	);
 
-	const openCodexFolderDisposable = vscode.commands.registerCommand(
-		'codex-workspace.openCodexFolder',
+	const revealFolder = async (targetDir: string): Promise<void> => {
+		if (!fs.existsSync(targetDir)) {
+			vscode.window.showErrorMessage(messages.openFolderMissing);
+			return;
+		}
+		await vscode.env.openExternal(vscode.Uri.file(targetDir));
+	};
+
+	const openPromptsFolderDisposable = vscode.commands.registerCommand(
+		'codex-workspace.openPromptsFolder',
 		() =>
 			runSafely(async () => {
 				if (!getWorkspaceStatus().isAvailable) {
 					return;
 				}
 				const { codexDir } = resolveCodexPaths();
-				if (!fs.existsSync(codexDir)) {
-					vscode.window.showErrorMessage(messages.openFolderMissing);
+				await revealFolder(path.join(codexDir, 'prompts'));
+			}),
+	);
+
+	const openSkillsFolderDisposable = vscode.commands.registerCommand(
+		'codex-workspace.openSkillsFolder',
+		() =>
+			runSafely(async () => {
+				if (!getWorkspaceStatus().isAvailable) {
 					return;
 				}
-				await vscode.commands.executeCommand(
-					'revealFileInOS',
-					vscode.Uri.file(codexDir),
-				);
+				const { codexDir } = resolveCodexPaths();
+				await revealFolder(path.join(codexDir, 'skills'));
+			}),
+	);
+
+	const openTemplatesFolderDisposable = vscode.commands.registerCommand(
+		'codex-workspace.openTemplatesFolder',
+		() =>
+			runSafely(async () => {
+				if (!getWorkspaceStatus().isAvailable) {
+					return;
+				}
+				const { codexDir } = resolveCodexPaths();
+				await revealFolder(path.join(codexDir, TEMPLATE_FOLDER_NAME));
 			}),
 	);
 
@@ -157,7 +187,9 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		helloWorldDisposable,
 		openFileDisposable,
-		openCodexFolderDisposable,
+		openPromptsFolderDisposable,
+		openSkillsFolderDisposable,
+		openTemplatesFolderDisposable,
 		refreshDisposable,
 		toggleMcpDisposable,
 	);

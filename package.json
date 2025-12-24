@@ -64,7 +64,17 @@
         "title": "%command.openFile%"
       },
       {
-        "command": "codex-workspace.openCodexFolder",
+        "command": "codex-workspace.openPromptsFolder",
+        "title": "%command.openCodexFolder%",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "codex-workspace.openSkillsFolder",
+        "title": "%command.openCodexFolder%",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "codex-workspace.openTemplatesFolder",
         "title": "%command.openCodexFolder%",
         "icon": "$(folder-opened)"
       },
@@ -126,8 +136,18 @@
           "group": "navigation@5"
         },
         {
-          "command": "codex-workspace.openCodexFolder",
-          "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates'",
+          "command": "codex-workspace.openPromptsFolder",
+          "when": "view == 'codex-workspace.prompts'",
+          "group": "navigation@6"
+        },
+        {
+          "command": "codex-workspace.openSkillsFolder",
+          "when": "view == 'codex-workspace.skills'",
+          "group": "navigation@6"
+        },
+        {
+          "command": "codex-workspace.openTemplatesFolder",
+          "when": "view == 'codex-workspace.templates'",
           "group": "navigation@6"
         }
       ]
