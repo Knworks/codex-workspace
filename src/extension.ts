@@ -112,6 +112,18 @@ export function activate(context: vscode.ExtensionContext) {
 		await vscode.env.openExternal(vscode.Uri.file(targetDir));
 	};
 
+	const openCodexFolderDisposable = vscode.commands.registerCommand(
+		'codex-workspace.openCodexFolder',
+		() =>
+			runSafely(async () => {
+				if (!getWorkspaceStatus().isAvailable) {
+					return;
+				}
+				const { codexDir } = resolveCodexPaths();
+				await revealFolder(codexDir);
+			}),
+	);
+
 	const openPromptsFolderDisposable = vscode.commands.registerCommand(
 		'codex-workspace.openPromptsFolder',
 		() =>
@@ -187,6 +199,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		helloWorldDisposable,
 		openFileDisposable,
+		openCodexFolderDisposable,
 		openPromptsFolderDisposable,
 		openSkillsFolderDisposable,
 		openTemplatesFolderDisposable,

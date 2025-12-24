@@ -44,10 +44,13 @@ suite('View title menus', () => {
 				command: 'codex-workspace.openTemplatesFolder',
 				viewId: 'codex-workspace.templates',
 			},
+			{
+				command: 'codex-workspace.openCodexFolder',
+				viewId: 'codex-workspace.core',
+			},
 		];
 
 		const excludedViewIds = [
-			'codex-workspace.core',
 			'codex-workspace.mcp',
 			'codex-workspace.menu',
 		];
@@ -81,6 +84,8 @@ suite('View title menus', () => {
 			}
 		}
 
+		const perViewIds = [...viewIds, 'codex-workspace.core'];
+
 		for (const { command, viewId } of perViewCommands) {
 			assertCommandDefinition(command);
 			const entry = viewTitle.find(
@@ -92,7 +97,7 @@ suite('View title menus', () => {
 				when.includes(`view == '${viewId}'`),
 				`${command} is missing view condition for ${viewId}`,
 			);
-			for (const otherViewId of viewIds.filter((id) => id !== viewId)) {
+			for (const otherViewId of perViewIds.filter((id) => id !== viewId)) {
 				assert.ok(
 					!when.includes(`view == '${otherViewId}'`),
 					`${command} should not target ${otherViewId}`,

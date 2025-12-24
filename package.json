@@ -64,6 +64,11 @@
         "title": "%command.openFile%"
       },
       {
+        "command": "codex-workspace.openCodexFolder",
+        "title": "%command.openCodexFolder%",
+        "icon": "$(folder-opened)"
+      },
+      {
         "command": "codex-workspace.openPromptsFolder",
         "title": "%command.openCodexFolder%",
         "icon": "$(folder-opened)"
@@ -148,6 +153,11 @@
         {
           "command": "codex-workspace.openTemplatesFolder",
           "when": "view == 'codex-workspace.templates'",
+          "group": "navigation@6"
+        },
+        {
+          "command": "codex-workspace.openCodexFolder",
+          "when": "view == 'codex-workspace.core'",
           "group": "navigation@6"
         }
       ]
