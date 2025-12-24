@@ -1,11 +1,16 @@
 import * as assert from 'assert';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { CoreExplorerProvider } from '../views/coreExplorerProvider';
 import { getUnavailableLabel } from '../services/workspaceStatus';
 
+const contextStub = {
+	asAbsolutePath: (target: string) => path.join('root', target),
+} as vscode.ExtensionContext;
+
 suite('Core explorer provider', () => {
 	test('returns core items when available', () => {
-		const provider = new CoreExplorerProvider(() => ({ isAvailable: true }));
+		const provider = new CoreExplorerProvider(contextStub, () => ({ isAvailable: true }));
 		const items = provider.getChildren() as vscode.TreeItem[];
 		assert.strictEqual(items.length, 2);
 		assert.strictEqual(items[0].label, 'config.toml');
@@ -13,7 +18,7 @@ suite('Core explorer provider', () => {
 	});
 
 	test('returns unavailable item when not available', () => {
-		const provider = new CoreExplorerProvider(() => ({
+		const provider = new CoreExplorerProvider(contextStub, () => ({
 			isAvailable: false,
 			reason: 'missing',
 		}));
@@ -23,7 +28,7 @@ suite('Core explorer provider', () => {
 	});
 
 	test('config and agent items carry open command', () => {
-		const provider = new CoreExplorerProvider(() => ({ isAvailable: true }));
+		const provider = new CoreExplorerProvider(contextStub, () => ({ isAvailable: true }));
 		const items = provider.getChildren() as vscode.TreeItem[];
 		const configCommand = items[0].command;
 		assert.ok(configCommand);
@@ -35,5 +40,34 @@ suite('Core explorer provider', () => {
 		const agentCommand = items[1].command;
 		assert.ok(agentCommand);
 		assert.strictEqual(agentCommand?.command, 'codex-workspace.openFile');
+	});
+
+	test('config and agent items carry file icons', () => {
+		const provider = new CoreExplorerProvider(contextStub, () => ({ isAvailable: true }));
+		const items = provider.getChildren() as vscode.TreeItem[];
+		const expectedIconPath = (fileName: string): string =>
+			vscode.Uri.file(
+				contextStub.asAbsolutePath(path.join('images', fileName)),
+			).fsPath;
+
+		const configIconPath = items[0].iconPath as { light: vscode.Uri; dark: vscode.Uri };
+		assert.strictEqual(
+			configIconPath.light.fsPath,
+			expectedIconPath('settingsfile32.png'),
+		);
+		assert.strictEqual(
+			configIconPath.dark.fsPath,
+			expectedIconPath('settingsfile32.png'),
+		);
+
+		const agentIconPath = items[1].iconPath as { light: vscode.Uri; dark: vscode.Uri };
+		assert.strictEqual(
+			agentIconPath.light.fsPath,
+			expectedIconPath('markdown32.png'),
+		);
+		assert.strictEqual(
+			agentIconPath.dark.fsPath,
+			expectedIconPath('markdown32.png'),
+		);
 	});
 });

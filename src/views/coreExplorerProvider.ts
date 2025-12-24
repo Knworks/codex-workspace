@@ -5,8 +5,11 @@ import { CodexTreeItem } from '../models/treeItems';
 import { resolveCodexPaths } from '../services/workspaceStatus';
 
 export class CoreExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
-	constructor(statusProvider?: WorkspaceStatusProvider) {
+	private readonly context: vscode.ExtensionContext;
+
+	constructor(context: vscode.ExtensionContext, statusProvider?: WorkspaceStatusProvider) {
 		super(statusProvider);
+		this.context = context;
 	}
 
 	protected getAvailableChildren(): vscode.ProviderResult<CodexTreeItem[]> {
@@ -23,6 +26,7 @@ export class CoreExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 			title: 'Open config.toml',
 			arguments: [configItem],
 		};
+		configItem.iconPath = this.getIcon('settingsfile32.png');
 
 		const agentItem = new CodexTreeItem(
 			'file',
@@ -36,7 +40,14 @@ export class CoreExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 			title: 'Open AGENTS.md',
 			arguments: [agentItem],
 		};
+		agentItem.iconPath = this.getIcon('markdown32.png');
 
 		return [configItem, agentItem];
+	}
+
+	private getIcon(fileName: string): { light: vscode.Uri; dark: vscode.Uri } {
+		const iconPath = this.context.asAbsolutePath(path.join('images', fileName));
+		const iconUri = vscode.Uri.file(iconPath);
+		return { light: iconUri, dark: iconUri };
 	}
 }

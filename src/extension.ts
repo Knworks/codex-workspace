@@ -17,7 +17,7 @@ import { SelectionContext } from './services/selectionContext';
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-	const coreProvider = new CoreExplorerProvider();
+	const coreProvider = new CoreExplorerProvider(context);
 	const promptsProvider = new FileExplorerProvider('prompts', context);
 	const skillsProvider = new FileExplorerProvider('skills', context);
 	const templatesProvider = new FileExplorerProvider('templates', context);
