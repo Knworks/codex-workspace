@@ -143,10 +143,11 @@
 - DependsOn：`CORE-001`（View Container が必要なため）
 - 規模：0.5日
 - 作業内容：
-  - `.codex` を OS の Explorer/Finder で開くコマンドを実装
-  - UI/イベント/保存先：UI 最上部の共通ボタンから OS を起動（保存先なし）
+  - Prompts/Skills/Templates は各ルートフォルダを、Core は `.codex` を開くコマンドを実装
+  - UI/イベント/保存先：各ビューの UI 最上部ボタンから OS を起動（保存先なし）
 - AC：
-  - [ ] [機能] `.codex` を OS のエクスプローラ/Finder で開ける
+  - [ ] [機能] Prompts/Skills/Templates は各ルートフォルダを開ける
+  - [ ] [機能] Core は `.codex` を開ける
   - [ ] [状態/エラー] 対象パスが存在しない場合はエラーメッセージが表示される
   - [ ] [テスト] コマンドが正しいパスで OS 起動 API を呼ぶことをテストで検証できる
 

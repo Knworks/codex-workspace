@@ -79,8 +79,8 @@ codex-workspace/
   - バリデーション：`enabled` 行はスペース有無を許容、末尾コメントは保持
 
 - **フォルダを開く**
-  - 入力：コマンド実行
-  - 処理：`.codex` を OS の Explorer/Finder で開く
+  - 入力：ビューごとの「フォルダを開く」コマンド実行
+  - 処理：Prompts/Skills/Templates は各ルートフォルダ、Core は `.codex` を OS の Explorer/Finder で開く
   - 出力：OS 側のフォルダ表示
   - 検索条件：なし
   - ソート：なし
@@ -125,17 +125,18 @@ codex-workspace/
   - Template Explorer
   - MCP Explorer
   - Codex Core
-  - UI 最上部の共通ボタンで追加/削除/リネーム/Refresh/.codex を開く
+  - UI 最上部のボタンで追加/削除/リネーム/Refresh/フォルダを開く
 - **Prompts/Skills/Templates**
   - ルートに固定フォルダ（`prompts` / `skills` / `codex-templates`）
   - ファイルはエディタで開く
-  - 操作：UI 最上部の共通ボタンで追加/削除/リネーム/Refresh（未選択時はメッセージ）
+  - 操作：UI 最上部のボタンで追加/削除/リネーム/Refresh/各ルートフォルダを開く（未選択時はメッセージ）
 - **MCP Explorer**
   - サーバー一覧をスイッチ風 UI で表示
   - クリックで ON/OFF を切替
   - 成功時に再起動が必要な旨を通知
 - **Codex Core**
   - `config.toml` / `AGENTS.md` のショートカット
+  - 操作：UI 最上部のボタンで `.codex` を開く
 - **利用不可時**
   - 各ビューに `? Codex Workspace を開けません: <理由>` を 1 件表示
 
@@ -159,7 +160,7 @@ flowchart TB
 ## 8.🔌外部インターフェース
 
 - **ローカルファイルシステム**：`~/.codex` 配下の読み書き
-- **OS Explorer/Finder**：`.codex` のフォルダ表示
+- **OS Explorer/Finder**：対象ルートフォルダの表示
 - **VS Code Extension API**：TreeDataProvider、コマンド、UI メッセージ
 
 ## 9. 🧪テスト戦略

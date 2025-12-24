@@ -44,7 +44,8 @@
 * ユーザーは Template Explorer からテンプレートファイル/フォルダを閲覧し、テンプレートファイルを開いて編集できる。
 * ユーザーはファイル作成時に `.codex/codex-templates` 配下にテンプレートファイルが存在する場合、テンプレートを選択して雛形を適用できる。
 * ユーザーは MCP Explorer で MCP サーバー一覧を閲覧し、スイッチ風 UI で `enabled` を ON/OFF 切り替えできる。
-* ユーザーは `.codex` フォルダを OS のエクスプローラ/Finder で開ける。
+* ユーザーは Prompts/Skills/Template Explorer の「フォルダを開く」ボタンで各ルートフォルダを OS のエクスプローラ/Finder で開ける。
+* ユーザーは Codex Core の「フォルダを開く」ボタンで `.codex` を OS のエクスプローラ/Finder で開ける。
 * ユーザーは Refresh 操作により全ビューを更新できる。
 * `.codex` や `config.toml` が存在しない/壊れている場合、ユーザーは「拡張が利用できない」ことを UI 上で確認できる。
 * ユーザーは VS Code の表示言語に応じて、日本語または英語で拡張の表示（ラベル/メッセージ）を利用できる。
@@ -196,7 +197,8 @@
 
 ### 5.8 フォルダを開く
 
-* `.codex` フォルダを OS のエクスプローラ/Finder で開く機能を提供する。
+* Prompts/Skills/Template Explorer の「フォルダを開く」ボタンは、それぞれ `.codex/prompts` / `.codex/skills` / `.codex/codex-templates` を開く。
+* Codex Core の「フォルダを開く」ボタンは `.codex` を開く。
 
 ### 5.9 Refresh
 
@@ -214,7 +216,7 @@
 
 * ユーザビリティ（操作性、UI/UX要件）
 
-  * UI 最上部の共通ボタン操作により、InputBox を順に入力して各操作（追加/編集/削除/更新/.codex を開く）を行えること。
+  * UI 最上部のボタン操作により、InputBox を順に入力して各操作（追加/編集/削除/更新/フォルダを開く）を行えること。
   * ボタンは codicon を使用し、`new-folder` / `new-file` / `trash` / `edit` / `refresh` / `folder-opened` を表示する。
   * 操作対象が未選択の場合は右下にメッセージを表示し、選択を促すこと。
   * MCP の ON/OFF はスイッチ風 UI で直感的に切り替えられること。
