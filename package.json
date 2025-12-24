@@ -12,6 +12,18 @@
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "codex",
+    "workspace",
+    "prompts",
+    "skills",
+    "templates",
+    "mcp",
+    "agents",
+    "config",
+    "toml",
+    "explorer"
+  ],
   "activationEvents": [
     "onView:codex-workspace.core",
     "onView:codex-workspace.prompts",
