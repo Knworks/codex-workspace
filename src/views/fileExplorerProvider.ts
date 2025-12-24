@@ -12,6 +12,27 @@ const FILE_ICON_MAP: Record<string, string> = {
 	'.md': 'markdown32.png',
 	'.py': 'python32.png',
 	'.txt': 'text32.png',
+	'.xml': 'file_xml32.png',
+	'.yaml': 'settingsfile32.png',
+	'.yml': 'settingsfile32.png',
+	'.toml': 'settingsfile32.png',
+	'.png': 'image32.png',
+	'.jpg': 'image32.png',
+	'.jpeg': 'image32.png',
+	'.bmp': 'image32.png',
+	'.gif': 'image32.png',
+	'.ico': 'image32.png',
+	'.icon': 'image32.png',
+	'.xls': 'office_excel32.png',
+	'.xlsx': 'office_excel32.png',
+	'.doc': 'office_word32.png',
+	'.docx': 'office_word32.png',
+	'.ppt': 'office_powerpoint32.png',
+	'.pptx': 'office_powerpoint32.png',
+	'.ps1': 'powershell32.png',
+	'.js': 'script32.png',
+	'.vbs': 'file_vb32.png',
+	'.vb': 'file_vb32.png',
 };
 
 export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
@@ -164,7 +185,7 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		| { light: vscode.Uri; dark: vscode.Uri }
 		| undefined {
 		const extension = path.extname(fileName).toLowerCase();
-		const iconFileName = FILE_ICON_MAP[extension] ?? 'text32.png';
+		const iconFileName = FILE_ICON_MAP[extension] ?? 'unknown32.png';
 		const iconPath = this.context.asAbsolutePath(path.join('images', iconFileName));
 		const iconUri = vscode.Uri.file(iconPath);
 		return { light: iconUri, dark: iconUri };

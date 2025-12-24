@@ -92,6 +92,24 @@ suite('File explorer provider', () => {
 					isDirectory: false,
 					isFile: true,
 				},
+				{
+					name: 'config.yml',
+					fullPath: path.join('root', 'config.yml'),
+					isDirectory: false,
+					isFile: true,
+				},
+				{
+					name: 'document.docx',
+					fullPath: path.join('root', 'document.docx'),
+					isDirectory: false,
+					isFile: true,
+				},
+				{
+					name: 'favicon.ico',
+					fullPath: path.join('root', 'favicon.ico'),
+					isDirectory: false,
+					isFile: true,
+				},
 			],
 		);
 
@@ -105,6 +123,9 @@ suite('File explorer provider', () => {
 		const markdownItem = byLabel('note.md');
 		const pythonItem = byLabel('script.py');
 		const defaultItem = byLabel('plain.txt');
+		const settingsItem = byLabel('config.yml');
+		const wordItem = byLabel('document.docx');
+		const iconItem = byLabel('favicon.ico');
 		const expectedIconPath = (fileName: string): string =>
 			vscode.Uri.file(
 				contextStub.asAbsolutePath(path.join('images', fileName)),
@@ -155,6 +176,39 @@ suite('File explorer provider', () => {
 		assert.strictEqual(
 			defaultIconPath.dark.fsPath,
 			expectedIconPath('text32.png'),
+		);
+
+		const settingsIconPath = settingsItem.iconPath as {
+			light: vscode.Uri;
+			dark: vscode.Uri;
+		};
+		assert.strictEqual(
+			settingsIconPath.light.fsPath,
+			expectedIconPath('settingsfile32.png'),
+		);
+		assert.strictEqual(
+			settingsIconPath.dark.fsPath,
+			expectedIconPath('settingsfile32.png'),
+		);
+
+		const wordIconPath = wordItem.iconPath as { light: vscode.Uri; dark: vscode.Uri };
+		assert.strictEqual(
+			wordIconPath.light.fsPath,
+			expectedIconPath('office_word32.png'),
+		);
+		assert.strictEqual(
+			wordIconPath.dark.fsPath,
+			expectedIconPath('office_word32.png'),
+		);
+
+		const iconIconPath = iconItem.iconPath as { light: vscode.Uri; dark: vscode.Uri };
+		assert.strictEqual(
+			iconIconPath.light.fsPath,
+			expectedIconPath('image32.png'),
+		);
+		assert.strictEqual(
+			iconIconPath.dark.fsPath,
+			expectedIconPath('image32.png'),
 		);
 	});
 
