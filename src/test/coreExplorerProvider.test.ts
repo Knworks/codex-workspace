@@ -63,11 +63,11 @@ suite('Core explorer provider', () => {
 		const agentIconPath = items[1].iconPath as { light: vscode.Uri; dark: vscode.Uri };
 		assert.strictEqual(
 			agentIconPath.light.fsPath,
-			expectedIconPath('markdown32.png'),
+			expectedIconPath('agents_light.png'),
 		);
 		assert.strictEqual(
 			agentIconPath.dark.fsPath,
-			expectedIconPath('markdown32.png'),
+			expectedIconPath('agents_dark.png'),
 		);
 	});
 });

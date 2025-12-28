@@ -40,14 +40,24 @@ export class CoreExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 			title: 'Open AGENTS.md',
 			arguments: [agentItem],
 		};
-		agentItem.iconPath = this.getIcon('markdown32.png');
+		agentItem.iconPath = this.getIcon('agents_light.png', 'agents_dark.png');
 
 		return [configItem, agentItem];
 	}
 
-	private getIcon(fileName: string): { light: vscode.Uri; dark: vscode.Uri } {
-		const iconPath = this.context.asAbsolutePath(path.join('images', fileName));
-		const iconUri = vscode.Uri.file(iconPath);
-		return { light: iconUri, dark: iconUri };
+	private getIcon(
+		lightFileName: string,
+		darkFileName?: string,
+	): { light: vscode.Uri; dark: vscode.Uri } {
+		const lightPath = this.context.asAbsolutePath(
+			path.join('images', lightFileName),
+		);
+		const darkPath = this.context.asAbsolutePath(
+			path.join('images', darkFileName ?? lightFileName),
+		);
+		return {
+			light: vscode.Uri.file(lightPath),
+			dark: vscode.Uri.file(darkPath),
+		};
 	}
 }
