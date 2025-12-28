@@ -109,9 +109,17 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 	}
 
 	private readDirectory(targetPath: string): CodexTreeItem[] {
-		const entries = this.listEntries(targetPath).filter(
-			(entry) => !this.isHiddenName(entry.name),
-		);
+		const entries = this.listEntries(targetPath)
+			.filter((entry) => !this.isHiddenName(entry.name))
+			.sort((left, right) => {
+				if (left.isDirectory !== right.isDirectory) {
+					return left.isDirectory ? -1 : 1;
+				}
+				return left.name.localeCompare(right.name, undefined, {
+					numeric: true,
+					sensitivity: 'base',
+				});
+			});
 		return entries.map((entry) => {
 			if (entry.isDirectory) {
 				const folderItem = new CodexTreeItem(

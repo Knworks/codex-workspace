@@ -256,6 +256,6 @@ suite('File explorer provider', () => {
 		const labels = children.map((item) => item.label as string);
 
 		// Assert
-		assert.deepStrictEqual(labels, ['visible.md', 'public']);
+		assert.deepStrictEqual(labels, ['public', 'visible.md']);
 	});
 });
