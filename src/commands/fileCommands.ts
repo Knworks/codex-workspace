@@ -179,34 +179,26 @@ export function registerFileCommands(
 							return;
 						}
 
-						const choice = await vscode.window.showQuickPick(
-							[
-								messages.file.overwrite,
-								messages.file.useDifferentName,
-								messages.file.cancel,
-							],
-							{ placeHolder: '' },
+						const confirmed = await confirmDialog(
+							messages.file.overwriteFileConfirm,
+							selection.fsPath,
 						);
-						if (!choice || choice === messages.file.cancel) {
+						if (!confirmed) {
 							return;
 						}
 
-						if (choice === messages.file.overwrite) {
-							const confirmed = await confirmDialog(
-								messages.file.overwriteFileConfirm,
-								selection.fsPath,
-							);
-							if (!confirmed) {
-								return;
-							}
+						if (shouldDeleteRenameTarget(selection.fsPath, targetPath)) {
 							deletePath(targetPath);
-							renamePath(selection.fsPath, targetPath);
-						} else if (choice === messages.file.useDifferentName) {
-							const fallbackName = resolveUniqueName(parentDir, normalizedName);
-							renamePath(selection.fsPath, path.join(parentDir, fallbackName));
+						}
+
+						if (
+							path.resolve(selection.fsPath) !==
+							path.resolve(targetPath)
+						) {
+							renamePathSafely(selection.fsPath, targetPath);
 						}
 					} else {
-						renamePath(selection.fsPath, targetPath);
+						renamePathSafely(selection.fsPath, targetPath);
 					}
 
 					provider.refresh();
@@ -434,4 +426,48 @@ async function confirmDialog(message: string, targetPath: string): Promise<boole
 	const detail = `${message}\n${targetPath}`;
 	const choice = await vscode.window.showWarningMessage(detail, { modal: true }, 'OK');
 	return choice === 'OK';
+}
+
+
+export function shouldDeleteRenameTarget(
+	sourcePath: string,
+	targetPath: string,
+): boolean {
+	const resolvedSource = path.resolve(sourcePath);
+	const resolvedTarget = path.resolve(targetPath);
+	if (resolvedSource === resolvedTarget) {
+		return false;
+	}
+	if (process.platform === 'win32') {
+		return resolvedSource.toLowerCase() !== resolvedTarget.toLowerCase();
+	}
+	return true;
+}
+
+function renamePathSafely(sourcePath: string, targetPath: string): void {
+	if (!isCaseOnlyRename(sourcePath, targetPath)) {
+		renamePath(sourcePath, targetPath);
+		return;
+	}
+
+	const parentDir = path.dirname(sourcePath);
+	const tempName = resolveUniqueName(
+		parentDir,
+		`${path.basename(sourcePath)}.__tmp__`,
+	);
+	const tempPath = path.join(parentDir, tempName);
+	renamePath(sourcePath, tempPath);
+	renamePath(tempPath, targetPath);
+}
+
+function isCaseOnlyRename(sourcePath: string, targetPath: string): boolean {
+	if (process.platform !== 'win32') {
+		return false;
+	}
+	const resolvedSource = path.resolve(sourcePath);
+	const resolvedTarget = path.resolve(targetPath);
+	return (
+		resolvedSource !== resolvedTarget &&
+		resolvedSource.toLowerCase() === resolvedTarget.toLowerCase()
+	);
 }
