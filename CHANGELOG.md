@@ -6,8 +6,8 @@ All notable changes to the "codex-workspace" extension will be documented in thi
 
 Changes
 
-- Updated the icon in AGENTS.md.
-- Removed the overwrite and auto-increment selection options in the InputBox.
+- Updated the AGENTS.md icon to use theme-specific light/dark assets.
+- On name conflicts, files offer a numbered-name confirmation while folders stop with an error; overwrite/numbered selection options were removed.
 - Unified the sort order of the folder/file list to folders first, then files.
 - Allowed renaming that differs only by letter case (uppercase/lowercase).
 
