@@ -37,6 +37,7 @@
   "message.deleteRootNotAllowed": "Root folders cannot be deleted.",
   "message.overwriteFileConfirm": "Overwrite the file? The existing file will be deleted.",
   "message.overwrite": "Overwrite",
+  "message.fileExistsUseDifferentName": "A file named \"{0}\" already exists here. Rename \"{0}\" to \"{1}\"?",
   "message.useDifferentName": "Use a different name (_1)",
   "message.cancel": "Cancel",
   "message.templateNone": "Empty file",

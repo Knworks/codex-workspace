@@ -38,6 +38,7 @@ suite('Localization keys', () => {
 			'message.deleteRootNotAllowed',
 			'message.overwriteFileConfirm',
 			'message.overwrite',
+			'message.fileExistsUseDifferentName',
 			'message.useDifferentName',
 			'message.cancel',
 			'message.templateNone',

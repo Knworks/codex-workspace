@@ -32,9 +32,23 @@ function loadBundle(): MessageBundle {
 	return cachedBundle;
 }
 
-function localize(key: string, fallback: string): string {
+function localize(
+	key: string,
+	fallback: string,
+	...args: string[]
+): string {
 	const bundle = loadBundle();
-	return bundle[key] ?? fallback;
+	const template = bundle[key] ?? fallback;
+	if (args.length === 0) {
+		return template;
+	}
+	return template.replace(/\{(\d+)\}/g, (match, index) => {
+		const argIndex = Number(index);
+		if (Number.isNaN(argIndex) || args[argIndex] === undefined) {
+			return match;
+		}
+		return args[argIndex];
+	});
 }
 
 export const messages = {
@@ -121,6 +135,13 @@ export const messages = {
 			'Overwrite the file? The existing file will be deleted.',
 		),
 		overwrite: localize('message.overwrite', 'Overwrite'),
+		fileExistsUseDifferentName: (originalName: string, suggestedName: string) =>
+			localize(
+				'message.fileExistsUseDifferentName',
+				'A file named "{0}" already exists here. Rename "{0}" to "{1}"?',
+				originalName,
+				suggestedName,
+			),
 		useDifferentName: localize(
 			'message.useDifferentName',
 			'Use a different name (_1)',

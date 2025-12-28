@@ -17,6 +17,8 @@ import {
 	resolveUniqueName,
 	sanitizeName,
 } from '../services/fileNaming';
+import { TreeExpansionState } from '../services/treeExpansionState';
+import { ViewFocusState } from '../services/viewFocusState';
 import {
 	listTemplateCandidates,
 	readTemplateContents,
@@ -29,13 +31,15 @@ type FileCommandContext = {
 	getSelection: () => CodexTreeItem | undefined;
 	providers: Record<FileViewKind, FileExplorerProvider>;
 	views: Record<FileViewKind, vscode.TreeView<CodexTreeItem>>;
+	expansionState: TreeExpansionState;
+	viewFocusState: ViewFocusState;
 };
 
 export function registerFileCommands(
 	context: vscode.ExtensionContext,
 	config: FileCommandContext,
 ): vscode.Disposable[] {
-	const { getSelection, providers, views } = config;
+	const { getSelection, providers, views, expansionState, viewFocusState } = config;
 	const disposables: vscode.Disposable[] = [];
 	const registerAddFileForView = (
 		commandId: string,
@@ -50,10 +54,19 @@ export function registerFileCommands(
 							return;
 						}
 						const provider = providers[viewKind];
+						const viewSelection = views[viewKind].selection[0];
+						const hasSelection =
+							viewFocusState.isActive(viewKind) &&
+							views[viewKind].selection.length > 0;
+						const activeSelection = resolveAddViewSelection(
+							hasSelection,
+							item,
+							viewSelection,
+						);
 						const selection = resolveSelectionForView(
 							viewKind,
-							item,
-							getSelection(),
+							activeSelection,
+							activeSelection,
 							provider.getRootPath(),
 						);
 						await addFileWithSelection(selection, provider, views);
@@ -75,10 +88,19 @@ export function registerFileCommands(
 							return;
 						}
 						const provider = providers[viewKind];
+						const viewSelection = views[viewKind].selection[0];
+						const hasSelection =
+							viewFocusState.isActive(viewKind) &&
+							views[viewKind].selection.length > 0;
+						const activeSelection = resolveAddViewSelection(
+							hasSelection,
+							item,
+							viewSelection,
+						);
 						const selection = resolveSelectionForView(
 							viewKind,
-							item,
-							getSelection(),
+							activeSelection,
+							activeSelection,
 							provider.getRootPath(),
 						);
 						await addFolderWithSelection(selection, provider, views);
@@ -92,8 +114,34 @@ export function registerFileCommands(
 			'codex-workspace.addFile',
 			(item?: CodexTreeItem) =>
 				runSafely(async () => {
+					if (!ensureAvailable()) {
+						return;
+					}
+
+					const activeKind = viewFocusState.getActiveKind();
+					if (!item && activeKind) {
+						const provider = providers[activeKind];
+						const viewSelection = views[activeKind].selection[0];
+						const hasSelection =
+							viewFocusState.isActive(activeKind) &&
+							views[activeKind].selection.length > 0;
+						const activeSelection = resolveAddViewSelection(
+							hasSelection,
+							undefined,
+							viewSelection,
+						);
+						const selection = resolveSelectionForView(
+							activeKind,
+							activeSelection,
+							activeSelection,
+							provider.getRootPath(),
+						);
+						await addFileWithSelection(selection, provider, views);
+						return;
+					}
+
 					const selection = resolveSelection(item, getSelection);
-					if (!ensureAvailable() || !ensureSelection(selection)) {
+					if (!ensureSelection(selection)) {
 						return;
 					}
 
@@ -112,8 +160,34 @@ export function registerFileCommands(
 			'codex-workspace.addFolder',
 			(item?: CodexTreeItem) =>
 				runSafely(async () => {
+					if (!ensureAvailable()) {
+						return;
+					}
+
+					const activeKind = viewFocusState.getActiveKind();
+					if (!item && activeKind) {
+						const provider = providers[activeKind];
+						const viewSelection = views[activeKind].selection[0];
+						const hasSelection =
+							viewFocusState.isActive(activeKind) &&
+							views[activeKind].selection.length > 0;
+						const activeSelection = resolveAddViewSelection(
+							hasSelection,
+							undefined,
+							viewSelection,
+						);
+						const selection = resolveSelectionForView(
+							activeKind,
+							activeSelection,
+							activeSelection,
+							provider.getRootPath(),
+						);
+						await addFolderWithSelection(selection, provider, views);
+						return;
+					}
+
 					const selection = resolveSelection(item, getSelection);
-					if (!ensureAvailable() || !ensureSelection(selection)) {
+					if (!ensureSelection(selection)) {
 						return;
 					}
 
@@ -152,6 +226,7 @@ export function registerFileCommands(
 					if (!provider) {
 						return;
 					}
+					const viewKind = selection.kind as FileViewKind;
 					if (isRootNode(selection)) {
 						vscode.window.showErrorMessage(messages.file.renameRootNotAllowed);
 						return;
@@ -173,35 +248,46 @@ export function registerFileCommands(
 					}
 
 					const targetPath = path.join(parentDir, normalizedName);
-					if (pathExists(targetPath)) {
+					const targetExists = pathExists(targetPath);
+					const caseOnlyRename = isCaseOnlyRename(selection.fsPath, targetPath);
+					let renamedPath: string | null = null;
+
+					if (targetExists && !caseOnlyRename) {
 						if (selection.nodeType === 'folder') {
 							vscode.window.showErrorMessage(messages.file.renameFolderExists);
 							return;
 						}
 
-						const confirmed = await confirmDialog(
-							messages.file.overwriteFileConfirm,
-							selection.fsPath,
+						const suggestedName = resolveUniqueName(parentDir, normalizedName);
+						const suggestedPath = path.join(parentDir, suggestedName);
+						const confirmed = await confirmUseNumberedName(
+							normalizedName,
+							suggestedName,
+							suggestedPath,
 						);
 						if (!confirmed) {
 							return;
 						}
 
-						if (shouldDeleteRenameTarget(selection.fsPath, targetPath)) {
-							deletePath(targetPath);
-						}
-
-						if (
-							path.resolve(selection.fsPath) !==
-							path.resolve(targetPath)
-						) {
-							renamePathSafely(selection.fsPath, targetPath);
-						}
-					} else {
+						renamePathSafely(selection.fsPath, suggestedPath);
+						renamedPath = suggestedPath;
+					} else if (!isSamePath(selection.fsPath, targetPath) || caseOnlyRename) {
 						renamePathSafely(selection.fsPath, targetPath);
+						renamedPath = targetPath;
+					}
+
+					if (renamedPath && selection.nodeType === 'folder') {
+						expansionState.renamePaths(
+							viewKind,
+							selection.fsPath,
+							renamedPath,
+						);
 					}
 
 					provider.refresh();
+					if (renamedPath && selection.nodeType === 'folder') {
+						await expansionState.restore(viewKind, views);
+					}
 				}),
 		),
 	);
@@ -279,6 +365,17 @@ export function resolveSelectionForView(
 	return createRootItem(viewKind, rootPath);
 }
 
+export function resolveAddViewSelection(
+	hasSelection: boolean,
+	item: CodexTreeItem | undefined,
+	selection: CodexTreeItem | undefined,
+): CodexTreeItem | undefined {
+	if (!hasSelection) {
+		return undefined;
+	}
+	return item ?? selection;
+}
+
 function isFileViewKind(kind: string): kind is FileViewKind {
 	return FILE_VIEW_KINDS.includes(kind as FileViewKind);
 }
@@ -351,7 +448,22 @@ async function addFileWithSelection(
 	}
 
 	const fileName = applyDefaultExtension(normalizedName);
-	const resolvedName = resolveUniqueName(targetDir, fileName);
+	const targetPath = path.join(targetDir, fileName);
+	let resolvedName = fileName;
+	if (pathExists(targetPath)) {
+		const suggestedName = resolveUniqueName(targetDir, fileName);
+		const suggestedPath = path.join(targetDir, suggestedName);
+		const confirmed = await confirmUseNumberedName(
+			fileName,
+			suggestedName,
+			suggestedPath,
+		);
+		if (!confirmed) {
+			return;
+		}
+		resolvedName = suggestedName;
+	}
+
 	const templateContent = await pickTemplateContents();
 	if (templateContent === null) {
 		return;
@@ -385,8 +497,13 @@ async function addFolderWithSelection(
 		return;
 	}
 
-	const resolvedName = resolveUniqueName(targetDir, normalizedName);
-	createFolder(targetDir, resolvedName);
+	const targetPath = path.join(targetDir, normalizedName);
+	if (pathExists(targetPath)) {
+		vscode.window.showErrorMessage(messages.file.renameFolderExists);
+		return;
+	}
+
+	createFolder(targetDir, normalizedName);
 	await expandParentFolder(selection, views);
 	provider.refresh();
 }
@@ -428,6 +545,29 @@ async function confirmDialog(message: string, targetPath: string): Promise<boole
 	return choice === 'OK';
 }
 
+async function confirmUseNumberedName(
+	originalName: string,
+	suggestedName: string,
+	targetPath: string,
+): Promise<boolean> {
+	const message = messages.file.fileExistsUseDifferentName(
+		originalName,
+		suggestedName,
+	);
+	const detail = `${message}
+${targetPath}`;
+	const choice = await vscode.window.showWarningMessage(
+		detail,
+		{ modal: true },
+		'OK',
+	);
+	return choice === 'OK';
+}
+
+
+export function isSamePath(sourcePath: string, targetPath: string): boolean {
+	return path.resolve(sourcePath) === path.resolve(targetPath);
+}
 
 export function shouldDeleteRenameTarget(
 	sourcePath: string,
@@ -435,7 +575,7 @@ export function shouldDeleteRenameTarget(
 ): boolean {
 	const resolvedSource = path.resolve(sourcePath);
 	const resolvedTarget = path.resolve(targetPath);
-	if (resolvedSource === resolvedTarget) {
+	if (isSamePath(resolvedSource, resolvedTarget)) {
 		return false;
 	}
 	if (process.platform === 'win32') {
@@ -460,7 +600,10 @@ function renamePathSafely(sourcePath: string, targetPath: string): void {
 	renamePath(tempPath, targetPath);
 }
 
-function isCaseOnlyRename(sourcePath: string, targetPath: string): boolean {
+export function isCaseOnlyRename(
+	sourcePath: string,
+	targetPath: string,
+): boolean {
 	if (process.platform !== 'win32') {
 		return false;
 	}

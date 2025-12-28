@@ -18,6 +18,8 @@ import { toggleMcpServer } from './services/mcpService';
 import { messages } from './i18n';
 import { runSafely } from './services/errorHandling';
 import { SelectionContext } from './services/selectionContext';
+import { TreeExpansionState } from './services/treeExpansionState';
+import { ViewFocusState } from './services/viewFocusState';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -28,6 +30,8 @@ export function activate(context: vscode.ExtensionContext) {
 	const templatesProvider = new FileExplorerProvider('templates', context);
 	const mcpProvider = new McpExplorerProvider(context);
 	const selectionContext = new SelectionContext();
+	const expansionState = new TreeExpansionState();
+	const viewFocusState = new ViewFocusState();
 
 	const coreView = vscode.window.createTreeView('codex-workspace.core', {
 		treeDataProvider: coreProvider,
@@ -48,9 +52,29 @@ export function activate(context: vscode.ExtensionContext) {
 		treeDataProvider: mcpProvider,
 	});
 
-	const trackSelection = (view: vscode.TreeView<CodexTreeItem>) =>
+	const trackExpansion = (
+		kind: 'prompts' | 'skills' | 'templates',
+		view: vscode.TreeView<CodexTreeItem>,
+	) => [
+		view.onDidExpandElement((event) =>
+			expansionState.registerExpanded(kind, event.element),
+		),
+		view.onDidCollapseElement((event) =>
+			expansionState.registerCollapsed(kind, event.element),
+		),
+	];
+
+	const trackSelection = (
+		view: vscode.TreeView<CodexTreeItem>,
+		kind?: 'prompts' | 'skills' | 'templates',
+	) =>
 		view.onDidChangeSelection((event) => {
 			selectionContext.setSelection(event.selection[0]);
+			if (kind) {
+				viewFocusState.setActive(kind, event.selection.length > 0);
+				return;
+			}
+			viewFocusState.clear();
 		});
 
 	context.subscriptions.push(
@@ -60,10 +84,19 @@ export function activate(context: vscode.ExtensionContext) {
 		templatesView,
 		mcpView,
 		trackSelection(coreView),
-		trackSelection(promptsView),
-		trackSelection(skillsView),
-		trackSelection(templatesView),
+		trackSelection(promptsView, 'prompts'),
+		trackSelection(skillsView, 'skills'),
+		trackSelection(templatesView, 'templates'),
 		trackSelection(mcpView),
+		...trackExpansion('prompts', promptsView),
+		...trackExpansion('skills', skillsView),
+		...trackExpansion('templates', templatesView),
+	);
+
+	context.subscriptions.push(
+		vscode.window.onDidChangeActiveTextEditor(() => {
+			viewFocusState.clear();
+		}),
 	);
 
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
@@ -219,6 +252,8 @@ export function activate(context: vscode.ExtensionContext) {
 			skills: skillsView,
 			templates: templatesView,
 		},
+		expansionState,
+		viewFocusState,
 	});
 }
 

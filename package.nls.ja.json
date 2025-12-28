@@ -37,6 +37,7 @@
   "message.deleteRootNotAllowed": "ルートフォルダは削除できません。",
   "message.overwriteFileConfirm": "同名ファイルを上書きします。既存ファイルは削除されますがよろしいですか？",
   "message.overwrite": "上書きする",
+  "message.fileExistsUseDifferentName": "この場所には、同じ名前のファイルが既に存在します。「{0}」を「{1}」に変更しますか？",
   "message.useDifferentName": "別名にする（_1）",
   "message.cancel": "キャンセル",
   "message.templateNone": "空のファイル",
