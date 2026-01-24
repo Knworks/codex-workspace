@@ -49,10 +49,6 @@
 * ユーザーは Refresh 操作により全ビューを更新できる。
 * `.codex` や `config.toml` が存在しない/壊れている場合、ユーザーは「拡張が利用できない」ことを UI 上で確認できる。
 * ユーザーは VS Code の表示言語に応じて、日本語または英語で拡張の表示（ラベル/メッセージ）を利用できる。
-* ユーザーは Codex Core の同期ボタンを押下することで、設定値で指定した同期フォルダへ `AGENTS.md` と `config.toml` をコピーできる。
-* ユーザーは Prompts Explorer の同期ボタンを押下することで、設定値で指定した同期フォルダへ `.codex/prompts` 配下のファイルをコピーできる。
-* ユーザーは Skills Explorer の同期ボタンを押下することで、設定値で指定した同期フォルダへ `.codex/skills` 配下のファイルをコピーできる。
-* ユーザーは Template Explorer の同期ボタンを押下することで、設定値で指定した同期フォルダへ `.codex/codex-templates` 配下のファイルをコピーできる。
 
 ---
 
@@ -210,34 +206,6 @@
 * VS Code の表示言語が **日本語（ja）**の場合は日本語を表示する。
 * VS Code の表示言語が **日本語以外**の場合はすべて英語を表示する。
 
-### 5.11 同期（Sync）
-
-* 同期先フォルダ設定を追加する（既定値はブランク）。
-  * Codex Core Sync Folder（キー：`codexFolder`）
-  * Prompts Sync Folder（キー：`promptsFolder`）
-  * Skills Sync Folder（キー：`skillsFolder`）
-  * Template Sync Folder（キー：`templatesFolder`）
-* Codex Core
-  * 同期ボタン（codicon: `sync`）を追加する。
-  * `codexFolder` が未設定の場合は同期ボタンを非表示にする。
-  * 押下時に確認メッセージを表示し、OK の場合に `.codex/AGENTS.md` と `.codex/config.toml` を `codexFolder` へコピーする（上書き）。
-    * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
-* Prompts Explorer
-  * 同期ボタン（codicon: `sync`）を追加する。
-  * `promptsFolder` が未設定の場合は同期ボタンを非表示にする。
-  * 押下時に確認メッセージを表示し、OK の場合に `.codex/prompts` 配下のファイルを `promptsFolder` へコピーする（上書き）。
-    * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
-* Skills Explorer
-  * 同期ボタン（codicon: `sync`）を追加する。
-  * `skillsFolder` が未設定の場合は同期ボタンを非表示にする。
-  * 押下時に確認メッセージを表示し、OK の場合に `.codex/skills` 配下のファイルを `skillsFolder` へコピーする（上書き）。
-    * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
-* Template Explorer
-  * 同期ボタン（codicon: `sync`）を追加する。
-  * `templatesFolder` が未設定の場合は同期ボタンを非表示にする。
-  * 押下時に確認メッセージを表示し、OK の場合に `.codex/codex-templates` 配下のファイルを `templatesFolder` へコピーする（上書き）。
-    * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
-
 ---
 
 ## 6. 🛡️非機能要件
@@ -245,7 +213,7 @@
 * ユーザビリティ（操作性、UI/UX要件）
 
   * UI 最上部のボタン操作により、InputBox を順に入力して各操作（追加/編集/削除/更新/フォルダを開く）を行えること。
-  * ボタンは codicon を使用し、`new-folder` / `new-file` / `trash` / `edit` / `refresh` / `folder-opened` / `sync` を表示する。
+  * ボタンは codicon を使用し、`new-folder` / `new-file` / `trash` / `edit` / `refresh` / `folder-opened` を表示する。
   * 操作対象が未選択の場合は右下にメッセージを表示し、選択を促すこと。
   * MCP の ON/OFF はスイッチ風 UI で直感的に切り替えられること。
   * アイコンにより、プロンプトファイル/フォルダおよび MCP の視認性が高いこと。
@@ -268,7 +236,7 @@
 
   * VS Code 拡張機能として開発する（TypeScript/Node.js および VS Code Extension API を想定）。
   * `.codex` はホームディレクトリ直下の `~/.codex` を対象とし、プロジェクトローカル（`workspace/.codex`）は扱わない。
-  * 拡張のユーザー設定項目（設定値）は同期先フォルダ設定のみ提供する。
+  * 拡張のユーザー設定項目（設定値）は当面 **提供しない**。
 * 外部システムとの連携は必要ですか？
 
   * Codex CLI の起動/終了/再起動などのプロセス制御は行わない（将来拡張で検討）。

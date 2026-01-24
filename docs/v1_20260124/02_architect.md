@@ -88,18 +88,6 @@ codex-workspace/
   - ソート：なし
   - バリデーション：対象パスの存在
 
-- **同期（Sync）**
-  - 入力：同期先フォルダ設定、同期ボタン押下
-  - 処理：確認メッセージ表示後、OK の場合に対象フォルダへコピー（上書き）
-    - Core：`.codex/AGENTS.md` と `.codex/config.toml`
-    - Prompts：`.codex/prompts` 配下のファイル
-    - Skills：`.codex/skills` 配下のファイル
-    - Templates：`.codex/codex-templates` 配下のファイル
-  - 出力：対象フォルダへのコピー完了
-  - 検索条件：なし
-  - ソート：なし
-  - バリデーション：同期先フォルダ設定が空の場合はボタン非表示
-
 - **Refresh**
   - 入力：Refresh 操作
   - 処理：Prompts / Skills / Templates / MCP / Core の全ビュー更新
@@ -130,10 +118,6 @@ codex-workspace/
 | McpServer         | enabled             | boolean | MCP の有効/無効                                     | 省略時は true |
 | McpServer         | enabledLineIndex    | number  | `enabled` 行の位置（未定義時は `null`）               | optional |
 | TemplateCandidate | path                | string  | テンプレートファイルのパス                                 | 隠しファイル除外 |
-| SyncSettings      | codexFolder         | string  | Codex Core の同期先フォルダ                                 | 空の場合は無効 |
-| SyncSettings      | promptsFolder       | string  | Prompts の同期先フォルダ                                   | 空の場合は無効 |
-| SyncSettings      | skillsFolder        | string  | Skills の同期先フォルダ                                    | 空の場合は無効 |
-| SyncSettings      | templatesFolder     | string  | Templates の同期先フォルダ                                 | 空の場合は無効 |
 
 ## 6. 🖥️画面設計
 
@@ -147,16 +131,14 @@ codex-workspace/
 - **Prompts/Skills/Templates**
   - 固定ルートフォルダ（`prompts` / `skills` / `codex-templates`）を持ち、UI はルート直下を表示
   - ファイルはエディタで開く
-  - 操作：UI 最上部のボタンで追加/削除/リネーム/Refresh/各ルートフォルダを開く/同期（削除/リネームは未選択時メッセージ、追加はルートに作成）
-  - 同期ボタンは同期先フォルダ設定が空の場合は非表示
+  - 操作：UI 最上部のボタンで追加/削除/リネーム/Refresh/各ルートフォルダを開く（削除/リネームは未選択時メッセージ、追加はルートに作成）
 - **MCP Explorer**
   - サーバー一覧をスイッチ風 UI で表示
   - クリックで ON/OFF を切替
   - 成功時に再起動が必要な旨を通知
 - **Codex Core**
   - `config.toml` / `AGENTS.md` のショートカット
-  - 操作：UI 最上部のボタンで `.codex` を開く/同期
-  - 同期ボタンは同期先フォルダ設定が空の場合は非表示
+  - 操作：UI 最上部のボタンで `.codex` を開く
 - **利用不可時**
   - 各ビューに `? Codex Workspace を開けません: <理由>` を 1 件表示
 
@@ -182,7 +164,6 @@ flowchart TB
 - **ローカルファイルシステム**：`~/.codex` 配下の読み書き
 - **OS Explorer/Finder**：対象ルートフォルダの表示
 - **VS Code Extension API**：TreeDataProvider、コマンド、UI メッセージ
-- **VS Code Settings**：同期先フォルダ（`codexFolder` / `promptsFolder` / `skillsFolder` / `templatesFolder`）
 
 ## 9. 🧪テスト戦略
 
@@ -191,11 +172,9 @@ flowchart TB
   - `enabled` 行の検出・反転・コメント保持・未定義時の挿入
   - 禁止文字置換、拡張子付与、重複名回避
   - ルートフォルダのリネーム禁止
-  - 同期対象ファイルの抽出とコピー実行
 - **統合テスト**
   - 各 Explorer の Tree 表示（ルート直下表示、利用不可表示）
   - 追加/削除/リネーム操作の UI フロー（未選択時のメッセージ含む）
-  - 同期ボタンの表示/非表示と確認ダイアログ
   - MCP トグル後の通知表示
 - **ローカライズ確認**
   - `ja` と `en` のラベル/メッセージの切替
@@ -204,7 +183,7 @@ flowchart TB
 
 - **ユーザビリティ**
   - UI 最上部の共通ボタン操作で InputBox を順に入力して各操作を実行できる
-  - ボタンは codicon を使用し、`new-folder` / `new-file` / `trash` / `edit` / `refresh` / `folder-opened` / `sync` を表示する
+  - ボタンは codicon を使用し、`new-folder` / `new-file` / `trash` / `edit` / `refresh` / `folder-opened` を表示する
   - 削除/リネームなど未選択時にメッセージを表示し選択を促す
   - MCP の ON/OFF をスイッチ風 UI で直感的に切り替えられる
   - アイコンによりプロンプトファイル/フォルダと MCP の視認性を高める

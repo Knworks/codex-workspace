@@ -8,6 +8,7 @@ Explore and manage your .codex workspace (config.toml, AGENTS.md, prompts, skill
 - Create, rename, and delete files or folders under each root
 - Open files in the editor with a single click
 - Open each root folder in the OS file explorer
+- Sync Codex Core, Prompts, Skills, and Templates to configured folders
 - Toggle MCP servers on or off from the MCP Explorer
 
 ## Views
@@ -16,19 +17,19 @@ Explore and manage your .codex workspace (config.toml, AGENTS.md, prompts, skill
 
 ### CODEX CORE
 
-Quick access to `config.toml` and `AGENTS.md`, plus a shortcut to open the `.codex` folder.
+Quick access to `config.toml` and `AGENTS.md`, plus a shortcut to open the `.codex` folder and sync to a configured folder.
 
 ### PROMPTS EXPLORE
 
-Manage prompt files under `~/.codex/prompts`.
+Manage prompt files under `~/.codex/prompts`, and sync them to a configured folder.
 
 ### SKILLS EXPLORE
 
-Manage skill files under `~/.codex/skills`.
+Manage skill files under `~/.codex/skills`, and sync them to a configured folder.
 
 ### TEMPLATE EXPLORE
 
-Manage template files under `~/.codex/codex-templates`, including template selection on file creation.
+Manage template files under `~/.codex/codex-templates`, including template selection on file creation and sync to a configured folder.
 
 ### MCP EXPLORE
 
@@ -38,7 +39,7 @@ View MCP servers from `config.toml` and toggle them on or off.
 
 1. Ensure `~/.codex` exists.
 2. Open **Codex Workspace** from the Activity Bar.
-3. Use the view title buttons to add files/folders or open the root folder.
+3. Use the view title buttons to add files/folders, open the root folder, or sync to a configured folder.
 4. Click a file to open it in the editor.
 
 ## Privacy/Telemetry

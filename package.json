@@ -155,6 +155,31 @@
         "title": "%command.mcp.toggle%"
       }
     ],
+    "configuration": {
+      "title": "%configuration.title%",
+      "properties": {
+        "codex-workspace.codexFolder": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.codexFolder.description%"
+        },
+        "codex-workspace.promptsFolder": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.promptsFolder.description%"
+        },
+        "codex-workspace.skillsFolder": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.skillsFolder.description%"
+        },
+        "codex-workspace.templatesFolder": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.templatesFolder.description%"
+        }
+      }
+    },
     "menus": {
       "view/title": [
         {

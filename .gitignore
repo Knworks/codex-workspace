@@ -5,4 +5,4 @@ dist/
 coverage/
 out/
 .DS_Store
-.vscode/settings.json
+.vscode-test
