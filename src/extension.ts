@@ -230,6 +230,7 @@ export function activate(context: vscode.ExtensionContext) {
 					);
 				}
 				coreProvider.refresh();
+				mcpProvider.refresh();
 			}),
 	);
 
