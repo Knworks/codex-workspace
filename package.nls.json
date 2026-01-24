@@ -10,6 +10,7 @@
   "command.helloWorld": "Hello World",
   "command.openFile": "Open File",
   "command.openCodexFolder": "Open .codex Folder",
+  "command.sync": "Sync",
   "command.refresh": "Refresh",
   "command.addFile": "Add File",
   "command.addFolder": "Add Folder",

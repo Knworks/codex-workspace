@@ -72,6 +72,29 @@ suite('View title menus', () => {
 			},
 		];
 
+		const syncCommands = [
+			{
+				command: 'codex-workspace.syncCore',
+				viewId: 'codex-workspace.core',
+				configKey: 'config.codex-workspace.codexFolder',
+			},
+			{
+				command: 'codex-workspace.syncPrompts',
+				viewId: 'codex-workspace.prompts',
+				configKey: 'config.codex-workspace.promptsFolder',
+			},
+			{
+				command: 'codex-workspace.syncSkills',
+				viewId: 'codex-workspace.skills',
+				configKey: 'config.codex-workspace.skillsFolder',
+			},
+			{
+				command: 'codex-workspace.syncTemplates',
+				viewId: 'codex-workspace.templates',
+				configKey: 'config.codex-workspace.templatesFolder',
+			},
+		];
+
 		const excludedViewIds = [
 			'codex-workspace.mcp',
 			'codex-workspace.menu',
@@ -107,8 +130,9 @@ suite('View title menus', () => {
 		}
 
 		const perViewIds = [...viewIds, 'codex-workspace.core'];
+		const commandsWithView = [...perViewCommands, ...syncCommands];
 
-		for (const { command, viewId } of perViewCommands) {
+		for (const { command, viewId } of commandsWithView) {
 			assertCommandDefinition(command);
 			const entry = viewTitle.find(
 				(item: { command?: string }) => item.command === command,
@@ -131,6 +155,18 @@ suite('View title menus', () => {
 					`${command} should not target ${excludedViewId}`,
 				);
 			}
+		}
+
+		for (const { command, configKey } of syncCommands) {
+			const entry = viewTitle.find(
+				(item: { command?: string }) => item.command === command,
+			);
+			assert.ok(entry, `Missing view/title menu for ${command}`);
+			const when = entry.when ?? '';
+			assert.ok(
+				when.includes(configKey),
+				`${command} is missing config condition`,
+			);
 		}
 	});
 });

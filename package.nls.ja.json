@@ -10,6 +10,7 @@
   "command.helloWorld": "Hello World",
   "command.openFile": "ファイルを開く",
   "command.openCodexFolder": ".codex を開く",
+  "command.sync": "同期",
   "command.refresh": "更新",
   "command.addFile": "ファイル追加",
   "command.addFolder": "フォルダ追加",

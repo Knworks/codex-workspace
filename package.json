@@ -96,6 +96,26 @@
         "icon": "$(folder-opened)"
       },
       {
+        "command": "codex-workspace.syncCore",
+        "title": "%command.sync%",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "codex-workspace.syncPrompts",
+        "title": "%command.sync%",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "codex-workspace.syncSkills",
+        "title": "%command.sync%",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "codex-workspace.syncTemplates",
+        "title": "%command.sync%",
+        "icon": "$(sync)"
+      },
+      {
         "command": "codex-workspace.refreshAll",
         "title": "%command.refresh%",
         "icon": "$(refresh)"
@@ -233,9 +253,19 @@
           "group": "navigation@6"
         },
         {
+          "command": "codex-workspace.syncPrompts",
+          "when": "view == 'codex-workspace.prompts' && config.codex-workspace.promptsFolder",
+          "group": "navigation@7"
+        },
+        {
           "command": "codex-workspace.openSkillsFolder",
           "when": "view == 'codex-workspace.skills'",
           "group": "navigation@6"
+        },
+        {
+          "command": "codex-workspace.syncSkills",
+          "when": "view == 'codex-workspace.skills' && config.codex-workspace.skillsFolder",
+          "group": "navigation@7"
         },
         {
           "command": "codex-workspace.openTemplatesFolder",
@@ -243,9 +273,19 @@
           "group": "navigation@6"
         },
         {
+          "command": "codex-workspace.syncTemplates",
+          "when": "view == 'codex-workspace.templates' && config.codex-workspace.templatesFolder",
+          "group": "navigation@7"
+        },
+        {
           "command": "codex-workspace.openCodexFolder",
           "when": "view == 'codex-workspace.core'",
           "group": "navigation@6"
+        },
+        {
+          "command": "codex-workspace.syncCore",
+          "when": "view == 'codex-workspace.core' && config.codex-workspace.codexFolder",
+          "group": "navigation@7"
         }
       ]
     }

@@ -193,6 +193,46 @@ export function activate(context: vscode.ExtensionContext) {
 			}),
 	);
 
+	const syncCoreDisposable = vscode.commands.registerCommand(
+		'codex-workspace.syncCore',
+		() =>
+			runSafely(() => {
+				if (!getWorkspaceStatus().isAvailable) {
+					return;
+				}
+			}),
+	);
+
+	const syncPromptsDisposable = vscode.commands.registerCommand(
+		'codex-workspace.syncPrompts',
+		() =>
+			runSafely(() => {
+				if (!getWorkspaceStatus().isAvailable) {
+					return;
+				}
+			}),
+	);
+
+	const syncSkillsDisposable = vscode.commands.registerCommand(
+		'codex-workspace.syncSkills',
+		() =>
+			runSafely(() => {
+				if (!getWorkspaceStatus().isAvailable) {
+					return;
+				}
+			}),
+	);
+
+	const syncTemplatesDisposable = vscode.commands.registerCommand(
+		'codex-workspace.syncTemplates',
+		() =>
+			runSafely(() => {
+				if (!getWorkspaceStatus().isAvailable) {
+					return;
+				}
+			}),
+	);
+
 	const refreshDisposable = vscode.commands.registerCommand(
 		'codex-workspace.refreshAll',
 		() =>
@@ -236,6 +276,10 @@ export function activate(context: vscode.ExtensionContext) {
 		openPromptsFolderDisposable,
 		openSkillsFolderDisposable,
 		openTemplatesFolderDisposable,
+		syncCoreDisposable,
+		syncPromptsDisposable,
+		syncSkillsDisposable,
+		syncTemplatesDisposable,
 		refreshDisposable,
 		toggleMcpDisposable,
 	);
