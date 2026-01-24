@@ -63,6 +63,25 @@ suite('Sync service', () => {
 		});
 	});
 
+	test('syncDirectoryBidirectional copies target-only files to codex', () => {
+		withTempDir((root) => {
+			const codexRoot = path.join(root, '.codex');
+			const codexDir = path.join(codexRoot, 'skills');
+			const targetDir = path.join(root, 'sync');
+			fs.mkdirSync(targetDir, { recursive: true });
+
+			const targetFile = path.join(targetDir, 'from-target.md');
+			fs.writeFileSync(targetFile, 'target', 'utf8');
+
+			syncDirectoryBidirectional('skills', codexRoot, codexDir, targetDir);
+
+			assert.strictEqual(
+				fs.readFileSync(path.join(codexDir, 'from-target.md'), 'utf8'),
+				'target',
+			);
+		});
+	});
+
 	test('syncDirectoryBidirectional deletes files removed on one side', () => {
 		withTempDir((root) => {
 			const codexRoot = path.join(root, '.codex');
