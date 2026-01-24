@@ -2,12 +2,12 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
-## Unreleased
+## 1.0.2
 
 Changes
 
 - Added sync folder settings for Codex Core, Prompts, Skills, and Templates.
-- Added sync buttons to copy `.codex` content into configured folders.
+- Added bidirectional sync with deletion tracking between `.codex` and configured folders.
 
 ## 1.0.1
 
