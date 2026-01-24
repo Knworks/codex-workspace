@@ -27,6 +27,8 @@ suite('Localization keys', () => {
 			'message.openFolderMissing',
 			'message.unexpectedError',
 			'message.mcpToggleUpdated',
+			'message.syncConfirm',
+			'message.syncSkipped',
 			'message.inputFileName',
 			'message.inputFolderName',
 			'message.inputRenameName',

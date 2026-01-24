@@ -92,6 +92,18 @@ export const messages = {
 		'message.mcpToggleUpdated',
 		'Settings updated. Please restart Codex to apply changes.',
 	),
+	syncConfirm: (targetPath: string) =>
+		localize(
+			'message.syncConfirm',
+			'Sync files with "{0}"?',
+			targetPath,
+		),
+	syncSkipped: (count: number) =>
+		localize(
+			'message.syncSkipped',
+			'Skipped {0} files due to sync errors.',
+			String(count),
+		),
 	helloWorld: localize(
 		'message.helloWorld',
 		'Hello World from Codex Workspace!',

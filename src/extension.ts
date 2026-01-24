@@ -20,6 +20,11 @@ import { runSafely } from './services/errorHandling';
 import { SelectionContext } from './services/selectionContext';
 import { TreeExpansionState } from './services/treeExpansionState';
 import { ViewFocusState } from './services/viewFocusState';
+import { getSyncSettings } from './services/settings';
+import {
+	syncCoreFilesBidirectional,
+	syncDirectoryBidirectional,
+} from './services/syncService';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -193,43 +198,128 @@ export function activate(context: vscode.ExtensionContext) {
 			}),
 	);
 
+	const confirmSync = async (targetDir: string): Promise<boolean> => {
+		const message = messages.syncConfirm(targetDir);
+		const choice = await vscode.window.showWarningMessage(
+			message,
+			{ modal: true },
+			'OK',
+		);
+		return choice === 'OK';
+	};
+
 	const syncCoreDisposable = vscode.commands.registerCommand(
 		'codex-workspace.syncCore',
 		() =>
-			runSafely(() => {
+			runSafely(async () => {
 				if (!getWorkspaceStatus().isAvailable) {
 					return;
 				}
+				const { codexFolder } = getSyncSettings();
+				if (!codexFolder) {
+					return;
+				}
+				if (!(await confirmSync(codexFolder))) {
+					return;
+				}
+				const { codexDir } = resolveCodexPaths();
+				const result = syncCoreFilesBidirectional(codexDir, codexFolder);
+				if (result.skipped.length > 0) {
+					vscode.window.showWarningMessage(
+						messages.syncSkipped(result.skipped.length),
+					);
+				}
+				coreProvider.refresh();
 			}),
 	);
 
 	const syncPromptsDisposable = vscode.commands.registerCommand(
 		'codex-workspace.syncPrompts',
 		() =>
-			runSafely(() => {
+			runSafely(async () => {
 				if (!getWorkspaceStatus().isAvailable) {
 					return;
 				}
+				const { promptsFolder } = getSyncSettings();
+				if (!promptsFolder) {
+					return;
+				}
+				if (!(await confirmSync(promptsFolder))) {
+					return;
+				}
+				const { codexDir } = resolveCodexPaths();
+				const result = syncDirectoryBidirectional(
+					'prompts',
+					codexDir,
+					path.join(codexDir, 'prompts'),
+					promptsFolder,
+				);
+				if (result.skipped.length > 0) {
+					vscode.window.showWarningMessage(
+						messages.syncSkipped(result.skipped.length),
+					);
+				}
+				promptsProvider.refresh();
 			}),
 	);
 
 	const syncSkillsDisposable = vscode.commands.registerCommand(
 		'codex-workspace.syncSkills',
 		() =>
-			runSafely(() => {
+			runSafely(async () => {
 				if (!getWorkspaceStatus().isAvailable) {
 					return;
 				}
+				const { skillsFolder } = getSyncSettings();
+				if (!skillsFolder) {
+					return;
+				}
+				if (!(await confirmSync(skillsFolder))) {
+					return;
+				}
+				const { codexDir } = resolveCodexPaths();
+				const result = syncDirectoryBidirectional(
+					'skills',
+					codexDir,
+					path.join(codexDir, 'skills'),
+					skillsFolder,
+				);
+				if (result.skipped.length > 0) {
+					vscode.window.showWarningMessage(
+						messages.syncSkipped(result.skipped.length),
+					);
+				}
+				skillsProvider.refresh();
 			}),
 	);
 
 	const syncTemplatesDisposable = vscode.commands.registerCommand(
 		'codex-workspace.syncTemplates',
 		() =>
-			runSafely(() => {
+			runSafely(async () => {
 				if (!getWorkspaceStatus().isAvailable) {
 					return;
 				}
+				const { templatesFolder } = getSyncSettings();
+				if (!templatesFolder) {
+					return;
+				}
+				if (!(await confirmSync(templatesFolder))) {
+					return;
+				}
+				const { codexDir } = resolveCodexPaths();
+				const result = syncDirectoryBidirectional(
+					'templates',
+					codexDir,
+					path.join(codexDir, TEMPLATE_FOLDER_NAME),
+					templatesFolder,
+				);
+				if (result.skipped.length > 0) {
+					vscode.window.showWarningMessage(
+						messages.syncSkipped(result.skipped.length),
+					);
+				}
+				templatesProvider.refresh();
 			}),
 	);
 

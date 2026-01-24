@@ -32,6 +32,8 @@
   "message.openFolderMissing": "Target folder does not exist.",
   "message.unexpectedError": "An unexpected error occurred.",
   "message.mcpToggleUpdated": "Settings updated. Please restart Codex to apply changes.",
+  "message.syncConfirm": "Sync files with \"{0}\"?",
+  "message.syncSkipped": "Skipped {0} files due to sync errors.",
   "message.inputFileName": "Enter a file name.",
   "message.inputFolderName": "Enter a folder name.",
   "message.inputRenameName": "Enter a new name.",
