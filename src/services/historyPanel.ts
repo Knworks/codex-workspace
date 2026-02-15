@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
+import path from 'node:path';
 import { messages } from '../i18n';
 import { getConfiguredMaxHistoryCount, getIncludeReasoningMessage } from './settings';
 import { buildHistoryIndex, HistoryDayNode, HistoryIndex, HistoryTurnRecord } from './historyService';
@@ -27,6 +28,16 @@ const HISTORY_TAB_ICON_LIGHT_URI = resolveImageUri('agents_light.png');
 const HISTORY_TAB_ICON_DARK_URI = resolveImageUri('agents_dark.png');
 
 function resolveCodiconCssFsPath(): string | undefined {
+	const distCandidates = [
+		path.join(__dirname, 'webview', 'codicons', 'codicon.css'),
+		path.join(__dirname, '..', 'dist', 'webview', 'codicons', 'codicon.css'),
+		path.join(__dirname, '..', '..', 'dist', 'webview', 'codicons', 'codicon.css'),
+	];
+	for (const candidate of distCandidates) {
+		if (fs.existsSync(candidate)) {
+			return candidate;
+		}
+	}
 	try {
 		const nodeRequire = createRequire(__filename);
 		return nodeRequire.resolve('@vscode/codicons/dist/codicon.css');
