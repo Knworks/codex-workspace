@@ -37,7 +37,7 @@
   "message.mcpToggleUpdated": "設定を更新しました。反映には Codex の再起動が必要です。",
   "message.syncConfirm": "{0} と同期しますがよろしいですか？",
   "message.syncSkipped": "同期中にエラーが発生したため {0} 件のファイルをスキップしました。",
-  "message.historyPanelTitle": "Codex 会話履歴",
+  "message.historyPanelTitle": "Codex History",
   "message.historyPanelPlaceholder": "会話履歴ビューの準備ができました。",
   "message.historySearchPlaceholder": "Search",
   "message.historySearch": "検索",

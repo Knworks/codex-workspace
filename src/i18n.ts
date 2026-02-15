@@ -106,7 +106,7 @@ export const messages = {
 		),
 	historyPanelTitle: localize(
 		'message.historyPanelTitle',
-		'Codex Conversation History',
+		'Codex History',
 	),
 	historyPanelPlaceholder: localize(
 		'message.historyPanelPlaceholder',

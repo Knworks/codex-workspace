@@ -1,11 +1,30 @@
 import * as vscode from 'vscode';
 import { createRequire } from 'node:module';
+import fs from 'node:fs';
 import { messages } from '../i18n';
 import { getConfiguredMaxHistoryCount, getIncludeReasoningMessage } from './settings';
 import { buildHistoryIndex, HistoryDayNode, HistoryIndex, HistoryTurnRecord } from './historyService';
 
 const HISTORY_VIEW_TYPE = 'codex-workspace.history';
 export const HISTORY_MESSAGE_PREVIEW_MAX_CHARS = 100;
+
+function resolveImageUri(fileName: string): vscode.Uri {
+	const baseDir = vscode.Uri.file(__dirname);
+	const candidates = [
+		vscode.Uri.joinPath(baseDir, '..', 'images', fileName),
+		vscode.Uri.joinPath(baseDir, '..', '..', 'images', fileName),
+		vscode.Uri.joinPath(baseDir, 'images', fileName),
+	];
+	for (const candidate of candidates) {
+		if (fs.existsSync(candidate.fsPath)) {
+			return candidate;
+		}
+	}
+	return candidates[0];
+}
+
+const HISTORY_TAB_ICON_LIGHT_URI = resolveImageUri('agents_light.png');
+const HISTORY_TAB_ICON_DARK_URI = resolveImageUri('agents_dark.png');
 
 function resolveCodiconCssFsPath(): string | undefined {
 	try {
@@ -695,12 +714,17 @@ export function createHistoryWebviewPanel(): vscode.WebviewPanel {
 			? { localResourceRoots: CODICON_RESOURCE_ROOTS }
 			: {}),
 	};
-	return vscode.window.createWebviewPanel(
+	const panel = vscode.window.createWebviewPanel(
 		HISTORY_VIEW_TYPE,
 		messages.historyPanelTitle,
 		{ viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
 		panelOptions,
 	);
+	panel.iconPath = {
+		light: HISTORY_TAB_ICON_LIGHT_URI,
+		dark: HISTORY_TAB_ICON_DARK_URI,
+	};
+	return panel;
 }
 
 export class HistoryPanelManager implements vscode.Disposable {

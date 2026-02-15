@@ -37,7 +37,7 @@
   "message.mcpToggleUpdated": "Settings updated. Please restart Codex to apply changes.",
   "message.syncConfirm": "Sync files with \"{0}\"?",
   "message.syncSkipped": "Skipped {0} files due to sync errors.",
-  "message.historyPanelTitle": "Codex Conversation History",
+  "message.historyPanelTitle": "Codex History",
   "message.historyPanelPlaceholder": "Conversation history view is ready.",
   "message.historySearchPlaceholder": "Search",
   "message.historySearch": "Search",

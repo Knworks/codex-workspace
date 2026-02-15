@@ -140,11 +140,21 @@ suite('History command', () => {
 			assert.strictEqual(createCount, 1);
 			assert.strictEqual(createdPanels[0]?.getRevealCount(), 1);
 			assert.strictEqual(createArgs[0]?.viewType, 'codex-workspace.history');
+			assert.strictEqual(createArgs[0]?.title, 'Codex History');
 			assert.strictEqual(createArgs[0]?.options?.enableScripts, true);
 			assert.strictEqual(
 				createArgs[0]?.options?.retainContextWhenHidden,
 				true,
 			);
+			const iconPath = (createdPanels[0]?.panel as unknown as {
+				iconPath?: vscode.Uri | { light: vscode.Uri; dark: vscode.Uri };
+			}).iconPath;
+			assert.ok(iconPath, 'history tab icon should be set');
+			assert.ok(iconPath && 'light' in iconPath && 'dark' in iconPath);
+			const lightIcon = (iconPath as { light: vscode.Uri; dark: vscode.Uri }).light.fsPath;
+			const darkIcon = (iconPath as { light: vscode.Uri; dark: vscode.Uri }).dark.fsPath;
+			assert.ok(lightIcon.endsWith(path.join('images', 'agents_light.png')));
+			assert.ok(darkIcon.endsWith(path.join('images', 'agents_dark.png')));
 		});
 	});
 });
