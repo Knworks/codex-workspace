@@ -186,21 +186,25 @@
       "properties": {
         "codex-workspace.codexFolder": {
           "type": "string",
+          "order": 0,
           "default": "",
           "description": "%configuration.codexFolder.description%"
         },
         "codex-workspace.promptsFolder": {
           "type": "string",
+          "order": 1,
           "default": "",
           "description": "%configuration.promptsFolder.description%"
         },
         "codex-workspace.skillsFolder": {
           "type": "string",
+          "order": 2,
           "default": "",
           "description": "%configuration.skillsFolder.description%"
         },
         "codex-workspace.templatesFolder": {
           "type": "string",
+          "order": 3,
           "default": "",
           "description": "%configuration.templatesFolder.description%"
         },
@@ -208,11 +212,13 @@
           "type": "number",
           "default": 100,
           "minimum": 1,
+          "order": 4,
           "description": "%configuration.maxHistoryCount.description%"
         },
         "codex-workspace.incrudeReasoningMessage": {
           "type": "boolean",
           "default": false,
+          "order": 5,
           "description": "%configuration.incrudeReasoningMessage.description%"
         }
       }
