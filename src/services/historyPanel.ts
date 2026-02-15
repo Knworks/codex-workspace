@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
+import { createRequire } from 'node:module';
 import { messages } from '../i18n';
 import { getConfiguredMaxHistoryCount, getIncludeReasoningMessage } from './settings';
 import { buildHistoryIndex, HistoryDayNode, HistoryIndex, HistoryTurnRecord } from './historyService';
@@ -9,7 +9,8 @@ export const HISTORY_MESSAGE_PREVIEW_MAX_CHARS = 100;
 
 function resolveCodiconCssFsPath(): string | undefined {
 	try {
-		return require.resolve('@vscode/codicons/dist/codicon.css');
+		const nodeRequire = createRequire(__filename);
+		return nodeRequire.resolve('@vscode/codicons/dist/codicon.css');
 	} catch {
 		return undefined;
 	}
@@ -17,7 +18,7 @@ function resolveCodiconCssFsPath(): string | undefined {
 
 const CODICON_CSS_FS_PATH = resolveCodiconCssFsPath();
 const CODICON_RESOURCE_ROOTS = CODICON_CSS_FS_PATH
-	? [vscode.Uri.file(path.dirname(CODICON_CSS_FS_PATH))]
+	? [vscode.Uri.joinPath(vscode.Uri.file(CODICON_CSS_FS_PATH), '..')]
 	: [];
 
 type HistoryPanelInboundMessage =
