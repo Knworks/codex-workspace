@@ -12,7 +12,11 @@ Explore and manage your .codex workspace (config.toml, AGENTS.md, prompts, skill
 - Sync respects latest modified timestamps and excludes hidden files
 - Toggle MCP servers on or off from the MCP Explorer
 - Open Codex CLI conversation history in an editor WebView from Codex Core or Command Palette
-- Filter history cards by keyword and preview extracted conversation blocks (`user_message` + final answer)
+- View conversation history in a searchable 2-pane layout
+- Browse by date and open any conversation from the left list
+- Preview messages on the right and copy user/assistant text when needed
+
+>**IMPORTANT:** We parse sessions from $CODEX_HOME/sessions/.../rollout-*.jsonl and extract the fields to display, so if the current log format changes, the conversation history may no longer be displayed.
 
 ## Views
 
@@ -41,9 +45,13 @@ View MCP servers from `config.toml` and toggle them on or off.
 ### HISTORY VIEW (EDITOR WEBVIEW)
 
 Open Codex CLI sessions from `$CODEX_HOME/sessions/.../rollout-*.jsonl` in an editor WebView with a 2-pane layout:
-- Left: date tree and session cards (newest first)
-- Right: markdown-rendered conversation preview (`user_message` and `task_complete.last_agent_message` only)
-- Search: explicit run (button/Enter), case-insensitive partial match on card titles, clear to reset
+- Top pane: search box + clear button
+- Bottom left: day folders (`yyyy/mm/dd`) and conversation cards
+- Bottom right: markdown-rendered task preview
+  - User message and assistant response
+  - Optional reasoning blocks (collapsible)
+  - Copy buttons for user/assistant text
+- Search: type a keyword to narrow the left list, and use clear to reset
 
 ## USAGE
 
@@ -52,6 +60,17 @@ Open Codex CLI sessions from `$CODEX_HOME/sessions/.../rollout-*.jsonl` in an ed
 3. Use the view title buttons to add files/folders, open the root folder, or sync with a configured folder.
 4. Click a file to open it in the editor.
 5. Open conversation history from the Codex Core history button or from the Command Palette command.
+
+## Settings
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `codex-workspace.codexFolder` | string | `""` | Sync destination for Codex Core (`config.toml`, `AGENTS.md`) |
+| `codex-workspace.promptsFolder` | string | `""` | Sync destination for Prompts |
+| `codex-workspace.skillsFolder` | string | `""` | Sync destination for Skills |
+| `codex-workspace.templatesFolder` | string | `""` | Sync destination for Templates |
+| `codex-workspace.maxHistoryCount` | number | `100` | History list max count. Applied when explicitly configured; otherwise all tasks are shown. |
+| `codex-workspace.incrudeReasoningMessage` | boolean | `false` | Include reasoning messages in history preview |
 
 ## Privacy/Telemetry
 
