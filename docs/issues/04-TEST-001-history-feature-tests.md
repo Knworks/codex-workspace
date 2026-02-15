@@ -1,7 +1,7 @@
 ---
 id: `TEST-001`
 title: `会話履歴機能のテスト追加`
-status: Todo
+status: Done
 ---
 
 # 🧾`TEST-001 会話履歴機能のテスト追加`
@@ -27,15 +27,15 @@ status: Todo
 ## ✅AC（受け入れ基準）
 
 - AC：必要十分な項目数（最低3、目安5〜10、上限なし）
-  - [ ] [機能] 履歴ボタン/コマンドの双方で履歴ビュー起動テストが通過する
-  - [ ] [機能] 抽出対象が `user_message` / `agent_message` / `response_item.reasoning` に限定される
-  - [ ] [機能] `task_started/task_complete` の同一 `turn_id` でタスクが構築される
-  - [ ] [機能] `task_complete` 欠落時にアクティブタスクが確定される
-  - [ ] [機能] 検索実行とクリアで一覧状態が正しく遷移する
-  - [ ] [UI/UX] ローカル時刻表示とテーマ追従ハイライトの確認ケースがある
-  - [ ] [UI/UX] `incrudeReasoningMessage` の ON/OFF で思考過程表示が切り替わる
-  - [ ] [テスト] `maxHistoryCount` による表示件数制御のテストがある
-  - [ ] [テスト] 既存 Explorer と同期機能の主要ケースに回帰がない
+  - [x] [機能] 履歴ボタン/コマンドの双方で履歴ビュー起動テストが通過する
+  - [x] [機能] 抽出対象が `user_message` / `agent_message` / `response_item.reasoning` に限定される
+  - [x] [機能] `task_started/task_complete` の同一 `turn_id` でタスクが構築される
+  - [x] [機能] `task_complete` 欠落時にアクティブタスクが確定される
+  - [x] [機能] 検索実行とクリアで一覧状態が正しく遷移する
+  - [x] [UI/UX] ローカル時刻表示とテーマ追従ハイライトの確認ケースがある
+  - [x] [UI/UX] `incrudeReasoningMessage` の ON/OFF で思考過程表示が切り替わる
+  - [x] [テスト] `maxHistoryCount` による表示件数制御のテストがある
+  - [x] [テスト] 既存 Explorer と同期機能の主要ケースに回帰がない
 
 ## 🔗依存関係
 

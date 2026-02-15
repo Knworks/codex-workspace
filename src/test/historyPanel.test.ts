@@ -81,6 +81,12 @@ suite('History panel manager', () => {
 		assert.ok(fakePanel.panel.webview.html.includes('codicon codicon-hubot'));
 		assert.ok(fakePanel.panel.webview.html.includes('reasoning-frame'));
 		assert.ok(fakePanel.panel.webview.html.includes('class="message-frame"'));
+		assert.ok(
+			fakePanel.panel.webview.html.includes(
+				'background: var(--vscode-editor-findMatchHighlightBackground);',
+			),
+		);
+		assert.ok(fakePanel.panel.webview.html.includes('mark.search-highlight'));
 	});
 
 	test('show creates a new panel after the current panel is disposed', () => {

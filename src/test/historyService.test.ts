@@ -163,6 +163,18 @@ function createAssistantMessageResponseItem(message: string, turnId: string): un
 	};
 }
 
+function createUnsupportedEventMessage(turnId: string): unknown {
+	return {
+		type: 'event_msg',
+		payload: {
+			type: 'message',
+			role: 'assistant',
+			message: 'unsupported assistant message',
+			turn_id: turnId,
+		},
+	};
+}
+
 suite('History service', () => {
 	test('buildHistoryIndex scans rollout files and builds day list with newest-first turns', () => {
 		withTempDir((root) => {
@@ -344,6 +356,31 @@ suite('History service', () => {
 
 			const index = buildHistoryIndex(codexHome);
 			assert.strictEqual(index.turns.length, 1);
+			assert.deepStrictEqual(index.turns[0].agentMessages, ['agent-1-a']);
+			assert.deepStrictEqual(index.turns[0].reasoningMessages, ['reasoning-1-a']);
+		});
+	});
+
+	test('buildHistoryIndex ignores unsupported message types and keeps only user/agent/reasoning', () => {
+		withTempDir((root) => {
+			const codexHome = path.join(root, '.codex');
+			const sessionsRoot = resolveSessionsRoot(codexHome);
+			writeJsonl(
+				path.join(sessionsRoot, '2026', '02', '15', 'rollout-supported-types-only.jsonl'),
+				[
+					createTaskStartedEvent('turn-1', '2026-02-15T04:31:00.000Z'),
+					createUserEvent('user-1', '2026-02-15T04:31:01.000Z', 'turn-1'),
+					createUnsupportedEventMessage('turn-1'),
+					createAssistantMessageResponseItem('assistant-from-response-item', 'turn-1'),
+					createReasoningEvent('reasoning-1-a', 'turn-1'),
+					createAgentEvent('agent-1-a', 'turn-1'),
+					createTaskCompleteEvent('turn-1', '2026-02-15T04:31:30.000Z'),
+				],
+			);
+
+			const index = buildHistoryIndex(codexHome);
+			assert.strictEqual(index.turns.length, 1);
+			assert.strictEqual(index.turns[0].userMessage, 'user-1');
 			assert.deepStrictEqual(index.turns[0].agentMessages, ['agent-1-a']);
 			assert.deepStrictEqual(index.turns[0].reasoningMessages, ['reasoning-1-a']);
 		});
