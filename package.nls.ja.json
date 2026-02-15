@@ -23,6 +23,7 @@
   "configuration.promptsFolder.description": "Prompts の同期先フォルダ。",
   "configuration.skillsFolder.description": "Skills の同期先フォルダ。",
   "configuration.templatesFolder.description": "Templates の同期先フォルダ。",
+  "configuration.maxHistoryCount.description": "履歴一覧に表示する最大件数（新しい順）。明示設定がない場合は全件表示。",
   "message.selectionRequired": "操作する対象を選択してください。",
   "message.unavailablePrefix": "? Codex Workspace を開けません: ",
   "message.unavailableUnknown": "不明な理由です。",

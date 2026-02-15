@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { messages } from '../i18n';
+import { getConfiguredMaxHistoryCount } from './settings';
 import { buildHistoryIndex, HistoryDayNode, HistoryIndex, HistoryTurnRecord } from './historyService';
 
 const HISTORY_VIEW_TYPE = 'codex-workspace.history';
@@ -128,6 +129,24 @@ export function deriveHistoryPanelViewModel(state: HistoryPanelState): HistoryPa
 		state.index.turns.find((turn) => turn.turnId === selectedTurnId),
 	);
 	return { appliedQuery, days, selectedTurn };
+}
+
+function limitHistoryIndex(index: HistoryIndex, maxHistoryCount: number | undefined): HistoryIndex {
+	if (!maxHistoryCount || maxHistoryCount >= index.turns.length) {
+		return index;
+	}
+	const limitedTurns = index.turns.slice(0, maxHistoryCount);
+	const limitedTurnIds = new Set(limitedTurns.map((turn) => turn.turnId));
+	const limitedDays = index.days
+		.map((day) => ({
+			...day,
+			turns: day.turns.filter((turn) => limitedTurnIds.has(turn.turnId)),
+		}))
+		.filter((day) => day.turns.length > 0);
+	return {
+		turns: limitedTurns,
+		days: limitedDays,
+	};
 }
 
 function createNonce(): string {
@@ -565,6 +584,8 @@ export class HistoryPanelManager implements vscode.Disposable {
 			vscode.env.clipboard.writeText(text),
 		private readonly notifyCopied: () => Thenable<string | undefined> = () =>
 			vscode.window.showInformationMessage(messages.historyCopied),
+		private readonly getMaxHistoryCount: () => number | undefined = () =>
+			getConfiguredMaxHistoryCount(),
 	) {}
 
 	show(): vscode.WebviewPanel {
@@ -576,7 +597,7 @@ export class HistoryPanelManager implements vscode.Disposable {
 
 		const panel = this.panelFactory();
 		this.state = {
-			index: this.loadIndex(),
+			index: limitHistoryIndex(this.loadIndex(), this.getMaxHistoryCount()),
 			selectedTurnId: undefined,
 			appliedQuery: '',
 		};

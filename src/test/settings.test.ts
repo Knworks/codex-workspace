@@ -1,12 +1,29 @@
 import * as assert from 'assert';
-import { getSyncSettings } from '../services/settings';
+import { getConfiguredMaxHistoryCount, getSyncSettings } from '../services/settings';
 
 type ConfigurationReader = {
 	get: <T>(key: string) => T | undefined;
+	inspect: <T>(key: string) =>
+		| {
+				key: string;
+				globalValue?: T;
+				workspaceValue?: T;
+				workspaceFolderValue?: T;
+		  }
+		| undefined;
 };
 
 const createConfig = (values: Record<string, unknown>): ConfigurationReader => ({
 	get: <T>(key: string) => values[key] as T | undefined,
+	inspect: <T>(key: string) => {
+		if (!Object.prototype.hasOwnProperty.call(values, key)) {
+			return undefined;
+		}
+		return {
+			key,
+			globalValue: values[key] as T,
+		};
+	},
 });
 
 suite('Sync settings', () => {
@@ -39,5 +56,29 @@ suite('Sync settings', () => {
 			skillsFolder: '',
 			templatesFolder: '',
 		});
+	});
+
+	test('returns configured max history count when explicitly set', () => {
+		const config = createConfig({ maxHistoryCount: 42 });
+
+		const maxHistoryCount = getConfiguredMaxHistoryCount(config);
+
+		assert.strictEqual(maxHistoryCount, 42);
+	});
+
+	test('returns undefined max history count when not configured', () => {
+		const config = createConfig({});
+
+		const maxHistoryCount = getConfiguredMaxHistoryCount(config);
+
+		assert.strictEqual(maxHistoryCount, undefined);
+	});
+
+	test('returns undefined max history count for non-positive values', () => {
+		const config = createConfig({ maxHistoryCount: 0 });
+
+		const maxHistoryCount = getConfiguredMaxHistoryCount(config);
+
+		assert.strictEqual(maxHistoryCount, undefined);
 	});
 });

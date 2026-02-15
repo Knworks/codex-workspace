@@ -203,6 +203,12 @@
           "type": "string",
           "default": "",
           "description": "%configuration.templatesFolder.description%"
+        },
+        "codex-workspace.maxHistoryCount": {
+          "type": "number",
+          "default": 100,
+          "minimum": 1,
+          "description": "%configuration.maxHistoryCount.description%"
         }
       }
     },

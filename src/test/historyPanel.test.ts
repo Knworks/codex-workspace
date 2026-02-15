@@ -230,6 +230,124 @@ suite('History panel manager', () => {
 		assert.strictEqual(clearedState.payload.selectedTurn?.turnId, 't2');
 	});
 
+	test('limits history list to newest maxHistoryCount entries when configured', () => {
+		const fakePanel = createFakePanel();
+		const index: HistoryIndex = {
+			turns: [
+				{
+					turnId: 't3',
+					sessionId: 's1',
+					filePath: '/tmp/s1',
+					year: '2026',
+					month: '02',
+					day: '15',
+					dateKey: '2026/02/15',
+					localTime: '[12:00:00]',
+					sortTimestampMs: 3,
+					userMessage: 'Newest',
+					agentMessages: ['a3'],
+				},
+				{
+					turnId: 't2',
+					sessionId: 's1',
+					filePath: '/tmp/s1',
+					year: '2026',
+					month: '02',
+					day: '15',
+					dateKey: '2026/02/15',
+					localTime: '[11:00:00]',
+					sortTimestampMs: 2,
+					userMessage: 'Middle',
+					agentMessages: ['a2'],
+				},
+				{
+					turnId: 't1',
+					sessionId: 's1',
+					filePath: '/tmp/s1',
+					year: '2026',
+					month: '02',
+					day: '15',
+					dateKey: '2026/02/15',
+					localTime: '[10:00:00]',
+					sortTimestampMs: 1,
+					userMessage: 'Oldest',
+					agentMessages: ['a1'],
+				},
+			],
+			days: [
+				{
+					dateKey: '2026/02/15',
+					year: '2026',
+					month: '02',
+					day: '15',
+					turns: [
+						{
+							turnId: 't3',
+							sessionId: 's1',
+							filePath: '/tmp/s1',
+							year: '2026',
+							month: '02',
+							day: '15',
+							dateKey: '2026/02/15',
+							localTime: '[12:00:00]',
+							sortTimestampMs: 3,
+							userMessage: 'Newest',
+							agentMessages: ['a3'],
+						},
+						{
+							turnId: 't2',
+							sessionId: 's1',
+							filePath: '/tmp/s1',
+							year: '2026',
+							month: '02',
+							day: '15',
+							dateKey: '2026/02/15',
+							localTime: '[11:00:00]',
+							sortTimestampMs: 2,
+							userMessage: 'Middle',
+							agentMessages: ['a2'],
+						},
+						{
+							turnId: 't1',
+							sessionId: 's1',
+							filePath: '/tmp/s1',
+							year: '2026',
+							month: '02',
+							day: '15',
+							dateKey: '2026/02/15',
+							localTime: '[10:00:00]',
+							sortTimestampMs: 1,
+							userMessage: 'Oldest',
+							agentMessages: ['a1'],
+						},
+					],
+				},
+			],
+		};
+		const manager = new HistoryPanelManager(
+			() => fakePanel.panel,
+			() => index,
+			async () => undefined,
+			async () => undefined,
+			() => 2,
+		);
+		manager.show();
+
+		fakePanel.sendMessage({ type: 'ready' });
+		const state = fakePanel.getPostedMessages()[0] as {
+			payload: {
+				days: Array<{ turns: Array<{ turnId: string }> }>;
+				selectedTurn?: { turnId: string };
+			};
+		};
+
+		assert.deepStrictEqual(
+			state.payload.days[0].turns.map((turn) => turn.turnId),
+			['t3', 't2'],
+		);
+		assert.strictEqual(state.payload.selectedTurn?.turnId, 't3');
+	});
+
 	test('copyText message writes text to clipboard and shows confirmation', async () => {
 		const fakePanel = createFakePanel();
 		const index: HistoryIndex = {
