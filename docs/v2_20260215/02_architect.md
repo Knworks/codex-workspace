@@ -13,7 +13,6 @@
 | 言語         | TypeScript                               |
 | 実行基盤       | Node.js                                  |
 | 拡張API       | VS Code Extension API                    |
-| 履歴ビューUI   | WebviewPanel（エディタ領域）               |
 | 設定パース     | TOML パーサ（例：`toml`）                     |
 | 多言語対応     | `vscode-nls`                              |
 | テスト        | Mocha + VS Code Test（`@vscode/test-*`）  |
@@ -26,7 +25,6 @@ codex-workspace/
 │   ├── extension.ts           # エントリポイント
 │   ├── views/                 # 各 Explorer の TreeDataProvider
 │   ├── services/              # ファイル操作・MCP 切替・利用可否判定
-│   ├── history/               # 会話履歴の収集・整形・WebView 表示
 │   ├── models/                # データモデル（TreeItem/MCP 等）
 │   └── i18n/                  # 日本語/英語メッセージ定義
 ├── images/                    # アイコン類
@@ -124,24 +122,6 @@ codex-workspace/
   - ソート：なし
   - バリデーション：言語判定
 
-- **会話履歴ビュー（History）**
-  - 入力：Codex Core の履歴ボタン押下、またはコマンドパレット実行
-  - 処理：
-    - 単一インスタンスの WebviewPanel を作成/再利用し、エディタ領域に表示
-    - `$CODEX_HOME/sessions/年/月/日/rollout-*.jsonl` を走査し、日付ツリーとセッション一覧を構築
-    - 各セッションから `user_message` と `task_complete.last_agent_message` のみ抽出
-    - カードタイトル（最初の `user_message`）に対して部分一致検索（大文字小文字区別なし）を適用
-    - 検索一致語を VS Code テーマ色に追従したスタイルでハイライト
-  - 出力：
-    - 左 30%：年/月/日ツリー + セッションカード（新しい順）
-    - 右 70%：会話プレビュー（Markdown レンダリング）
-  - 検索条件：カードタイトルのみ
-  - ソート：同日内は新しい順
-  - バリデーション：
-    - 非対象イベント（system/developer/reasoning/tool）は表示しない
-    - 時刻はローカル時刻 `[H:mm:ss]` 表示
-    - 同一ビューが既にある場合は新規作成しない
-
 ## 5. 🗃️データモデル
 
 | エンティティ            | 属性                  | 型       | 説明                                              | 制約 |
@@ -160,12 +140,6 @@ codex-workspace/
 | SyncSettings      | promptsFolder       | string  | Prompts の同期先フォルダ                                   | 空の場合は無効 |
 | SyncSettings      | skillsFolder        | string  | Skills の同期先フォルダ                                    | 空の場合は無効 |
 | SyncSettings      | templatesFolder     | string  | Templates の同期先フォルダ                                 | 空の場合は無効 |
-| HistorySession    | sessionId           | string  | `rollout-*.jsonl` から抽出したセッション識別子                | 必須 |
-| HistorySession    | dateKey             | string  | `YYYY/MM/DD` 形式の日付キー                            | 必須 |
-| HistorySession    | localTime           | string  | 最初の `user_message` のローカル時刻（`H:mm:ss`）          | 必須 |
-| HistorySession    | title               | string  | 最初の `user_message`                                  | 必須 |
-| HistoryTurn       | userMessage         | string  | `payload.message`                                     | 必須 |
-| HistoryTurn       | finalAgentMessage   | string  | `payload.last_agent_message`                          | 必須 |
 
 ## 6. 🖥️画面設計
 
@@ -187,13 +161,8 @@ codex-workspace/
   - 成功時に再起動が必要な旨を通知
 - **Codex Core**
   - `config.toml` / `AGENTS.md` のショートカット
-  - 操作：UI 最上部のボタンで `.codex` を開く/同期/会話履歴ビュー起動
+  - 操作：UI 最上部のボタンで `.codex` を開く/同期
   - 同期ボタンは同期先フォルダ設定が空の場合は非表示
-- **会話履歴ビュー（WebView in Editor）**
-  - 左ペイン：年/月/日ツリー + セッションカード（codicon `comment` + `[H:mm:ss]` + タイトル）
-  - 右ペイン：`user_message` と `task_complete.last_agent_message` の会話ブロック表示
-  - 検索：カードタイトルの部分一致、明示実行、クリアで解除
-  - ハイライト：VS Code テーマ色に追従
 - **利用不可時**
   - 各ビューに `? Codex Workspace を開けません: <理由>` を 1 件表示
 
@@ -204,27 +173,21 @@ flowchart TB
   subgraph VSCode[VS Code]
     UI[Codex Workspace View Container]
     Ext[Extension Host\nCodex Workspace]
-    HUI[History WebviewPanel\nEditor Area]
   end
 
   FS[~/.codex\nconfig.toml / AGENTS.md /\nprompts / skills / codex-templates]
-  SESS[$CODEX_HOME/sessions\nYYYY/MM/DD/rollout-*.jsonl]
   OS[OS Explorer / Finder]
 
   UI -->|コマンド/Tree 操作| Ext
-  UI -->|history ボタン / コマンド| HUI
-  HUI -->|postMessage| Ext
   Ext -->|Read/Write| FS
-  Ext -->|Read| SESS
   Ext -->|フォルダを開く| OS
 ```
 
 ## 8.🔌外部インターフェース
 
 - **ローカルファイルシステム**：`~/.codex` 配下の読み書き
-- **セッション履歴ファイル**：`$CODEX_HOME/sessions/.../rollout-*.jsonl` の読み取り
 - **OS Explorer/Finder**：対象ルートフォルダの表示
-- **VS Code Extension API**：TreeDataProvider、コマンド、UI メッセージ、WebviewPanel
+- **VS Code Extension API**：TreeDataProvider、コマンド、UI メッセージ
 - **VS Code Settings**：同期先フォルダ（`codexFolder` / `promptsFolder` / `skillsFolder` / `templatesFolder`）
 
 ## 9. 🧪テスト戦略
@@ -239,18 +202,11 @@ flowchart TB
   - 上書き失敗時のスキップ処理
   - 削除同期の実行
   - 削除同期メタ情報の保存と削除
-  - `rollout-*.jsonl` から `user_message` と `task_complete.last_agent_message` の抽出
-  - 日付ツリー構築（年/月/日）とセッション新しい順ソート
-  - カードタイトル検索（大文字小文字区別なし部分一致）とハイライト生成
-  - 履歴ビューの単一インスタンス制御
 - **統合テスト**
   - 各 Explorer の Tree 表示（ルート直下表示、利用不可表示）
   - 追加/削除/リネーム操作の UI フロー（未選択時のメッセージ含む）
   - 同期ボタンの表示/非表示と確認ダイアログ
   - MCP トグル後の通知表示
-  - 履歴ボタン/コマンドからエディタ領域に履歴ビューが表示される
-  - カード選択で会話プレビューが更新される
-  - 検索実行とクリアで一覧絞り込み状態が切り替わる
 - **ローカライズ確認**
   - `ja` と `en` のラベル/メッセージの切替
 
@@ -263,9 +219,6 @@ flowchart TB
   - MCP の ON/OFF をスイッチ風 UI で直感的に切り替えられる
   - アイコンによりプロンプトファイル/フォルダと MCP の視認性を高める
   - ファイルを選択した場合は通常の Explorer と同様に開いて編集できる
-  - 履歴ビューは左 30% / 右 70% の 2 ペインで表示される
-  - 検索ハイライトは VS Code テーマ色に追従する
-  - 時刻表示はローカル時刻で表示する
 - **ブランド要件**
   - 拡張名：Codex Workspace
   - タグライン：Explore and edit your .codex workspace (config.toml, AGENTS.md, prompts, skill, mcp) in VS Code.

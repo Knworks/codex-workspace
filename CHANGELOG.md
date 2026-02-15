@@ -2,6 +2,15 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
+## 1.0.3
+
+Changes
+
+- Added a conversation history WebView in the editor area, accessible from Codex Core (`history` button) and Command Palette.
+- Added session parsing from `$CODEX_HOME/sessions/.../rollout-*.jsonl` with display limited to `user_message` and `task_complete.last_agent_message`.
+- Added a 2-pane history UI (date/session list + preview), case-insensitive card-title filtering, and theme-aware search highlighting.
+- Kept history view as a single instance and brought it to front on re-open.
+
 ## 1.0.2
 
 Changes
