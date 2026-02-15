@@ -21,6 +21,7 @@ import { SelectionContext } from './services/selectionContext';
 import { TreeExpansionState } from './services/treeExpansionState';
 import { ViewFocusState } from './services/viewFocusState';
 import { getSyncSettings } from './services/settings';
+import { HistoryPanelManager } from './services/historyPanel';
 import {
 	syncCoreFilesBidirectional,
 	syncDirectoryBidirectional,
@@ -37,6 +38,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const selectionContext = new SelectionContext();
 	const expansionState = new TreeExpansionState();
 	const viewFocusState = new ViewFocusState();
+	const historyPanelManager = new HistoryPanelManager();
 
 	const coreView = vscode.window.createTreeView('codex-workspace.core', {
 		treeDataProvider: coreProvider,
@@ -96,6 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
 		...trackExpansion('prompts', promptsView),
 		...trackExpansion('skills', skillsView),
 		...trackExpansion('templates', templatesView),
+		historyPanelManager,
 	);
 
 	context.subscriptions.push(
@@ -195,6 +198,17 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 				const { codexDir } = resolveCodexPaths();
 				await revealFolder(path.join(codexDir, TEMPLATE_FOLDER_NAME));
+			}),
+	);
+
+	const openHistoryViewDisposable = vscode.commands.registerCommand(
+		'codex-workspace.openHistoryView',
+		() =>
+			runSafely(() => {
+				if (!getWorkspaceStatus().isAvailable) {
+					return;
+				}
+				historyPanelManager.show();
 			}),
 	);
 
@@ -364,6 +378,7 @@ export function activate(context: vscode.ExtensionContext) {
 		helloWorldDisposable,
 		openFileDisposable,
 		openCodexFolderDisposable,
+		openHistoryViewDisposable,
 		openPromptsFolderDisposable,
 		openSkillsFolderDisposable,
 		openTemplatesFolderDisposable,

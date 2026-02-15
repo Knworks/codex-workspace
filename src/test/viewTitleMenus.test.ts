@@ -70,6 +70,10 @@ suite('View title menus', () => {
 				command: 'codex-workspace.openCodexFolder',
 				viewId: 'codex-workspace.core',
 			},
+			{
+				command: 'codex-workspace.openHistoryView',
+				viewId: 'codex-workspace.core',
+			},
 		];
 
 		const syncCommands = [

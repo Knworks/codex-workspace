@@ -29,6 +29,8 @@ suite('Localization keys', () => {
 			'message.mcpToggleUpdated',
 			'message.syncConfirm',
 			'message.syncSkipped',
+			'message.historyPanelTitle',
+			'message.historyPanelPlaceholder',
 			'message.inputFileName',
 			'message.inputFolderName',
 			'message.inputRenameName',

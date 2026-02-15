@@ -29,7 +29,8 @@
     "onView:codex-workspace.prompts",
     "onView:codex-workspace.skills",
     "onView:codex-workspace.templates",
-    "onView:codex-workspace.mcp"
+    "onView:codex-workspace.mcp",
+    "onCommand:codex-workspace.openHistoryView"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -79,6 +80,11 @@
         "command": "codex-workspace.openCodexFolder",
         "title": "%command.openCodexFolder%",
         "icon": "$(folder-opened)"
+      },
+      {
+        "command": "codex-workspace.openHistoryView",
+        "title": "%command.openHistoryView%",
+        "icon": "$(history)"
       },
       {
         "command": "codex-workspace.openPromptsFolder",
@@ -283,9 +289,14 @@
           "group": "navigation@6"
         },
         {
+          "command": "codex-workspace.openHistoryView",
+          "when": "view == 'codex-workspace.core'",
+          "group": "navigation@7"
+        },
+        {
           "command": "codex-workspace.syncCore",
           "when": "view == 'codex-workspace.core' && config.codex-workspace.codexFolder",
-          "group": "navigation@7"
+          "group": "navigation@8"
         }
       ]
     }

@@ -104,6 +104,14 @@ export const messages = {
 			'Skipped {0} files due to sync errors.',
 			String(count),
 		),
+	historyPanelTitle: localize(
+		'message.historyPanelTitle',
+		'Codex Conversation History',
+	),
+	historyPanelPlaceholder: localize(
+		'message.historyPanelPlaceholder',
+		'Conversation history view is ready.',
+	),
 	helloWorld: localize(
 		'message.helloWorld',
 		'Hello World from Codex Workspace!',
