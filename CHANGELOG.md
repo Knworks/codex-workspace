@@ -2,6 +2,12 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
+## 1.0.4
+
+Fixes
+
+- Fixed an issue where icons in the history view were not displayed after publishing.
+
 ## 1.0.3
 
 Changes
