@@ -1,7 +1,7 @@
 ---
 id: `HIST-002`
 title: `rollout JSONL解析と履歴インデックス生成`
-status: Todo
+status: Done
 ---
 
 # 🧾`HIST-002 rollout JSONL解析と履歴インデックス生成`
@@ -25,11 +25,11 @@ status: Todo
 ## ✅AC（受け入れ基準）
 
 - AC：必要十分な項目数（最低3、目安5〜10、上限なし）
-  - [ ] [機能] `$CODEX_HOME/sessions/年/月/日/rollout-*.jsonl` を走査してセッション一覧を生成できる
-  - [ ] [機能] カードタイトルが最初の `user_message` で生成される
-  - [ ] [機能] `task_complete.last_agent_message` を最終回答として取得できる
-  - [ ] [UI/UX] カード時刻がローカル時刻 `[H:mm:ss]` で表示可能な形式で提供される
-  - [ ] [テスト] 抽出対象限定、ソート、日付ツリー生成のユニットテストが追加される
+  - [x] [機能] `$CODEX_HOME/sessions/年/月/日/rollout-*.jsonl` を走査してセッション一覧を生成できる
+  - [x] [機能] カードタイトルが最初の `user_message` で生成される
+  - [x] [機能] `task_complete.last_agent_message` を最終回答として取得できる
+  - [x] [UI/UX] カード時刻がローカル時刻 `[H:mm:ss]` で表示可能な形式で提供される
+  - [x] [テスト] 抽出対象限定、ソート、日付ツリー生成のユニットテストが追加される
 
 ## 🔗依存関係
 

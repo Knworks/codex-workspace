@@ -1,7 +1,7 @@
 ---
 id: `HIST-001`
 title: `履歴ビュー起動導線と単一インスタンス制御`
-status: Reviewing
+status: Done
 ---
 
 # 🧾`HIST-001 履歴ビュー起動導線と単一インスタンス制御`
