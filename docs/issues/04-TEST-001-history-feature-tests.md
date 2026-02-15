@@ -13,22 +13,28 @@ status: Todo
 ## 📌要件
 
 - 履歴ビュー起動導線、単一インスタンス、データ抽出、検索挙動のテストを追加する。
-- 抽出対象外イベントが表示されないことを検証する。
+- `task_started/task_complete` 境界、`turn_id` フォールバック、`task_complete` 欠落時の確定を検証する。
+- `maxHistoryCount` と `incrudeReasoningMessage` の設定反映を検証する。
 - 既存 Explorer/同期機能の非回帰観点を追加する。
 
 ## 🛠️スコープ / 作業内容
 
 - 履歴関連サービスのユニットテストを追加する。
 - WebView 連携の統合テストを追加する。
+- 設定値に応じた一覧制御・表示制御のテストを追加する。
 - 既存テスト群に非回帰ケース（既存コマンド/ビュー表示）を追加する。
 
 ## ✅AC（受け入れ基準）
 
 - AC：必要十分な項目数（最低3、目安5〜10、上限なし）
   - [ ] [機能] 履歴ボタン/コマンドの双方で履歴ビュー起動テストが通過する
-  - [ ] [機能] 抽出対象が `user_message` と `task_complete.last_agent_message` のみに限定される
+  - [ ] [機能] 抽出対象が `user_message` / `agent_message` / `response_item.reasoning` に限定される
+  - [ ] [機能] `task_started/task_complete` の同一 `turn_id` でタスクが構築される
+  - [ ] [機能] `task_complete` 欠落時にアクティブタスクが確定される
   - [ ] [機能] 検索実行とクリアで一覧状態が正しく遷移する
   - [ ] [UI/UX] ローカル時刻表示とテーマ追従ハイライトの確認ケースがある
+  - [ ] [UI/UX] `incrudeReasoningMessage` の ON/OFF で思考過程表示が切り替わる
+  - [ ] [テスト] `maxHistoryCount` による表示件数制御のテストがある
   - [ ] [テスト] 既存 Explorer と同期機能の主要ケースに回帰がない
 
 ## 🔗依存関係
@@ -39,4 +45,4 @@ status: Todo
 
 - ユニット / 統合 / E2E
 - 検証方法：
-  - CI で履歴関連テストと既存テストを同時実行し、非回帰を確認する
+  - CI で履歴関連テストと既存テストを同時実行し、仕様準拠と非回帰を確認する

@@ -8,15 +8,16 @@
 
 ## 2. 🧰技術スタック
 
-| 階層         | 技術・ライブラリ                                |
-| ---------- | --------------------------------------- |
-| 言語         | TypeScript                               |
-| 実行基盤       | Node.js                                  |
-| 拡張API       | VS Code Extension API                    |
-| 履歴ビューUI   | WebviewPanel（エディタ領域）               |
-| 設定パース     | TOML パーサ（例：`toml`）                     |
-| 多言語対応     | `vscode-nls`                              |
-| テスト        | Mocha + VS Code Test（`@vscode/test-*`）  |
+| 階層 | 技術・ライブラリ |
+| --- | --- |
+| 言語 | TypeScript |
+| 実行基盤 | Node.js |
+| 拡張API | VS Code Extension API |
+| 履歴ビューUI | WebviewPanel（エディタ領域） |
+| 設定パース | TOML パーサ（例：`toml`） |
+| 多言語対応 | `vscode-nls` |
+| アイコン | `@vscode/codicons` |
+| テスト | Mocha + VS Code Test（`@vscode/test-*`） |
 
 ## 3. 🗂️プロジェクト構造
 
@@ -26,7 +27,9 @@ codex-workspace/
 │   ├── extension.ts           # エントリポイント
 │   ├── views/                 # 各 Explorer の TreeDataProvider
 │   ├── services/              # ファイル操作・MCP 切替・利用可否判定
-│   ├── history/               # 会話履歴の収集・整形・WebView 表示
+│   │   ├── historyService.ts  # 会話履歴の走査・抽出・インデックス化
+│   │   ├── historyPanel.ts    # 履歴 WebView UI とメッセージング
+│   │   └── settings.ts        # 設定値読み取り（同期先/履歴設定）
 │   ├── models/                # データモデル（TreeItem/MCP 等）
 │   └── i18n/                  # 日本語/英語メッセージ定義
 ├── images/                    # アイコン類
@@ -39,7 +42,7 @@ codex-workspace/
 - **共通（利用可否判定）**
   - 入力：`~/.codex` と `config.toml` の存在、`config.toml` の読み取り結果
   - 処理：存在チェックと TOML パース
-  - 出力：利用可否ステータス、不可時は理由表示（`? Codex Workspace を開けません: <理由>`）
+  - 出力：利用可否ステータス、不可時は理由表示（`⚠ Codex Workspace を開けません: <理由>`）
   - 検索条件：なし
   - ソート：なし
   - バリデーション：`config.toml` が TOML として parse 可能であること
@@ -128,44 +131,62 @@ codex-workspace/
   - 入力：Codex Core の履歴ボタン押下、またはコマンドパレット実行
   - 処理：
     - 単一インスタンスの WebviewPanel を作成/再利用し、エディタ領域に表示
-    - `$CODEX_HOME/sessions/年/月/日/rollout-*.jsonl` を走査し、日付ツリーとセッション一覧を構築
-    - 各セッションから `user_message` と `task_complete.last_agent_message` のみ抽出
-    - カードタイトル（最初の `user_message`）に対して部分一致検索（大文字小文字区別なし）を適用
-    - 検索一致語を VS Code テーマ色に追従したスタイルでハイライト
+    - `$CODEX_HOME/sessions/年/月/日/rollout-*.jsonl` を再帰走査し、新形式イベントのみを解析
+    - `event_msg.task_started` でタスク開始、`event_msg.task_complete` で同一 `turn_id` タスクを確定
+    - タスク内で `event_msg.user_message`（最初の 1 件）、`event_msg.agent_message`（複数）、`response_item.reasoning`（複数）を抽出
+    - `turn_id` 欠落イベントは `turn_context.turn_id` または単一アクティブタスクへフォールバックして関連付ける
+    - `task_complete` 欠落時は、ファイル末尾時点のアクティブタスクを確定して取りこぼしを防ぐ
+    - 一覧表示用タイトルはユーザーメッセージ全文を検索対象とし、表示のみ最大 100 文字で省略（`HISTORY_MESSAGE_PREVIEW_MAX_CHARS`）
+    - 検索は入力時または Enter で実行し、クリアボタンで解除
+    - 右ペインはユーザー本文 + AIタイムラインを表示。AIタイムラインは assistant/reasoning を時系列で統合表示
+    - reasoning は `details/summary` で折りたたみ表示し、設定 `incrudeReasoningMessage` が false の場合は非表示
+    - 表示件数は全体新着順の先頭から `maxHistoryCount` 件に制限（明示設定時のみ、未設定時は全件）
   - 出力：
-    - 左 30%：年/月/日ツリー + セッションカード（新しい順）
-    - 右 70%：会話プレビュー（Markdown レンダリング）
-  - 検索条件：カードタイトルのみ
-  - ソート：同日内は新しい順
+    - 左 30%：日付フォルダ（`yyyy/mm/dd`） + タスクカード（新しい順）
+    - 右 70%：選択タスクの会話プレビュー（Markdown レンダリング）
+  - 検索条件：ユーザーメッセージ全文への部分一致（大文字小文字を区別しない）
+  - ソート：全体新着順、同日内新着順
   - バリデーション：
-    - 非対象イベント（system/developer/reasoning/tool）は表示しない
-    - 時刻はローカル時刻 `[H:mm:ss]` 表示
+    - `user_message` がないタスクは除外
+    - 時刻は各メッセージごとにローカル時刻 `[H:mm:ss]` で表示
     - 同一ビューが既にある場合は新規作成しない
 
 ## 5. 🗃️データモデル
 
-| エンティティ            | 属性                  | 型       | 説明                                              | 制約 |
-| ----------------- | ------------------- | ------- | ----------------------------------------------- | ---- |
-| WorkspaceStatus   | isAvailable         | boolean | 利用可否                                           | false の場合は理由を必須 |
-| WorkspaceStatus   | reason              | string  | 利用不可理由                                         | 利用不可時のみ |
-| TreeNode          | id                  | string  | TreeItem の識別子                                   | 一意 |
-| TreeNode          | path                | string  | 対象ファイル/フォルダの絶対パス                           | 実在パス |
-| TreeNode          | kind                | string  | `prompts/skills/templates/core/mcp`               | 固定値 |
-| TreeNode          | nodeType            | string  | `file` / `folder` / `command` / `mcpServer`       | 固定値 |
-| McpServer         | id                  | string  | `[mcp_servers.<id>]` の `<id>`                    | 必須 |
-| McpServer         | enabled             | boolean | MCP の有効/無効                                     | 省略時は true |
-| McpServer         | enabledLineIndex    | number  | `enabled` 行の位置（未定義時は `null`）               | optional |
-| TemplateCandidate | path                | string  | テンプレートファイルのパス                                 | 隠しファイル除外 |
-| SyncSettings      | codexFolder         | string  | Codex Core の同期先フォルダ                                 | 空の場合は無効 |
-| SyncSettings      | promptsFolder       | string  | Prompts の同期先フォルダ                                   | 空の場合は無効 |
-| SyncSettings      | skillsFolder        | string  | Skills の同期先フォルダ                                    | 空の場合は無効 |
-| SyncSettings      | templatesFolder     | string  | Templates の同期先フォルダ                                 | 空の場合は無効 |
-| HistorySession    | sessionId           | string  | `rollout-*.jsonl` から抽出したセッション識別子                | 必須 |
-| HistorySession    | dateKey             | string  | `YYYY/MM/DD` 形式の日付キー                            | 必須 |
-| HistorySession    | localTime           | string  | 最初の `user_message` のローカル時刻（`H:mm:ss`）          | 必須 |
-| HistorySession    | title               | string  | 最初の `user_message`                                  | 必須 |
-| HistoryTurn       | userMessage         | string  | `payload.message`                                     | 必須 |
-| HistoryTurn       | finalAgentMessage   | string  | `payload.last_agent_message`                          | 必須 |
+| エンティティ | 属性 | 型 | 説明 | 制約 |
+| --- | --- | --- | --- | --- |
+| WorkspaceStatus | isAvailable | boolean | 利用可否 | false の場合は理由を必須 |
+| WorkspaceStatus | reason | string | 利用不可理由 | 利用不可時のみ |
+| TreeNode | id | string | TreeItem の識別子 | 一意 |
+| TreeNode | path | string | 対象ファイル/フォルダの絶対パス | 実在パス |
+| TreeNode | kind | string | `prompts/skills/templates/core/mcp` | 固定値 |
+| TreeNode | nodeType | string | `file` / `folder` / `command` / `mcpServer` | 固定値 |
+| McpServer | id | string | `[mcp_servers.<id>]` の `<id>` | 必須 |
+| McpServer | enabled | boolean | MCP の有効/無効 | 省略時は true |
+| McpServer | enabledLineIndex | number | `enabled` 行の位置（未定義時は `null`） | optional |
+| TemplateCandidate | path | string | テンプレートファイルのパス | 隠しファイル除外 |
+| SyncSettings | codexFolder | string | Codex Core の同期先フォルダ | 空の場合は無効 |
+| SyncSettings | promptsFolder | string | Prompts の同期先フォルダ | 空の場合は無効 |
+| SyncSettings | skillsFolder | string | Skills の同期先フォルダ | 空の場合は無効 |
+| SyncSettings | templatesFolder | string | Templates の同期先フォルダ | 空の場合は無効 |
+| HistoryAiTimelineItem | kind | `'assistant' \| 'reasoning'` | AIタイムライン項目種別 | 固定値 |
+| HistoryAiTimelineItem | message | string | 表示メッセージ | 空文字不可 |
+| HistoryAiTimelineItem | localTime | string | ローカル時刻（`[H:mm:ss]`） | 必須 |
+| HistoryAiTimelineItem | sortTimestampMs | number | 時系列ソート用タイムスタンプ | 必須 |
+| HistoryAiTimelineItem | sequence | number | 同時刻時の安定ソート用連番 | 0 以上 |
+| HistoryTurnRecord | turnId | string | 表示用タスク識別子（`sessionId:taskTurnId`） | 必須 |
+| HistoryTurnRecord | taskTurnId | string | タスク境界 `turn_id` | optional |
+| HistoryTurnRecord | sessionId | string | `rollout-*.jsonl` 由来の識別子 | 必須 |
+| HistoryTurnRecord | dateKey | string | `yyyy/mm/dd` | 必須 |
+| HistoryTurnRecord | userMessage | string | ユーザー本文（全文） | 必須 |
+| HistoryTurnRecord | userMessageLocalTime | string | ユーザー本文のローカル時刻 | optional |
+| HistoryTurnRecord | agentMessages | string[] | AI回答本文一覧 | 0 件以上 |
+| HistoryTurnRecord | agentMessageLocalTimes | string[] | AI回答時刻一覧 | 件数一致 |
+| HistoryTurnRecord | reasoningMessages | string[] | 思考過程本文一覧 | 0 件以上 |
+| HistoryTurnRecord | reasoningMessageLocalTimes | string[] | 思考過程時刻一覧 | 件数一致 |
+| HistoryTurnRecord | aiTimeline | HistoryAiTimelineItem[] | AI回答/思考過程の統合タイムライン | 時刻昇順 |
+| HistoryIndex | turns | HistoryTurnRecord[] | 全タスク一覧（新しい順） | 必須 |
+| HistoryIndex | days | HistoryDayNode[] | `dateKey` 単位の表示ノード | 必須 |
 
 ## 6. 🖥️画面設計
 
@@ -190,12 +211,15 @@ codex-workspace/
   - 操作：UI 最上部のボタンで `.codex` を開く/同期/会話履歴ビュー起動
   - 同期ボタンは同期先フォルダ設定が空の場合は非表示
 - **会話履歴ビュー（WebView in Editor）**
-  - 左ペイン：年/月/日ツリー + セッションカード（codicon `comment` + `[H:mm:ss]` + タイトル）
-  - 右ペイン：`user_message` と `task_complete.last_agent_message` の会話ブロック表示
-  - 検索：カードタイトルの部分一致、明示実行、クリアで解除
-  - ハイライト：VS Code テーマ色に追従
+  - 上部ペイン：検索テキストボックス + クリアボタン（codicon `clear-all`）
+  - 下部左ペイン：日付フォルダ（`yyyy/mm/dd`） + タスクカード（`💬 [H:mm:ss]` + 最大 100 文字のユーザーメッセージ）
+  - 下部右ペイン：選択タスクの会話プレビュー
+    - ユーザーメッセージ枠（codicon `account` + 時刻 + コピー）
+    - AIメッセージ枠（codicon `hubot` + 時刻 + コピー）
+    - 思考過程枠（codicon `hubot` + 時刻、折りたたみ）
+  - 検索：ユーザーメッセージ全文を対象に部分一致絞り込み、一致語ハイライト、クリアで解除
 - **利用不可時**
-  - 各ビューに `? Codex Workspace を開けません: <理由>` を 1 件表示
+  - 各ビューに `⚠ Codex Workspace を開けません: <理由>` を 1 件表示
 
 ## 7. 🗺️システム構成図
 
@@ -225,7 +249,9 @@ flowchart TB
 - **セッション履歴ファイル**：`$CODEX_HOME/sessions/.../rollout-*.jsonl` の読み取り
 - **OS Explorer/Finder**：対象ルートフォルダの表示
 - **VS Code Extension API**：TreeDataProvider、コマンド、UI メッセージ、WebviewPanel
-- **VS Code Settings**：同期先フォルダ（`codexFolder` / `promptsFolder` / `skillsFolder` / `templatesFolder`）
+- **VS Code Settings**：
+  - 同期先フォルダ（`codexFolder` / `promptsFolder` / `skillsFolder` / `templatesFolder`）
+  - 履歴表示設定（`maxHistoryCount` / `incrudeReasoningMessage`）
 
 ## 9. 🧪テスト戦略
 
@@ -239,9 +265,11 @@ flowchart TB
   - 上書き失敗時のスキップ処理
   - 削除同期の実行
   - 削除同期メタ情報の保存と削除
-  - `rollout-*.jsonl` から `user_message` と `task_complete.last_agent_message` の抽出
-  - 日付ツリー構築（年/月/日）とセッション新しい順ソート
-  - カードタイトル検索（大文字小文字区別なし部分一致）とハイライト生成
+  - `rollout-*.jsonl` から task 境界（`task_started/task_complete`）で 1 タスク単位に抽出
+  - `turn_id` 欠落時のフォールバック解決
+  - `task_complete` 欠落時の末尾確定
+  - AI回答/思考過程の時系列統合（`aiTimeline`）とメッセージ別時刻
+  - `maxHistoryCount` と `incrudeReasoningMessage` の設定反映
   - 履歴ビューの単一インスタンス制御
 - **統合テスト**
   - 各 Explorer の Tree 表示（ルート直下表示、利用不可表示）
@@ -263,7 +291,7 @@ flowchart TB
   - MCP の ON/OFF をスイッチ風 UI で直感的に切り替えられる
   - アイコンによりプロンプトファイル/フォルダと MCP の視認性を高める
   - ファイルを選択した場合は通常の Explorer と同様に開いて編集できる
-  - 履歴ビューは左 30% / 右 70% の 2 ペインで表示される
+  - 履歴ビューは上部検索 + 下部 2 ペイン（左 30% / 右 70%）で表示される
   - 検索ハイライトは VS Code テーマ色に追従する
   - 時刻表示はローカル時刻で表示する
 - **ブランド要件**

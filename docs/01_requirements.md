@@ -35,7 +35,12 @@
 | `enabled`     | MCP サーバーの有効/無効を表す設定値。                                   | 省略時は ON 扱い                                     |
 | `rollout-*.jsonl` | Codex CLI のセッション履歴ファイル。                            | `$CODEX_HOME/sessions/年/月/日/` 配下に保存される |
 | `user_message` | 履歴イベントのうち、ユーザーの発話本文。                                 | `type:"event_msg"` かつ `payload.type:"user_message"` |
-| `task_complete` | 履歴イベントのうち、タスク完了時の最終回答。                            | `type:"event_msg"` かつ `payload.type:"task_complete"` |
+| `task_started / task_complete` | 履歴タスクの開始/終了イベント。                            | `type:"event_msg"` かつ `payload.type:"task_started"` / `payload.type:"task_complete"` |
+| `agent_message` | 履歴イベントのうち、AI の回答本文。                            | `type:"event_msg"` かつ `payload.type:"agent_message"` |
+| `response_item(reasoning)` | 履歴イベントのうち、思考過程本文。                            | `type:"response_item"` かつ `payload.type:"reasoning"` |
+| `turn_id` | 1タスクを識別する ID。                            | `task_started`〜`task_complete` を同一 `turn_id` で関連付ける |
+| `maxHistoryCount` | 履歴一覧の最大表示件数設定。                            | 明示設定時のみ適用。未設定時は全件表示 |
+| `incrudeReasoningMessage` | 思考過程表示の ON/OFF 設定。                            | 既定値 `false` |
 
 ---
 
@@ -58,9 +63,9 @@
 * ユーザーは Template Explorer の同期ボタンを押下することで、`.codex/codex-templates` と同期フォルダの間で最終更新日時が新しいファイルを正として相互同期できる。
 * ユーザーは Codex Core Explorer の履歴ボタン（codicon: `history`）から、エディタ領域に会話履歴ビューを開ける。
 * ユーザーはコマンドパレットから会話履歴ビューを開ける。
-* ユーザーは左ペインの年/月/日ツリーとセッションカードを使い、日単位で履歴を新しい順に閲覧できる。
-* ユーザーはセッションカードを選択し、右ペインで `user_message` と `task_complete.last_agent_message` のみを会話形式で確認できる。
-* ユーザーはカードタイトルを対象に検索し、部分一致で一覧を絞り込み、ハイライト表示で一致箇所を確認できる。
+* ユーザーは左ペインの日付フォルダ（`yyyy/mm/dd`）とタスクカードを使い、履歴を新しい順に閲覧できる。
+* ユーザーはセッションカードを選択し、右ペインでユーザーメッセージ全文と AI メッセージ/思考過程を時系列で確認できる。
+* ユーザーはユーザーメッセージ全文を対象に検索し、部分一致で一覧を絞り込み、カード表示で一致箇所をハイライト表示できる。
 * ユーザーは検索クリアで全件表示へ戻せる。
 
 ---
@@ -282,27 +287,35 @@
 * データソース / 解析対象
   * 履歴データは `$CODEX_HOME/sessions/.../rollout-*.jsonl` を正とする。
   * フォルダ階層は `年/月/日` を前提とする。
-  * 右ペインの表示対象は以下のみとする。
-    * `type:"event_msg"` かつ `payload.type:"user_message"` の `payload.message`
-    * `type:"event_msg"` かつ `payload.type:"task_complete"` の `payload.last_agent_message`
-  * システムプロンプト、developer 指示、reasoning、tool 実行ログ等は表示しない。
+  * 新形式イベントのみを解析対象とする（旧形式ログは対象外）。
+  * 1 タスクは `type:"event_msg"` かつ `payload.type:"task_started"`〜`payload.type:"task_complete"` の同一 `turn_id` 区間で定義する。
+  * 1 タスク内の抽出対象は以下とする。
+    * ユーザー: `type:"event_msg"` かつ `payload.type:"user_message"`（最初の 1 件）
+    * AI回答: `type:"event_msg"` かつ `payload.type:"agent_message"`（複数件）
+    * 思考過程: `type:"response_item"` かつ `payload.type:"reasoning"`（複数件）
+  * `turn_id` が欠落したイベントは、`turn_context.turn_id` または単一アクティブタスクにフォールバックして紐づける。
+  * `task_complete` が欠落する場合でも、ファイル末尾時点のアクティブタスクを確定する。
 * 画面構成
-  * 左 30% / 右 70% の 2 ペインで表示する。
-  * 左ペインは年/月/日ツリーとセッションカード一覧を表示する。
-  * 右ペインは選択セッションの会話プレビュー（Markdown レンダリング）を表示する。
+  * 上部に検索エリア、下部に左右 2 ペイン（左 30% / 右 70%）を表示する。
+  * 左ペインは日付フォルダ（`yyyy/mm/dd`）とタスクカード一覧を表示する。
+  * 右ペインは選択タスクの会話プレビュー（Markdown レンダリング）を表示する。
 * 左ペイン（ツリー＋カード）
-  * 年/月/日ラベルは `2026` / `02` / `15` 形式で表示する。
-  * 選択日配下の `rollout-*.jsonl` を新しい順でカード表示する。
-  * カードタイトルは最初の `user_message` のみとする。
-  * カード先頭に codicon `comment`、ローカル時刻 `[H:mm:ss]`、最初の `user_message` を表示する。
+  * 日付フォルダは `yyyy/mm/dd` 単位で表示する。
+  * タスクカードは新しい順で表示する。
+  * カードタイトルは `user_message` の全文を検索対象とし、表示は最大 100 文字で省略する。
+  * カード先頭にローカル時刻 `[H:mm:ss]` を表示する。
+  * 表示件数は「全体の最新タスク件数」を `maxHistoryCount`（=1タスク=1ユーザーメッセージ）で制限する。
+    * 明示設定時のみ適用し、未設定時は全件表示する。
 * 右ペイン（会話プレビュー）
-  * カード選択時に `user_message` を時系列で会話ブロック表示する。
-  * 各 `user_message` ブロックの後に、当該セッションの `task_complete.last_agent_message` を表示する。
-  * ブロック間は余白と薄い境界線で区切る。
+  * タスク選択時に `user_message` 全文を表示する。
+  * AI回答（`agent_message`）と思考過程（`response_item.reasoning`）は同一タイムラインで時系列表示する。
+  * 思考過程は折りたたみ表示（chevron）とする。
+  * `incrudeReasoningMessage=false` の場合、思考過程は表示しない。
+  * ユーザーメッセージと AI回答にコピー操作（codicon `copy`）を提供する。
 * 検索
-  * 対象はカードタイトル（最初の `user_message`）のみとする。
+  * 対象は `user_message` 全文とする。
   * 一致ルールは大文字小文字を区別しない部分一致とする。
-  * 検索は明示実行（検索ボタンまたは Enter）で実行する。
+  * 検索は入力時および Enter で実行する。
   * 結果はツリー絞り込み状態で表示し、一致語をハイライトする。
   * クリア操作で絞り込みを解除する。
   * 検索一致箇所への自動スクロールは実装しない。
@@ -340,7 +353,7 @@
 
   * VS Code 拡張機能として開発する（TypeScript/Node.js および VS Code Extension API を想定）。
   * `.codex` はホームディレクトリ直下の `~/.codex` を対象とし、プロジェクトローカル（`workspace/.codex`）は扱わない。
-  * 拡張のユーザー設定項目（設定値）は同期先フォルダ設定のみ提供する。
+  * 拡張のユーザー設定項目（設定値）は同期先フォルダ設定に加え、履歴表示設定（`maxHistoryCount` / `incrudeReasoningMessage`）を提供する。
   * 会話履歴データの参照先は `$CODEX_HOME/sessions/.../rollout-*.jsonl` のみとする。
 * 外部システムとの連携は必要ですか？
 
@@ -359,7 +372,7 @@
   * OS 依存のファイル名禁則（特に Windows）による作成/リネーム失敗（禁止文字 `_` 置換で緩和）。
   * `.codex/prompts` / `.codex/skills` / `.codex/codex-templates` の初回自動作成により、ユーザーの意図しないディレクトリ生成が発生する可能性（初回操作時に限定）。
   * 多言語対応により、文言の更新や追加時に翻訳漏れが発生する可能性。
-  * `rollout-*.jsonl` のイベント形式変化により、`user_message` と `task_complete.last_agent_message` の抽出に失敗する可能性。
+  * `rollout-*.jsonl` のイベント形式変化により、`task_started/task_complete` 境界や `turn_id` 紐づけの抽出に失敗する可能性。
   * 会話履歴件数が多い日の一覧描画で、表示性能が低下する可能性。
 * 解決すべき前提条件や依存関係
 
