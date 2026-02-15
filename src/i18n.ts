@@ -112,6 +112,27 @@ export const messages = {
 		'message.historyPanelPlaceholder',
 		'Conversation history view is ready.',
 	),
+	historySearchPlaceholder: localize(
+		'message.historySearchPlaceholder',
+		'Search',
+	),
+	historySearch: localize('message.historySearch', 'Search'),
+	historyClear: localize('message.historyClear', 'Clear'),
+	historyNoResult: localize(
+		'message.historyNoResult',
+		'No sessions found.',
+	),
+	historyNoPreview: localize(
+		'message.historyNoPreview',
+		'Select a session card to preview the conversation.',
+	),
+	historyCopy: localize('message.historyCopy', 'Copy'),
+	historyCopied: localize('message.historyCopied', 'Copied to clipboard.'),
+	historyUserLabel: localize('message.historyUserLabel', 'User'),
+	historyAssistantLabel: localize(
+		'message.historyAssistantLabel',
+		'Assistant',
+	),
 	helloWorld: localize(
 		'message.helloWorld',
 		'Hello World from Codex Workspace!',

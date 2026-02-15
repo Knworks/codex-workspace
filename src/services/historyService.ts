@@ -4,39 +4,31 @@ import path from 'path';
 
 type RecordLike = Record<string, unknown>;
 
-export type HistorySessionRecord = {
+export type HistoryTurnRecord = {
+	turnId: string;
 	sessionId: string;
 	filePath: string;
 	year: string;
 	month: string;
 	day: string;
 	dateKey: string;
-	title: string;
 	localTime: string;
 	sortTimestampMs: number;
-	userMessages: string[];
-	finalAgentMessage: string;
+	userMessage: string;
+	agentMessages: string[];
 };
 
 export type HistoryDayNode = {
-	day: string;
 	dateKey: string;
-	sessions: HistorySessionRecord[];
-};
-
-export type HistoryMonthNode = {
-	month: string;
-	days: HistoryDayNode[];
-};
-
-export type HistoryYearNode = {
 	year: string;
-	months: HistoryMonthNode[];
+	month: string;
+	day: string;
+	turns: HistoryTurnRecord[];
 };
 
 export type HistoryIndex = {
-	years: HistoryYearNode[];
-	sessions: HistorySessionRecord[];
+	days: HistoryDayNode[];
+	turns: HistoryTurnRecord[];
 };
 
 const ROLLOUT_FILE_PATTERN = /^rollout-.*\.jsonl$/;
@@ -60,14 +52,11 @@ function compareLabelDesc(a: string, b: string): number {
 	return b.localeCompare(a, undefined, { numeric: true });
 }
 
-function compareSessionDesc(
-	left: HistorySessionRecord,
-	right: HistorySessionRecord,
-): number {
+function compareTurnDesc(left: HistoryTurnRecord, right: HistoryTurnRecord): number {
 	if (right.sortTimestampMs !== left.sortTimestampMs) {
 		return right.sortTimestampMs - left.sortTimestampMs;
 	}
-	return right.filePath.localeCompare(left.filePath);
+	return right.turnId.localeCompare(left.turnId);
 }
 
 function collectRolloutFileEntries(
@@ -77,12 +66,7 @@ function collectRolloutFileEntries(
 		return [];
 	}
 
-	const entries: Array<{
-		filePath: string;
-		year: string;
-		month: string;
-		day: string;
-	}> = [];
+	const entries: Array<{ filePath: string; year: string; month: string; day: string }> = [];
 
 	const walk = (currentDir: string): void => {
 		for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
@@ -137,17 +121,102 @@ function resolveSessionId(filePath: string): string {
 		: baseName;
 }
 
-function parseRolloutSessionRecord(
+function extractText(value: unknown): string | undefined {
+	if (typeof value === 'string') {
+		return value;
+	}
+	if (Array.isArray(value)) {
+		const texts = value
+			.map((entry) => extractText(entry))
+			.filter((text): text is string => Boolean(text && text.length > 0));
+		return texts.length > 0 ? texts.join('\n') : undefined;
+	}
+	if (!isRecordLike(value)) {
+		return undefined;
+	}
+	if (typeof value.text === 'string') {
+		return value.text;
+	}
+	if (typeof value.message === 'string') {
+		return value.message;
+	}
+	if (typeof value.content === 'string') {
+		return value.content;
+	}
+	if (Array.isArray(value.content)) {
+		return extractText(value.content);
+	}
+	if (Array.isArray(value.parts)) {
+		return extractText(value.parts);
+	}
+	return undefined;
+}
+
+function parseUserMessage(payload: RecordLike): string | undefined {
+	return extractText(payload.message);
+}
+
+function parseAgentMessage(payload: RecordLike): string | undefined {
+	return extractText(payload.message) ?? extractText(payload.content);
+}
+
+function parseRolloutTurns(
 	filePath: string,
 	year: string,
 	month: string,
 	day: string,
-): HistorySessionRecord | undefined {
+): HistoryTurnRecord[] {
 	const events = readRolloutEvents(filePath);
-	const userMessages: string[] = [];
-	let title: string | undefined;
-	let firstUserTimestampMs: number | undefined;
-	let finalAgentMessage = '';
+	const sessionId = resolveSessionId(filePath);
+	const turns: HistoryTurnRecord[] = [];
+	let current:
+		| {
+				userMessage: string;
+				sortTimestampMs: number;
+				agentMessages: string[];
+		  }
+		| undefined;
+	let currentTurnIndex = 0;
+
+	const isDuplicateUnansweredTurn = (
+		lastTurn: HistoryTurnRecord | undefined,
+		nextUserMessage: string,
+	): boolean =>
+		Boolean(
+			lastTurn &&
+			lastTurn.userMessage === nextUserMessage &&
+			lastTurn.agentMessages.length === 0,
+		);
+
+	const finalizeCurrent = (): void => {
+		if (!current) {
+			return;
+		}
+		const nextTurn: HistoryTurnRecord = {
+			turnId: `${sessionId}:${currentTurnIndex}`,
+			sessionId,
+			filePath,
+			year,
+			month,
+			day,
+			dateKey: `${year}/${month}/${day}`,
+			localTime: formatLocalTime(current.sortTimestampMs),
+			sortTimestampMs: current.sortTimestampMs,
+			userMessage: current.userMessage,
+			agentMessages: current.agentMessages,
+		};
+		const lastTurn = turns.at(-1);
+		if (
+			nextTurn.agentMessages.length === 0 &&
+			isDuplicateUnansweredTurn(lastTurn, nextTurn.userMessage)
+		) {
+			current = undefined;
+			return;
+		}
+		turns.push(nextTurn);
+		currentTurnIndex += 1;
+		current = undefined;
+	};
 
 	for (const event of events) {
 		if (event.type !== 'event_msg') {
@@ -158,76 +227,61 @@ function parseRolloutSessionRecord(
 			continue;
 		}
 
-		if (payload.type === 'user_message' && typeof payload.message === 'string') {
-			userMessages.push(payload.message);
-			if (!title) {
-				title = payload.message;
-				firstUserTimestampMs = toTimestampMs(event.timestamp);
+		if (payload.type === 'user_message') {
+			const userMessage = parseUserMessage(payload);
+			if (!userMessage) {
+				continue;
 			}
+			const timestampMs = toTimestampMs(event.timestamp);
+			if (
+				current &&
+				current.agentMessages.length === 0 &&
+				current.userMessage === userMessage
+			) {
+				if (timestampMs) {
+					current.sortTimestampMs = timestampMs;
+				}
+				continue;
+			}
+			finalizeCurrent();
+			const fileStat = fs.statSync(filePath);
+			current = {
+				userMessage,
+				sortTimestampMs: timestampMs ?? fileStat.mtimeMs,
+				agentMessages: [],
+			};
 			continue;
 		}
 
-		if (
-			payload.type === 'task_complete' &&
-			typeof payload.last_agent_message === 'string'
-		) {
-			finalAgentMessage = payload.last_agent_message;
+		if (payload.type === 'agent_message') {
+			const agentMessage = parseAgentMessage(payload);
+			if (!agentMessage || !current) {
+				continue;
+			}
+			current.agentMessages.push(agentMessage);
 		}
 	}
 
-	if (!title) {
-		return undefined;
-	}
-
-	const fileStat = fs.statSync(filePath);
-	const sortTimestampMs = firstUserTimestampMs ?? fileStat.mtimeMs;
-	return {
-		sessionId: resolveSessionId(filePath),
-		filePath,
-		year,
-		month,
-		day,
-		dateKey: `${year}/${month}/${day}`,
-		title,
-		localTime: formatLocalTime(sortTimestampMs),
-		sortTimestampMs,
-		userMessages,
-		finalAgentMessage,
-	};
+	finalizeCurrent();
+	return turns.sort(compareTurnDesc);
 }
 
-function toHistoryTree(records: HistorySessionRecord[]): HistoryYearNode[] {
-	const tree = new Map<
-		string,
-		Map<string, Map<string, HistorySessionRecord[]>>
-	>();
-
-	for (const record of records) {
-		const byMonth = tree.get(record.year) ?? new Map<string, Map<string, HistorySessionRecord[]>>();
-		const byDay = byMonth.get(record.month) ?? new Map<string, HistorySessionRecord[]>();
-		const sessions = byDay.get(record.day) ?? [];
-		sessions.push(record);
-		byDay.set(record.day, sessions);
-		byMonth.set(record.month, byDay);
-		tree.set(record.year, byMonth);
+function toDays(turns: HistoryTurnRecord[]): HistoryDayNode[] {
+	const grouped = new Map<string, HistoryTurnRecord[]>();
+	for (const turn of turns) {
+		const dayTurns = grouped.get(turn.dateKey) ?? [];
+		dayTurns.push(turn);
+		grouped.set(turn.dateKey, dayTurns);
 	}
 
-	return [...tree.entries()]
+	return [...grouped.entries()]
 		.sort(([left], [right]) => compareLabelDesc(left, right))
-		.map(([year, byMonth]) => ({
-			year,
-			months: [...byMonth.entries()]
-				.sort(([left], [right]) => compareLabelDesc(left, right))
-				.map(([month, byDay]) => ({
-					month,
-					days: [...byDay.entries()]
-						.sort(([left], [right]) => compareLabelDesc(left, right))
-						.map(([day, sessions]) => ({
-							day,
-							dateKey: `${year}/${month}/${day}`,
-							sessions: [...sessions].sort(compareSessionDesc),
-						})),
-				})),
+		.map(([dateKey, dayTurns]) => ({
+			dateKey,
+			year: dayTurns[0].year,
+			month: dayTurns[0].month,
+			day: dayTurns[0].day,
+			turns: [...dayTurns].sort(compareTurnDesc),
 		}));
 }
 
@@ -257,20 +311,14 @@ export function formatLocalTime(input: string | number | Date): string {
 
 export function buildHistoryIndex(codexHomeDir?: string): HistoryIndex {
 	const fileEntries = collectRolloutFileEntries(resolveSessionsRoot(codexHomeDir));
-	const sessions = fileEntries
-		.map((entry) =>
-			parseRolloutSessionRecord(
-				entry.filePath,
-				entry.year,
-				entry.month,
-				entry.day,
-			),
+	const turns = fileEntries
+		.flatMap((entry) =>
+			parseRolloutTurns(entry.filePath, entry.year, entry.month, entry.day),
 		)
-		.filter((entry): entry is HistorySessionRecord => Boolean(entry))
-		.sort(compareSessionDesc);
+		.sort(compareTurnDesc);
 
 	return {
-		years: toHistoryTree(sessions),
-		sessions,
+		days: toDays(turns),
+		turns,
 	};
 }

@@ -19,7 +19,12 @@ type FakePanelHandle = {
 function createFakePanel(): FakePanelHandle {
 	let revealCount = 0;
 	let disposeListener: (() => void) | undefined;
-	const webview = { html: '' } as vscode.Webview;
+	const webview = {
+		html: '',
+		cspSource: 'vscode-webview://test',
+		postMessage: async () => true,
+		onDidReceiveMessage: () => ({ dispose: () => undefined }),
+	} as unknown as vscode.Webview;
 
 	const panel = {
 		webview,
@@ -88,17 +93,33 @@ suite('History command', () => {
 			const originalCreateWebviewPanel = vscode.window.createWebviewPanel;
 			let createCount = 0;
 			const createdPanels: FakePanelHandle[] = [];
+			const createArgs: Array<{
+				viewType: string;
+				title: string;
+				showOptions:
+					| vscode.ViewColumn
+					| { readonly viewColumn: vscode.ViewColumn; readonly preserveFocus?: boolean };
+				options?: vscode.WebviewPanelOptions & vscode.WebviewOptions;
+			}> = [];
 
 			(
 				vscode.window as unknown as {
 					createWebviewPanel: typeof originalCreateWebviewPanel;
 				}
-			).createWebviewPanel = (() => {
+			).createWebviewPanel = (
+				viewType: string,
+				title: string,
+				showOptions:
+					| vscode.ViewColumn
+					| { readonly viewColumn: vscode.ViewColumn; readonly preserveFocus?: boolean },
+				options?: vscode.WebviewPanelOptions & vscode.WebviewOptions,
+			) => {
 				createCount += 1;
+				createArgs.push({ viewType, title, showOptions, options });
 				const panel = createFakePanel();
 				createdPanels.push(panel);
 				return panel.panel;
-			}) as typeof originalCreateWebviewPanel;
+			};
 
 			try {
 				await vscode.commands.executeCommand(
@@ -118,6 +139,12 @@ suite('History command', () => {
 
 			assert.strictEqual(createCount, 1);
 			assert.strictEqual(createdPanels[0]?.getRevealCount(), 1);
+			assert.strictEqual(createArgs[0]?.viewType, 'codex-workspace.history');
+			assert.strictEqual(createArgs[0]?.options?.enableScripts, true);
+			assert.strictEqual(
+				createArgs[0]?.options?.retainContextWhenHidden,
+				true,
+			);
 		});
 	});
 });
