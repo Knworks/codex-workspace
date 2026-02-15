@@ -20,6 +20,9 @@ type ConfigurationReader = Pick<vscode.WorkspaceConfiguration, 'get' | 'inspect'
 const readStringSetting = (value: unknown): string =>
 	typeof value === 'string' ? value : '';
 
+const readBooleanSetting = (value: unknown): boolean =>
+	typeof value === 'boolean' ? value : false;
+
 const readPositiveIntegerSetting = (value: unknown): number | undefined => {
 	if (typeof value !== 'number' || !Number.isFinite(value)) {
 		return undefined;
@@ -66,4 +69,15 @@ export function getConfiguredMaxHistoryCount(
 	const explicitValue =
 		inspected.workspaceFolderValue ?? inspected.workspaceValue ?? inspected.globalValue;
 	return readPositiveIntegerSetting(explicitValue);
+}
+
+/**
+ * Reads whether reasoning messages should be included in history preview.
+ */
+export function getIncludeReasoningMessage(
+	configuration: ConfigurationReader = vscode.workspace.getConfiguration(
+		SETTINGS_SECTION,
+	),
+): boolean {
+	return readBooleanSetting(configuration.get('incrudeReasoningMessage'));
 }

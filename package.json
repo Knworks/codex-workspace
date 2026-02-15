@@ -209,6 +209,11 @@
           "default": 100,
           "minimum": 1,
           "description": "%configuration.maxHistoryCount.description%"
+        },
+        "codex-workspace.incrudeReasoningMessage": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.incrudeReasoningMessage.description%"
         }
       }
     },

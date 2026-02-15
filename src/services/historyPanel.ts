@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { messages } from '../i18n';
-import { getConfiguredMaxHistoryCount } from './settings';
+import { getConfiguredMaxHistoryCount, getIncludeReasoningMessage } from './settings';
 import { buildHistoryIndex, HistoryDayNode, HistoryIndex, HistoryTurnRecord } from './historyService';
 
 const HISTORY_VIEW_TYPE = 'codex-workspace.history';
@@ -43,7 +43,18 @@ type HistorySelectedTurn = {
 	turnId: string;
 	localTime: string;
 	userMessage: string;
-	assistantMessage: string;
+	userMessageLocalTime: string;
+	assistantMessages: string[];
+	assistantMessageLocalTimes: string[];
+	reasoningMessages: string[];
+	reasoningMessageLocalTimes: string[];
+	aiTimeline: Array<{
+		kind: 'assistant' | 'reasoning';
+		message: string;
+		localTime: string;
+		sortTimestampMs: number;
+		sequence: number;
+	}>;
 };
 
 type HistoryPanelViewModel = {
@@ -56,6 +67,7 @@ type HistoryPanelState = {
 	index: HistoryIndex;
 	selectedTurnId?: string;
 	appliedQuery: string;
+	includeReasoningMessage: boolean;
 };
 
 function normalizeQuery(query: string): string {
@@ -85,15 +97,61 @@ function toTurnSummary(turn: HistoryTurnRecord): HistoryTurnSummary {
 	};
 }
 
-function toSelectedTurn(turn: HistoryTurnRecord | undefined): HistorySelectedTurn | undefined {
+function toSelectedTurn(
+	turn: HistoryTurnRecord | undefined,
+	includeReasoningMessage: boolean,
+): HistorySelectedTurn | undefined {
 	if (!turn) {
 		return undefined;
 	}
+	const assistantMessageLocalTimes =
+		turn.agentMessageLocalTimes ?? turn.agentMessages.map(() => turn.localTime);
+	const assistantMessageTimestampMs =
+		turn.agentMessageTimestampMs ?? turn.agentMessages.map(() => turn.sortTimestampMs);
+	const reasoningMessages = includeReasoningMessage ? turn.reasoningMessages : [];
+	const reasoningMessageLocalTimes = includeReasoningMessage
+		? (turn.reasoningMessageLocalTimes ??
+			turn.reasoningMessages.map(() => turn.localTime))
+		: [];
+	const reasoningMessageTimestampMs = includeReasoningMessage
+		? (turn.reasoningMessageTimestampMs ??
+			turn.reasoningMessages.map(() => turn.sortTimestampMs))
+		: [];
+	const fallbackTimeline = [
+		...turn.agentMessages.map((message, index) => ({
+			kind: 'assistant' as const,
+			message,
+			localTime: assistantMessageLocalTimes[index] ?? turn.localTime,
+			sortTimestampMs: assistantMessageTimestampMs[index] ?? turn.sortTimestampMs,
+			sequence: index,
+		})),
+		...reasoningMessages.map((message, index) => ({
+			kind: 'reasoning' as const,
+			message,
+			localTime: reasoningMessageLocalTimes[index] ?? turn.localTime,
+			sortTimestampMs: reasoningMessageTimestampMs[index] ?? turn.sortTimestampMs,
+			sequence: turn.agentMessages.length + index,
+		})),
+	].sort((left, right) => {
+		if (left.sortTimestampMs !== right.sortTimestampMs) {
+			return left.sortTimestampMs - right.sortTimestampMs;
+		}
+		return left.sequence - right.sequence;
+	});
+	const aiTimeline = includeReasoningMessage
+		? (turn.aiTimeline && turn.aiTimeline.length > 0 ? turn.aiTimeline : fallbackTimeline)
+		: fallbackTimeline.filter((item) => item.kind === 'assistant');
+
 	return {
 		turnId: turn.turnId,
 		localTime: turn.localTime,
 		userMessage: turn.userMessage,
-		assistantMessage: turn.agentMessages.join('\n\n'),
+		userMessageLocalTime: turn.userMessageLocalTime ?? turn.localTime,
+		assistantMessages: turn.agentMessages,
+		assistantMessageLocalTimes,
+		reasoningMessages,
+		reasoningMessageLocalTimes,
+		aiTimeline,
 	};
 }
 
@@ -127,16 +185,19 @@ export function deriveHistoryPanelViewModel(state: HistoryPanelState): HistoryPa
 		: visibleTurnIds[0];
 	const selectedTurn = toSelectedTurn(
 		state.index.turns.find((turn) => turn.turnId === selectedTurnId),
+		state.includeReasoningMessage,
 	);
 	return { appliedQuery, days, selectedTurn };
 }
 
 function limitHistoryIndex(index: HistoryIndex, maxHistoryCount: number | undefined): HistoryIndex {
-	if (!maxHistoryCount || maxHistoryCount >= index.turns.length) {
+	if (!maxHistoryCount) {
 		return index;
 	}
 	const limitedTurns = index.turns.slice(0, maxHistoryCount);
-	const limitedTurnIds = new Set(limitedTurns.map((turn) => turn.turnId));
+	const limitedTurnIds = new Set(
+		limitedTurns.map((turn) => turn.turnId),
+	);
 	const limitedDays = index.days
 		.map((day) => ({
 			...day,
@@ -318,6 +379,12 @@ function buildHistoryWebviewHtml(
 		.codicon-hubot::before {
 			content: '\\eb08';
 		}
+		.codicon-chevron-right::before {
+			content: '\\eab6';
+		}
+		.codicon-chevron-down::before {
+			content: '\\eab4';
+		}
 		.message-frame {
 			border: 1px solid var(--vscode-panel-border);
 			border-radius: 6px;
@@ -347,6 +414,33 @@ function buildHistoryWebviewHtml(
 			width: 24px;
 			height: 24px;
 			line-height: 24px;
+		}
+		.reasoning-frame {
+			padding: 0;
+			overflow: hidden;
+		}
+		.reasoning-summary {
+			list-style: none;
+			cursor: pointer;
+			padding: 10px;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+		}
+		.reasoning-summary::-webkit-details-marker {
+			display: none;
+		}
+		.reasoning-chevron::before {
+			content: '\\eab6';
+		}
+		.reasoning-frame[open] .reasoning-chevron::before {
+			content: '\\eab4';
+		}
+		.reasoning-frame[open] .reasoning-summary {
+			border-bottom: 1px solid var(--vscode-panel-border);
+		}
+		.reasoning-content {
+			padding: 10px;
 		}
 		.markdown-content p {
 			margin: 0 0 10px 0;
@@ -472,14 +566,56 @@ function buildHistoryWebviewHtml(
 			}
 			const selected = state.selectedTurn;
 			const copyLabel = escapeHtml(labels.copy);
-			const localTime = escapeHtml(selected.localTime);
+			const aiBlocks = selected.aiTimeline
+				.map((item, index) => {
+					const itemLocalTime = escapeHtml(item.localTime);
+					if (item.kind === 'assistant') {
+						return (
+							'<section class="message-frame">' +
+							'<div class="frame-header">' +
+							'<div>' +
+							'<p class="message-meta"><span class="codicon codicon-hubot message-role-icon" aria-hidden="true"></span>' +
+							itemLocalTime +
+							'</p>' +
+							'</div>' +
+							'<button id="copyAssistantButton-' +
+							index +
+							'" class="copy-button" type="button" title="' +
+							copyLabel +
+							'" aria-label="' +
+							copyLabel +
+							'"><span class="codicon codicon-copy" aria-hidden="true"></span></button>' +
+							'</div>' +
+							'<div class="markdown-content">' +
+							renderMarkdown(item.message) +
+							'</div>' +
+							'</section>'
+						);
+					}
+					return (
+						'<details class="message-frame reasoning-frame">' +
+						'<summary class="reasoning-summary">' +
+						'<span class="codicon reasoning-chevron" aria-hidden="true"></span>' +
+						'<p class="message-meta"><span class="codicon codicon-hubot message-role-icon" aria-hidden="true"></span>' +
+						itemLocalTime +
+						'</p>' +
+						'</summary>' +
+						'<div class="reasoning-content">' +
+						'<div class="markdown-content">' +
+						renderMarkdown(item.message) +
+						'</div>' +
+						'</div>' +
+						'</details>'
+					);
+				})
+				.join('');
 			previewArea.innerHTML =
 				'<article class="answer-block">' +
 				'<section class="message-frame">' +
 				'<div class="frame-header">' +
 				'<div>' +
 				'<p class="message-meta"><span class="codicon codicon-account message-role-icon" aria-hidden="true"></span>' +
-				localTime +
+				escapeHtml(selected.userMessageLocalTime) +
 				'</p>' +
 				'</div>' +
 				'<button id="copyUserButton" class="copy-button" type="button" title="' +
@@ -490,21 +626,7 @@ function buildHistoryWebviewHtml(
 				'</div>' +
 				'<div class="markdown-content">' + renderMarkdown(selected.userMessage) + '</div>' +
 				'</section>' +
-				'<section class="message-frame">' +
-				'<div class="frame-header">' +
-				'<div>' +
-				'<p class="message-meta"><span class="codicon codicon-hubot message-role-icon" aria-hidden="true"></span>' +
-				localTime +
-				'</p>' +
-				'</div>' +
-				'<button id="copyAssistantButton" class="copy-button" type="button" title="' +
-				copyLabel +
-				'" aria-label="' +
-				copyLabel +
-				'"><span class="codicon codicon-copy" aria-hidden="true"></span></button>' +
-				'</div>' +
-				'<div class="markdown-content">' + renderMarkdown(selected.assistantMessage) + '</div>' +
-				'</section>' +
+				aiBlocks +
 				'</article>';
 			const copyUserButton = document.getElementById('copyUserButton');
 			if (copyUserButton) {
@@ -512,10 +634,17 @@ function buildHistoryWebviewHtml(
 					vscode.postMessage({ type: 'copyText', text: selected.userMessage });
 				});
 			}
-			const copyAssistantButton = document.getElementById('copyAssistantButton');
-			if (copyAssistantButton) {
+			for (let index = 0; index < selected.aiTimeline.length; index += 1) {
+				if (selected.aiTimeline[index].kind !== 'assistant') {
+					continue;
+				}
+				const copyAssistantButton = document.getElementById('copyAssistantButton-' + index);
+				if (!copyAssistantButton) {
+					continue;
+				}
+				const assistantMessage = selected.aiTimeline[index].message;
 				copyAssistantButton.addEventListener('click', () => {
-					vscode.postMessage({ type: 'copyText', text: selected.assistantMessage || '' });
+					vscode.postMessage({ type: 'copyText', text: assistantMessage || '' });
 				});
 			}
 		};
@@ -586,10 +715,15 @@ export class HistoryPanelManager implements vscode.Disposable {
 			vscode.window.showInformationMessage(messages.historyCopied),
 		private readonly getMaxHistoryCount: () => number | undefined = () =>
 			getConfiguredMaxHistoryCount(),
+		private readonly includeReasoningMessage: () => boolean = () =>
+			getIncludeReasoningMessage(),
 	) {}
 
 	show(): vscode.WebviewPanel {
 		if (this.panel) {
+			if (this.state) {
+				this.state.includeReasoningMessage = this.includeReasoningMessage();
+			}
 			this.panel.reveal(vscode.ViewColumn.Active, true);
 			this.postState();
 			return this.panel;
@@ -600,6 +734,7 @@ export class HistoryPanelManager implements vscode.Disposable {
 			index: limitHistoryIndex(this.loadIndex(), this.getMaxHistoryCount()),
 			selectedTurnId: undefined,
 			appliedQuery: '',
+			includeReasoningMessage: this.includeReasoningMessage(),
 		};
 		const codiconCssHref =
 			CODICON_CSS_FS_PATH && typeof panel.webview.asWebviewUri === 'function'

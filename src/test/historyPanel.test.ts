@@ -76,9 +76,10 @@ suite('History panel manager', () => {
 		assert.ok(fakePanel.panel.webview.html.includes('codicon codicon-clear-all'));
 		assert.ok(fakePanel.panel.webview.html.includes('class="copy-button"'));
 		assert.ok(fakePanel.panel.webview.html.includes('id="copyUserButton"'));
-		assert.ok(fakePanel.panel.webview.html.includes('id="copyAssistantButton"'));
+		assert.ok(fakePanel.panel.webview.html.includes('copyAssistantButton-'));
 		assert.ok(fakePanel.panel.webview.html.includes('codicon codicon-copy'));
 		assert.ok(fakePanel.panel.webview.html.includes('codicon codicon-hubot'));
+		assert.ok(fakePanel.panel.webview.html.includes('reasoning-frame'));
 		assert.ok(fakePanel.panel.webview.html.includes('class="message-frame"'));
 	});
 
@@ -118,6 +119,7 @@ suite('History panel manager', () => {
 					sortTimestampMs: 2,
 					userMessage: 'Beta session',
 					agentMessages: ['beta answer'],
+					reasoningMessages: [],
 				},
 				{
 					turnId: 't1',
@@ -131,6 +133,7 @@ suite('History panel manager', () => {
 					sortTimestampMs: 1,
 					userMessage: longMessage,
 					agentMessages: [],
+					reasoningMessages: [],
 				},
 			],
 			days: [
@@ -152,6 +155,7 @@ suite('History panel manager', () => {
 							sortTimestampMs: 2,
 							userMessage: 'Beta session',
 							agentMessages: ['beta answer'],
+							reasoningMessages: [],
 						},
 						{
 							turnId: 't1',
@@ -165,6 +169,7 @@ suite('History panel manager', () => {
 							sortTimestampMs: 1,
 							userMessage: longMessage,
 							agentMessages: [],
+							reasoningMessages: [],
 						},
 					],
 				},
@@ -235,7 +240,7 @@ suite('History panel manager', () => {
 		const index: HistoryIndex = {
 			turns: [
 				{
-					turnId: 't3',
+					turnId: 'd1-t3',
 					sessionId: 's1',
 					filePath: '/tmp/s1',
 					year: '2026',
@@ -243,25 +248,27 @@ suite('History panel manager', () => {
 					day: '15',
 					dateKey: '2026/02/15',
 					localTime: '[12:00:00]',
-					sortTimestampMs: 3,
-					userMessage: 'Newest',
+					sortTimestampMs: 6,
+					userMessage: 'D1 Newest',
 					agentMessages: ['a3'],
+					reasoningMessages: [],
 				},
 				{
-					turnId: 't2',
+					turnId: 'd2-t3',
 					sessionId: 's1',
 					filePath: '/tmp/s1',
 					year: '2026',
 					month: '02',
-					day: '15',
-					dateKey: '2026/02/15',
+					day: '14',
+					dateKey: '2026/02/14',
 					localTime: '[11:00:00]',
-					sortTimestampMs: 2,
-					userMessage: 'Middle',
-					agentMessages: ['a2'],
+					sortTimestampMs: 5,
+					userMessage: 'D2 Newest',
+					agentMessages: ['b3'],
+					reasoningMessages: [],
 				},
 				{
-					turnId: 't1',
+					turnId: 'd1-t2',
 					sessionId: 's1',
 					filePath: '/tmp/s1',
 					year: '2026',
@@ -269,9 +276,52 @@ suite('History panel manager', () => {
 					day: '15',
 					dateKey: '2026/02/15',
 					localTime: '[10:00:00]',
-					sortTimestampMs: 1,
-					userMessage: 'Oldest',
+					sortTimestampMs: 4,
+					userMessage: 'D1 Middle',
+					agentMessages: ['a2'],
+					reasoningMessages: [],
+				},
+				{
+					turnId: 'd2-t2',
+					sessionId: 's1',
+					filePath: '/tmp/s1',
+					year: '2026',
+					month: '02',
+					day: '14',
+					dateKey: '2026/02/14',
+					localTime: '[9:00:00]',
+					sortTimestampMs: 3,
+					userMessage: 'D2 Middle',
+					agentMessages: ['b2'],
+					reasoningMessages: [],
+				},
+				{
+					turnId: 'd1-t1',
+					sessionId: 's1',
+					filePath: '/tmp/s1',
+					year: '2026',
+					month: '02',
+					day: '15',
+					dateKey: '2026/02/15',
+					localTime: '[8:00:00]',
+					sortTimestampMs: 2,
+					userMessage: 'D1 Oldest',
 					agentMessages: ['a1'],
+					reasoningMessages: [],
+				},
+				{
+					turnId: 'd2-t1',
+					sessionId: 's1',
+					filePath: '/tmp/s1',
+					year: '2026',
+					month: '02',
+					day: '14',
+					dateKey: '2026/02/14',
+					localTime: '[7:00:00]',
+					sortTimestampMs: 1,
+					userMessage: 'D2 Oldest',
+					agentMessages: ['b1'],
+					reasoningMessages: [],
 				},
 			],
 			days: [
@@ -282,7 +332,7 @@ suite('History panel manager', () => {
 					day: '15',
 					turns: [
 						{
-							turnId: 't3',
+							turnId: 'd1-t3',
 							sessionId: 's1',
 							filePath: '/tmp/s1',
 							year: '2026',
@@ -290,25 +340,13 @@ suite('History panel manager', () => {
 							day: '15',
 							dateKey: '2026/02/15',
 							localTime: '[12:00:00]',
-							sortTimestampMs: 3,
-							userMessage: 'Newest',
+							sortTimestampMs: 6,
+							userMessage: 'D1 Newest',
 							agentMessages: ['a3'],
+							reasoningMessages: [],
 						},
 						{
-							turnId: 't2',
-							sessionId: 's1',
-							filePath: '/tmp/s1',
-							year: '2026',
-							month: '02',
-							day: '15',
-							dateKey: '2026/02/15',
-							localTime: '[11:00:00]',
-							sortTimestampMs: 2,
-							userMessage: 'Middle',
-							agentMessages: ['a2'],
-						},
-						{
-							turnId: 't1',
+							turnId: 'd1-t2',
 							sessionId: 's1',
 							filePath: '/tmp/s1',
 							year: '2026',
@@ -316,9 +354,74 @@ suite('History panel manager', () => {
 							day: '15',
 							dateKey: '2026/02/15',
 							localTime: '[10:00:00]',
-							sortTimestampMs: 1,
-							userMessage: 'Oldest',
+							sortTimestampMs: 4,
+							userMessage: 'D1 Middle',
+							agentMessages: ['a2'],
+							reasoningMessages: [],
+						},
+						{
+							turnId: 'd1-t1',
+							sessionId: 's1',
+							filePath: '/tmp/s1',
+							year: '2026',
+							month: '02',
+							day: '15',
+							dateKey: '2026/02/15',
+							localTime: '[8:00:00]',
+							sortTimestampMs: 2,
+							userMessage: 'D1 Oldest',
 							agentMessages: ['a1'],
+							reasoningMessages: [],
+						},
+					],
+				},
+				{
+					dateKey: '2026/02/14',
+					year: '2026',
+					month: '02',
+					day: '14',
+					turns: [
+						{
+							turnId: 'd2-t3',
+							sessionId: 's1',
+							filePath: '/tmp/s1',
+							year: '2026',
+							month: '02',
+							day: '14',
+							dateKey: '2026/02/14',
+							localTime: '[11:00:00]',
+							sortTimestampMs: 5,
+							userMessage: 'D2 Newest',
+							agentMessages: ['b3'],
+							reasoningMessages: [],
+						},
+						{
+							turnId: 'd2-t2',
+							sessionId: 's1',
+							filePath: '/tmp/s1',
+							year: '2026',
+							month: '02',
+							day: '14',
+							dateKey: '2026/02/14',
+							localTime: '[9:00:00]',
+							sortTimestampMs: 3,
+							userMessage: 'D2 Middle',
+							agentMessages: ['b2'],
+							reasoningMessages: [],
+						},
+						{
+							turnId: 'd2-t1',
+							sessionId: 's1',
+							filePath: '/tmp/s1',
+							year: '2026',
+							month: '02',
+							day: '14',
+							dateKey: '2026/02/14',
+							localTime: '[7:00:00]',
+							sortTimestampMs: 1,
+							userMessage: 'D2 Oldest',
+							agentMessages: ['b1'],
+							reasoningMessages: [],
 						},
 					],
 				},
@@ -341,15 +444,19 @@ suite('History panel manager', () => {
 			};
 		};
 
+		assert.strictEqual(state.payload.days.length, 2);
 		assert.deepStrictEqual(
 			state.payload.days[0].turns.map((turn) => turn.turnId),
-			['t3', 't2'],
+			['d1-t3'],
 		);
-		assert.strictEqual(state.payload.selectedTurn?.turnId, 't3');
+		assert.deepStrictEqual(
+			state.payload.days[1].turns.map((turn) => turn.turnId),
+			['d2-t3'],
+		);
+		assert.strictEqual(state.payload.selectedTurn?.turnId, 'd1-t3');
 	});
 
-	test('copyText message writes text to clipboard and shows confirmation', async () => {
-		const fakePanel = createFakePanel();
+	test('includes reasoning message only when incrudeReasoningMessage is enabled', () => {
 		const index: HistoryIndex = {
 			turns: [
 				{
@@ -364,6 +471,7 @@ suite('History panel manager', () => {
 					sortTimestampMs: 1,
 					userMessage: 'user',
 					agentMessages: ['assistant'],
+					reasoningMessages: ['reason-1', 'reason-2'],
 				},
 			],
 			days: [
@@ -385,6 +493,244 @@ suite('History panel manager', () => {
 							sortTimestampMs: 1,
 							userMessage: 'user',
 							agentMessages: ['assistant'],
+							reasoningMessages: ['reason-1', 'reason-2'],
+						},
+					],
+				},
+			],
+		};
+
+		const disabledPanel = createFakePanel();
+		const disabledManager = new HistoryPanelManager(() => disabledPanel.panel, () => index);
+		disabledManager.show();
+		disabledPanel.sendMessage({ type: 'ready' });
+		const disabledState = disabledPanel.getPostedMessages()[0] as {
+			payload: { selectedTurn?: { reasoningMessages?: string[]; assistantMessages?: string[] } };
+		};
+		assert.deepStrictEqual(disabledState.payload.selectedTurn?.assistantMessages, ['assistant']);
+		assert.deepStrictEqual(disabledState.payload.selectedTurn?.reasoningMessages, []);
+
+		const enabledPanel = createFakePanel();
+		const enabledManager = new HistoryPanelManager(
+			() => enabledPanel.panel,
+			() => index,
+			async () => undefined,
+			async () => undefined,
+			() => undefined,
+			() => true,
+		);
+		enabledManager.show();
+		enabledPanel.sendMessage({ type: 'ready' });
+		const enabledState = enabledPanel.getPostedMessages()[0] as {
+			payload: { selectedTurn?: { reasoningMessages?: string[]; assistantMessages?: string[] } };
+		};
+		assert.deepStrictEqual(enabledState.payload.selectedTurn?.assistantMessages, ['assistant']);
+		assert.deepStrictEqual(enabledState.payload.selectedTurn?.reasoningMessages, [
+			'reason-1',
+			'reason-2',
+		]);
+	});
+
+	test('selected turn keeps local times for user/assistant/reasoning messages', () => {
+		const fakePanel = createFakePanel();
+		const index: HistoryIndex = {
+			turns: [
+				{
+					turnId: 't1',
+					sessionId: 's1',
+					filePath: '/tmp/s1',
+					year: '2026',
+					month: '02',
+					day: '15',
+					dateKey: '2026/02/15',
+					localTime: '[10:00:00]',
+					sortTimestampMs: 1,
+					userMessage: 'user',
+					userMessageLocalTime: '[10:00:01]',
+					agentMessages: ['assistant-1', 'assistant-2'],
+					agentMessageLocalTimes: ['[10:00:02]', '[10:00:03]'],
+					reasoningMessages: ['reason-1'],
+					reasoningMessageLocalTimes: ['[10:00:04]'],
+				},
+			],
+			days: [
+				{
+					dateKey: '2026/02/15',
+					year: '2026',
+					month: '02',
+					day: '15',
+					turns: [
+						{
+							turnId: 't1',
+							sessionId: 's1',
+							filePath: '/tmp/s1',
+							year: '2026',
+							month: '02',
+							day: '15',
+							dateKey: '2026/02/15',
+							localTime: '[10:00:00]',
+							sortTimestampMs: 1,
+							userMessage: 'user',
+							userMessageLocalTime: '[10:00:01]',
+							agentMessages: ['assistant-1', 'assistant-2'],
+							agentMessageLocalTimes: ['[10:00:02]', '[10:00:03]'],
+							reasoningMessages: ['reason-1'],
+							reasoningMessageLocalTimes: ['[10:00:04]'],
+						},
+					],
+				},
+			],
+		};
+		const manager = new HistoryPanelManager(
+			() => fakePanel.panel,
+			() => index,
+			async () => undefined,
+			async () => undefined,
+			() => undefined,
+			() => true,
+		);
+
+		manager.show();
+		fakePanel.sendMessage({ type: 'ready' });
+		const state = fakePanel.getPostedMessages()[0] as {
+			payload: {
+				selectedTurn?: {
+					userMessageLocalTime?: string;
+					assistantMessageLocalTimes?: string[];
+					reasoningMessageLocalTimes?: string[];
+				};
+			};
+		};
+
+		assert.strictEqual(state.payload.selectedTurn?.userMessageLocalTime, '[10:00:01]');
+		assert.deepStrictEqual(state.payload.selectedTurn?.assistantMessageLocalTimes, [
+			'[10:00:02]',
+			'[10:00:03]',
+		]);
+		assert.deepStrictEqual(state.payload.selectedTurn?.reasoningMessageLocalTimes, [
+			'[10:00:04]',
+		]);
+	});
+
+	test('selected turn builds chronological ai timeline', () => {
+		const fakePanel = createFakePanel();
+		const index: HistoryIndex = {
+			turns: [
+				{
+					turnId: 't1',
+					sessionId: 's1',
+					filePath: '/tmp/s1',
+					year: '2026',
+					month: '02',
+					day: '15',
+					dateKey: '2026/02/15',
+					localTime: '[10:00:00]',
+					sortTimestampMs: 1,
+					userMessage: 'user',
+					agentMessages: ['assistant-1', 'assistant-2'],
+					agentMessageLocalTimes: ['[10:00:03]', '[10:00:05]'],
+					agentMessageTimestampMs: [3000, 5000],
+					reasoningMessages: ['reason-1', 'reason-2'],
+					reasoningMessageLocalTimes: ['[10:00:02]', '[10:00:04]'],
+					reasoningMessageTimestampMs: [2000, 4000],
+				},
+			],
+			days: [
+				{
+					dateKey: '2026/02/15',
+					year: '2026',
+					month: '02',
+					day: '15',
+					turns: [
+						{
+							turnId: 't1',
+							sessionId: 's1',
+							filePath: '/tmp/s1',
+							year: '2026',
+							month: '02',
+							day: '15',
+							dateKey: '2026/02/15',
+							localTime: '[10:00:00]',
+							sortTimestampMs: 1,
+							userMessage: 'user',
+							agentMessages: ['assistant-1', 'assistant-2'],
+							agentMessageLocalTimes: ['[10:00:03]', '[10:00:05]'],
+							agentMessageTimestampMs: [3000, 5000],
+							reasoningMessages: ['reason-1', 'reason-2'],
+							reasoningMessageLocalTimes: ['[10:00:02]', '[10:00:04]'],
+							reasoningMessageTimestampMs: [2000, 4000],
+						},
+					],
+				},
+			],
+		};
+		const manager = new HistoryPanelManager(
+			() => fakePanel.panel,
+			() => index,
+			async () => undefined,
+			async () => undefined,
+			() => undefined,
+			() => true,
+		);
+		manager.show();
+		fakePanel.sendMessage({ type: 'ready' });
+		const state = fakePanel.getPostedMessages()[0] as {
+			payload: {
+				selectedTurn?: {
+					aiTimeline?: Array<{ kind: string; message: string }>;
+				};
+			};
+		};
+		assert.deepStrictEqual(
+			state.payload.selectedTurn?.aiTimeline?.map((item) => `${item.kind}:${item.message}`),
+			[
+				'reasoning:reason-1',
+				'assistant:assistant-1',
+				'reasoning:reason-2',
+				'assistant:assistant-2',
+			],
+		);
+	});
+
+	test('copyText message writes text to clipboard and shows confirmation', async () => {
+		const fakePanel = createFakePanel();
+		const index: HistoryIndex = {
+			turns: [
+				{
+					turnId: 't1',
+					sessionId: 's1',
+					filePath: '/tmp/s1',
+					year: '2026',
+					month: '02',
+					day: '15',
+					dateKey: '2026/02/15',
+					localTime: '[10:00:00]',
+					sortTimestampMs: 1,
+					userMessage: 'user',
+					agentMessages: ['assistant'],
+					reasoningMessages: [],
+				},
+			],
+			days: [
+				{
+					dateKey: '2026/02/15',
+					year: '2026',
+					month: '02',
+					day: '15',
+					turns: [
+						{
+							turnId: 't1',
+							sessionId: 's1',
+							filePath: '/tmp/s1',
+							year: '2026',
+							month: '02',
+							day: '15',
+							dateKey: '2026/02/15',
+							localTime: '[10:00:00]',
+							sortTimestampMs: 1,
+							userMessage: 'user',
+							agentMessages: ['assistant'],
+							reasoningMessages: [],
 						},
 					],
 				},

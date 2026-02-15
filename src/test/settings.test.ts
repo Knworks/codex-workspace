@@ -1,5 +1,9 @@
 import * as assert from 'assert';
-import { getConfiguredMaxHistoryCount, getSyncSettings } from '../services/settings';
+import {
+	getConfiguredMaxHistoryCount,
+	getIncludeReasoningMessage,
+	getSyncSettings,
+} from '../services/settings';
 
 type ConfigurationReader = {
 	get: <T>(key: string) => T | undefined;
@@ -80,5 +84,21 @@ suite('Sync settings', () => {
 		const maxHistoryCount = getConfiguredMaxHistoryCount(config);
 
 		assert.strictEqual(maxHistoryCount, undefined);
+	});
+
+	test('returns false for include reasoning message when not configured', () => {
+		const config = createConfig({});
+
+		const includeReasoningMessage = getIncludeReasoningMessage(config);
+
+		assert.strictEqual(includeReasoningMessage, false);
+	});
+
+	test('returns configured include reasoning message flag', () => {
+		const config = createConfig({ incrudeReasoningMessage: true });
+
+		const includeReasoningMessage = getIncludeReasoningMessage(config);
+
+		assert.strictEqual(includeReasoningMessage, true);
 	});
 });

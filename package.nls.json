@@ -24,6 +24,7 @@
   "configuration.skillsFolder.description": "Sync destination folder for skills.",
   "configuration.templatesFolder.description": "Sync destination folder for templates.",
   "configuration.maxHistoryCount.description": "Maximum number of history items to display (newest first). If not explicitly set, all items are shown.",
+  "configuration.incrudeReasoningMessage.description": "Include reasoning messages from response_item entries in history preview.",
   "message.selectionRequired": "Please select a target.",
   "message.unavailablePrefix": "? Unable to open Codex Workspace: ",
   "message.unavailableUnknown": "Unknown reason.",
