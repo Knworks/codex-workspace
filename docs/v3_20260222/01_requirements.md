@@ -2,7 +2,7 @@
 
 ## 1. 🎯背景と目的
 
-* Codex のグローバル設定ディレクトリ（`~/.codex`）配下にある設定・プロンプト・スキル・テンプレート・エージェント・MCP 設定を、VS Code 内で一元的に閲覧・編集できるようにする。
+* Codex のグローバル設定ディレクトリ（`~/.codex`）配下にある設定・プロンプト・スキル・テンプレート・MCP 設定を、VS Code 内で一元的に閲覧・編集できるようにする。
 * ターミナルや OS のファイラーで設定ファイルを探して編集する手間を削減し、運用の効率と作業の一貫性を高める。
 * MCP サーバーの有効/無効（`enabled`）切り替えを VS Code UI から行えるようにし、設定変更の手間を下げる（反映には再起動が必要である旨を通知）。
 
@@ -12,7 +12,7 @@
 
 * 利用者
 
-  * Codex を利用し、`~/.codex` の設定（`config.toml`, `AGENTS.md`）、プロンプト、スキル、テンプレート、エージェント、MCP サーバー設定を日常的に編集する開発者
+  * Codex を利用し、`~/.codex` の設定（`config.toml`, `AGENTS.md`）、プロンプト、スキル、テンプレート、MCP サーバー設定を日常的に編集する開発者
 * ステークホルダー
 
   * 拡張機能開発者（作者）
@@ -30,10 +30,6 @@
 | `prompts`     | プロンプトファイル/フォルダを格納するフォルダ（`.codex/prompts`）。階層は自由。        | ルートフォルダ名は固定／リネーム不可                             |
 | `skills`      | スキルファイル/フォルダを格納するフォルダ（`.codex/skills`）。階層は自由。           | ルートフォルダ名は固定／リネーム不可                             |
 | `codex-templates`   | テンプレートファイル/フォルダを格納するフォルダ（`.codex/codex-templates`）。           | 固定パス／ルートフォルダ名は固定／リネーム不可                        |
-| `agents`      | エージェント定義ファイルを格納するフォルダ（`.codex/agents`）。                     | 固定パス／`*.toml` を対象／ルートフォルダ名は固定／リネーム不可          |
-| `.codex-workspace` | 拡張機能が生成するメタファイルの管理フォルダ（`.codex/.codex-workspace`）。          | 拡張機能管理領域                                       |
-| `agents-disabled.json` | 無効化したエージェントの退避情報を保持するファイル。                       | 保存先は `.codex/.codex-workspace/agents-disabled.json` |
-| `codex-sync.json` | 同期の削除判定に使うメタ情報を保持するファイル。                           | 保存先は `.codex/.codex-workspace/codex-sync.json`      |
 | MCP           | Model Context Protocol のサーバー設定群。                        | `[mcp_servers.<id>]` テーブルとして `config.toml` に定義 |
 | MCP サーバー      | `config.toml` の `[mcp_servers.<id>]` ブロック1つを指す。         | `<id>` がサーバー表示名                                |
 | `enabled`     | MCP サーバーの有効/無効を表す設定値。                                   | 省略時は ON 扱い                                     |
@@ -55,10 +51,6 @@
 * ユーザーは Skills Explorer からスキルファイル/フォルダを作成・編集・リネーム・削除できる。
 * ユーザーは Template Explorer からテンプレートファイル/フォルダを閲覧し、テンプレートファイルを開いて編集できる。
 * ユーザーはファイル作成時に `.codex/codex-templates` 配下にテンプレートファイルが存在する場合、テンプレートを選択して雛形を適用できる。
-* ユーザーは Agent Explorer で `.codex/agents` 配下の `*.toml` を一覧し、選択して編集できる。
-* ユーザーは Agent Explorer からエージェントを追加し、追加時にテンプレート適用の有無を選択できる。
-* ユーザーはエージェント追加時に `config.toml` へ `[agents.<agent>]` が自動追記される。
-* ユーザーは Agent Explorer のコンテキストメニューからエージェントを有効化/無効化できる。
 * ユーザーは MCP Explorer で MCP サーバー一覧を閲覧し、スイッチ風 UI で `enabled` を ON/OFF 切り替えできる。
 * ユーザーは Prompts/Skills/Template Explorer の「フォルダを開く」ボタンで各ルートフォルダを OS のエクスプローラ/Finder で開ける。
 * ユーザーは Codex Core の「フォルダを開く」ボタンで `.codex` を OS のエクスプローラ/Finder で開ける。
@@ -69,9 +61,6 @@
 * ユーザーは Prompts Explorer の同期ボタンを押下することで、`.codex/prompts` と同期フォルダの間で最終更新日時が新しいファイルを正として相互同期できる。
 * ユーザーは Skills Explorer の同期ボタンを押下することで、`.codex/skills` と同期フォルダの間で最終更新日時が新しいファイルを正として相互同期できる。
 * ユーザーは Template Explorer の同期ボタンを押下することで、`.codex/codex-templates` と同期フォルダの間で最終更新日時が新しいファイルを正として相互同期できる。
-* ユーザーは Agent Explorer の同期ボタンを押下することで、`.codex/agents` と同期フォルダの間で最終更新日時が新しいファイルを正として相互同期できる。
-* 既存ユーザーはアップデート後も旧同期メタ（`.codex/.codex-sync/state.json`）から新同期メタ（`.codex/.codex-workspace/codex-sync.json`）へ移行され、同期機能を継続利用できる。
-* 既存ユーザーはアップデート後も `.codex/codex-templates` の運用を変更せず、テンプレート選択を継続利用できる。
 * ユーザーは Codex Core Explorer の履歴ボタン（codicon: `history`）から、エディタ領域に会話履歴ビューを開ける。
 * ユーザーはコマンドパレットから会話履歴ビューを開ける。
 * ユーザーは左ペインの日付フォルダ（`yyyy/mm/dd`）とタスクカードを使い、履歴を新しい順に閲覧できる。
@@ -90,7 +79,6 @@
   * Prompts Explorer
   * Skills Explorer
   * Template Explorer
-  * Agent Explorer
   * MCP Explorer
   * Codex Core（`config.toml` / `AGENTS.md`）
 * 各 Explorer は以下の固定ルートフォルダを持つ（UI ではルート直下の階層を表示し、ルート自体は表示しない）。
@@ -98,7 +86,6 @@
   * Prompts Explorer：`prompts`（`.codex/prompts`）
   * Skills Explorer：`skills`（`.codex/skills`）
   * Template Explorer：`codex-templates`（`.codex/codex-templates`）
-  * Agent Explorer：`agents`（`.codex/agents`）
 * 上記の固定ルートフォルダは **リネーム不可**とする。
 
 ### 5.2 利用可否判定（共通）
@@ -126,8 +113,6 @@
 * 以下の対象にはアイコンを設定する。
   * プロンプトファイル：`markdown32.png`
   * プロンプトフォルダ：`folder32.png`
-  * エージェント（有効）：`agent_on.png`
-  * エージェント（無効）：`agent_off.png`
   * MCP サーバー：`mcp32.png`
 * MCP の ON/OFF はスイッチ風 UI として視認できること（アイコン表現を含む）。
 
@@ -231,7 +216,7 @@
 
 ### 5.9 Refresh
 
-* Refresh 操作は Prompts / Skills / Template / Agent / MCP / Core の **全ビューを更新**する。
+* Refresh 操作は Prompts / Skills / Template / MCP / Core の **全ビューを更新**する。
 
 ### 5.10 多言語対応（日本語・英語）
 
@@ -246,20 +231,14 @@
   * Prompts Sync Folder（キー：`promptsFolder`）
   * Skills Sync Folder（キー：`skillsFolder`）
   * Template Sync Folder（キー：`templatesFolder`）
-  * Agent Sync Folder（キー：`agentFolder`）
-* 拡張機能が作成するメタファイルの固定ルートは `.codex/.codex-workspace/` とする。
-* 同期メタの保存先は `.codex/.codex-workspace/codex-sync.json` とする。
-* 互換読み取りの優先順は `.codex/.codex-workspace/codex-sync.json` → `.codex/.codex-sync/state.json` とする。
-* 新保存先が存在せず旧保存先が存在する場合、旧内容を新保存先へ原子的に移行し、移行後に旧 `state.json` を削除する。
-* 移行に失敗した場合は旧保存先を保持し、処理を中断してエラー通知する。
 * Codex Core
   * 同期ボタン（codicon: `sync`）を追加する。
   * `codexFolder` が未設定の場合は同期ボタンを非表示にする。
   * 押下時に確認メッセージを表示し、OK の場合に `.codex/AGENTS.md` と `.codex/config.toml` を `codexFolder` と相互同期する。
     * `.codex` と `codexFolder` の同名ファイルは最終更新日時が新しい方を正として古い方を上書きする。
     * いずれかで削除されたファイルは両方から削除する。
-    * 削除同期の判定に必要なメタ情報は `.codex/.codex-workspace/codex-sync.json` に保存し、削除が両方に反映された時点で対象エントリを削除する。
-    * `.codex/.codex-workspace` 配下は隠しフォルダとして同期対象外とする。
+    * 削除同期の判定に必要なメタ情報は `.codex/.codex-sync` に保存し、削除が両方に反映された時点で削除する。
+    * `.codex/.codex-sync` 配下は隠しフォルダとして同期対象外とする。
     * 隠しフォルダ/隠しファイルは対象外とする。
     * 上書き中にエラーが発生した場合は該当ファイルのみスキップし、スキップした旨を簡易ダイアログで通知する。
     * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
@@ -269,8 +248,8 @@
   * 押下時に確認メッセージを表示し、OK の場合に `.codex/prompts` と `promptsFolder` を相互同期する。
     * `.codex/prompts` と `promptsFolder` の同名ファイルは最終更新日時が新しい方を正として古い方を上書きする。
     * いずれかで削除されたファイルは両方から削除する。
-    * 削除同期の判定に必要なメタ情報は `.codex/.codex-workspace/codex-sync.json` に保存し、削除が両方に反映された時点で対象エントリを削除する。
-    * `.codex/.codex-workspace` 配下は隠しフォルダとして同期対象外とする。
+    * 削除同期の判定に必要なメタ情報は `.codex/.codex-sync` に保存し、削除が両方に反映された時点で削除する。
+    * `.codex/.codex-sync` 配下は隠しフォルダとして同期対象外とする。
     * 隠しフォルダ/隠しファイルは対象外とする。
     * 上書き中にエラーが発生した場合は該当ファイルのみスキップし、スキップした旨を簡易ダイアログで通知する。
     * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
@@ -280,8 +259,8 @@
   * 押下時に確認メッセージを表示し、OK の場合に `.codex/skills` と `skillsFolder` を相互同期する。
     * `.codex/skills` と `skillsFolder` の同名ファイルは最終更新日時が新しい方を正として古い方を上書きする。
     * いずれかで削除されたファイルは両方から削除する。
-    * 削除同期の判定に必要なメタ情報は `.codex/.codex-workspace/codex-sync.json` に保存し、削除が両方に反映された時点で対象エントリを削除する。
-    * `.codex/.codex-workspace` 配下は隠しフォルダとして同期対象外とする。
+    * 削除同期の判定に必要なメタ情報は `.codex/.codex-sync` に保存し、削除が両方に反映された時点で削除する。
+    * `.codex/.codex-sync` 配下は隠しフォルダとして同期対象外とする。
     * 隠しフォルダ/隠しファイルは対象外とする。
     * 上書き中にエラーが発生した場合は該当ファイルのみスキップし、スキップした旨を簡易ダイアログで通知する。
     * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
@@ -291,65 +270,13 @@
   * 押下時に確認メッセージを表示し、OK の場合に `.codex/codex-templates` と `templatesFolder` を相互同期する。
     * `.codex/codex-templates` と `templatesFolder` の同名ファイルは最終更新日時が新しい方を正として古い方を上書きする。
     * いずれかで削除されたファイルは両方から削除する。
-    * 削除同期の判定に必要なメタ情報は `.codex/.codex-workspace/codex-sync.json` に保存し、削除が両方に反映された時点で対象エントリを削除する。
-    * `.codex/.codex-workspace` 配下は隠しフォルダとして同期対象外とする。
-    * 隠しフォルダ/隠しファイルは対象外とする。
-    * 上書き中にエラーが発生した場合は該当ファイルのみスキップし、スキップした旨を簡易ダイアログで通知する。
-    * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
-* Agent Explorer
-  * 同期ボタン（codicon: `sync`）を追加する。
-  * `agentFolder` が未設定の場合は同期ボタンを非表示にする。
-  * 押下時に確認メッセージを表示し、OK の場合に `.codex/agents` と `agentFolder` を相互同期する。
-    * `.codex/agents` と `agentFolder` の同名ファイルは最終更新日時が新しい方を正として古い方を上書きする。
-    * いずれかで削除されたファイルは両方から削除する。
-    * 削除同期の判定に必要なメタ情報は `.codex/.codex-workspace/codex-sync.json` に保存し、削除が両方に反映された時点で対象エントリを削除する。
-    * `.codex/.codex-workspace` 配下は隠しフォルダとして同期対象外とする。
+    * 削除同期の判定に必要なメタ情報は `.codex/.codex-sync` に保存し、削除が両方に反映された時点で削除する。
+    * `.codex/.codex-sync` 配下は隠しフォルダとして同期対象外とする。
     * 隠しフォルダ/隠しファイルは対象外とする。
     * 上書き中にエラーが発生した場合は該当ファイルのみスキップし、スキップした旨を簡易ダイアログで通知する。
     * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
 
-### 5.12 Agent Explorer
-
-#### 5.12.1 一覧表示と基本操作
-
-* 固定ルート `.codex/agents` 配下の `*.toml` を一覧表示する。
-* 一覧アイテム選択時は該当 `*.toml` をエディタで開く。
-* 以下の操作を提供する。
-  * 新規作成
-  * リネーム
-  * 削除
-  * エディタで開く（選択時）
-
-#### 5.12.2 追加・編集・削除フロー
-
-* 追加フローは以下の順序で実施する。
-  1. エージェント名入力
-  2. 説明入力
-  3. テンプレート選択（「空のファイル」を含む）
-* 作成先は `.codex/agents/<agent>.toml` とする。
-* 同名ファイルが既に存在する場合は作成を中断し、衝突通知する。
-* 編集フローはエージェント名と説明の編集を提供する。
-* 削除フローは確認ダイアログを表示し、OK 時のみ物理削除する。
-
-#### 5.12.3 `config.toml` 連携
-
-* `.codex/agents/<agent>.toml` 作成成功後に `config.toml` へ `[agents.<agent>]` を自動追記する。
-* 自動追記の最小構成は以下とする。
-  * `description`（空文字許可）
-  * `config_file = "agents/<agent>.toml"`
-* 既に `[agents.<agent>]` が存在する場合は上書きせず、通知する。
-
-#### 5.12.4 有効/無効切り替え
-
-* Agent Explorer のコンテキストメニューに `Agentを有効化` / `Agentを無効化` を追加する。
-* 有効/無効の実体は `config.toml` の `[agents.<agent>]` の有無で表現する。
-  * Enable：`[agents.<agent>]` を追加
-  * Disable：`[agents.<agent>]` を削除
-* Disable 時は削除ブロック（コメント含む）を `.codex/.codex-workspace/agents-disabled.json` に退避する。
-* Enable 時は退避ブロックがあれば復元し、なければ最小構成ブロックを追加する。
-* 切り替え後は再起動が必要な旨を通知する。
-
-### 5.13 会話履歴ビュー（History）
+### 5.12 会話履歴ビュー（History）
 
 * 呼び出し導線
   * Codex Core Explorer の上部に履歴ボタン（codicon: `history`）を追加する。
@@ -403,7 +330,7 @@
   * ボタンは codicon を使用し、`new-folder` / `new-file` / `trash` / `edit` / `refresh` / `folder-opened` / `sync` を表示する。
   * 操作対象が未選択の場合は右下にメッセージを表示し、選択を促すこと。
   * MCP の ON/OFF はスイッチ風 UI で直感的に切り替えられること。
-  * アイコンにより、プロンプトファイル/フォルダ、エージェント状態および MCP の視認性が高いこと。
+  * アイコンにより、プロンプトファイル/フォルダおよび MCP の視認性が高いこと。
   * ファイルを選択した場合は通常の Explorer と同等にエディタで開いて編集できること。
   * 会話履歴ビューは左右 2 ペイン（左 30% / 右 70%）で表示されること。
   * 会話履歴の時刻表示はローカル時刻で自然な表記になること。
@@ -415,7 +342,7 @@
   * Keywords：`codex`, `.codex`, `codex-cli`, `workspace`, `config`, `config.toml`, `toml`, `agent`, `AGENTS.md`, `prompts`, `prompt`, `skills`, `mcp`, `mcp server`, `explorer`, `tree view`, `editor`
 * 保守性（拡張性、コード品質、ドキュメント）
 
-  * ビュー（prompts/skills/templates/agents/mcp/core）ごとに責務を分離し、将来拡張（再起動支援等）を追加しやすい構造とすること。
+  * ビュー（prompts/skills/templates/mcp/core）ごとに責務を分離し、将来拡張（再起動支援等）を追加しやすい構造とすること。
   * UI とファイル操作ロジックを分離し、テスト容易性を確保すること。
 
 ---
@@ -427,7 +354,6 @@
   * VS Code 拡張機能として開発する（TypeScript/Node.js および VS Code Extension API を想定）。
   * `.codex` はホームディレクトリ直下の `~/.codex` を対象とし、プロジェクトローカル（`workspace/.codex`）は扱わない。
   * 拡張のユーザー設定項目（設定値）は同期先フォルダ設定に加え、履歴表示設定（`maxHistoryCount` / `incrudeReasoningMessage`）を提供する。
-  * 拡張機能メタファイルは `.codex/.codex-workspace/` に保存する。
   * 会話履歴データの参照先は `$CODEX_HOME/sessions/.../rollout-*.jsonl` のみとする。
 * 外部システムとの連携は必要ですか？
 
@@ -445,8 +371,6 @@
   * ファイル/フォルダの物理削除や上書き削除を伴う操作により、ユーザーが意図せずデータを失うリスク（確認ダイアログで緩和）。
   * OS 依存のファイル名禁則（特に Windows）による作成/リネーム失敗（禁止文字 `_` 置換で緩和）。
   * `.codex/prompts` / `.codex/skills` / `.codex/codex-templates` の初回自動作成により、ユーザーの意図しないディレクトリ生成が発生する可能性（初回操作時に限定）。
-  * `[agents.<agent>]` ブロックの追加/削除時に `config.toml` の構造を壊すと、エージェント有効/無効切替が失敗する可能性。
-  * 旧同期メタ（`.codex/.codex-sync/state.json`）から新同期メタ（`.codex/.codex-workspace/codex-sync.json`）への移行失敗により、同期が中断される可能性。
   * 多言語対応により、文言の更新や追加時に翻訳漏れが発生する可能性。
   * `rollout-*.jsonl` のイベント形式変化により、`task_started/task_complete` 境界や `turn_id` 紐づけの抽出に失敗する可能性。
   * 会話履歴件数が多い日の一覧描画で、表示性能が低下する可能性。

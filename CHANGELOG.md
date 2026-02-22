@@ -2,6 +2,16 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
+## Unreleased
+
+Changes
+
+- Added specification updates for Agent Explorer (`~/.codex/agents`) with template-aware creation flow.
+- Added specification updates for agent enable/disable by adding/removing `[agents.<agent>]` in `config.toml`.
+- Added specification updates for agent file sync flow (`agentFolder`, Agent Explorer sync button, bidirectional sync).
+- Added specification updates to store disabled agent blocks in `.codex/.codex-workspace/agents-disabled.json`.
+- Added specification updates to migrate sync metadata from `.codex/.codex-sync/state.json` to `.codex/.codex-workspace/codex-sync.json`.
+
 ## 1.0.4
 
 Fixes
