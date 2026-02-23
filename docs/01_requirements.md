@@ -59,6 +59,7 @@
 * ユーザーは Agent Explorer からエージェントを追加し、追加時にテンプレート適用の有無を選択できる。
 * ユーザーはエージェント追加時に `config.toml` へ `[agents.<agent>]` が自動追記される。
 * ユーザーは Agent Explorer のコンテキストメニューからエージェントを有効化/無効化できる。
+* ユーザーは Agent Explorer の「フォルダを開く」ボタンで `.codex/agents` を OS のエクスプローラ/Finder で開ける。
 * ユーザーは MCP Explorer で MCP サーバー一覧を閲覧し、スイッチ風 UI で `enabled` を ON/OFF 切り替えできる。
 * ユーザーは Prompts/Skills/Template Explorer の「フォルダを開く」ボタンで各ルートフォルダを OS のエクスプローラ/Finder で開ける。
 * ユーザーは Codex Core の「フォルダを開く」ボタンで `.codex` を OS のエクスプローラ/Finder で開ける。
@@ -70,6 +71,8 @@
 * ユーザーは Skills Explorer の同期ボタンを押下することで、`.codex/skills` と同期フォルダの間で最終更新日時が新しいファイルを正として相互同期できる。
 * ユーザーは Template Explorer の同期ボタンを押下することで、`.codex/codex-templates` と同期フォルダの間で最終更新日時が新しいファイルを正として相互同期できる。
 * ユーザーは Agent Explorer の同期ボタンを押下することで、`.codex/agents` と同期フォルダの間で最終更新日時が新しいファイルを正として相互同期できる。
+* ユーザーは Agent 同期で `.codex/agents` から削除されたエージェントについて、`config.toml` の `[agents.<agent>]` エントリと `.codex/.codex-workspace/agents-disabled.json` の退避エントリが自動削除される。
+* ユーザーは Agent 同期で追加されたエージェントについて、`config.toml` に最小構成の `[agents.<agent>]` エントリが自動追記される。
 * 既存ユーザーはアップデート後も旧同期メタ（`.codex/.codex-sync/state.json`）から新同期メタ（`.codex/.codex-workspace/codex-sync.json`）へ移行され、同期機能を継続利用できる。
 * 既存ユーザーはアップデート後も `.codex/codex-templates` の運用を変更せず、テンプレート選択を継続利用できる。
 * ユーザーは Codex Core Explorer の履歴ボタン（codicon: `history`）から、エディタ領域に会話履歴ビューを開ける。
@@ -227,6 +230,7 @@
 ### 5.8 フォルダを開く
 
 * Prompts/Skills/Template Explorer の「フォルダを開く」ボタンは、それぞれ `.codex/prompts` / `.codex/skills` / `.codex/codex-templates` を開く。
+* Agent Explorer の「フォルダを開く」ボタンは `.codex/agents` を開く。
 * Codex Core の「フォルダを開く」ボタンは `.codex` を開く。
 
 ### 5.9 Refresh
@@ -307,6 +311,9 @@
     * 隠しフォルダ/隠しファイルは対象外とする。
     * 上書き中にエラーが発生した場合は該当ファイルのみスキップし、スキップした旨を簡易ダイアログで通知する。
     * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
+    * 同期結果でエージェントファイルが削除された場合、対応する `[agents.<agent>]` を `config.toml` から削除する。
+    * 同期結果でエージェントファイルが削除された場合、`.codex/.codex-workspace/agents-disabled.json` の対応エントリも削除する。
+    * 同期結果でエージェントファイルが新規追加された場合、`config.toml` に最小構成の `[agents.<agent>]` を追記する。
 
 ### 5.12 Agent Explorer
 
@@ -342,6 +349,7 @@
 #### 5.12.4 有効/無効切り替え
 
 * Agent Explorer のコンテキストメニューに `Agentを有効化` / `Agentを無効化` を追加する。
+* Agent Explorer のインライン操作は文字列ではなくアイコンで表現し、有効化は `images/agent_on.png`、無効化は `images/agent_off.png` を使用する。
 * 有効/無効の実体は `config.toml` の `[agents.<agent>]` の有無で表現する。
   * Enable：`[agents.<agent>]` を追加
   * Disable：`[agents.<agent>]` を削除

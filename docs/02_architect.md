@@ -87,6 +87,7 @@ codex-workspace/
     - 追加成功後に `config.toml` へ `[agents.<agent>]` を自動追記（重複時は上書きしない）
     - 無効化時は `[agents.<agent>]` を削除し、削除ブロックを `.codex/.codex-workspace/agents-disabled.json` に退避
     - 有効化時は退避ブロックを復元し、退避がなければ最小構成ブロックを追加
+    - 有効化/無効化操作はインラインアイコン（`agent_on.png` / `agent_off.png`）で提供する
   - 出力：Tree 更新、`config.toml` 更新、再起動案内通知
   - 検索条件：`*.toml` のみ
   - ソート：フォルダ → ファイル、名称昇順
@@ -102,7 +103,7 @@ codex-workspace/
 
 - **フォルダを開く**
   - 入力：ビューごとの「フォルダを開く」コマンド実行
-  - 処理：Prompts/Skills/Templates は各ルートフォルダ、Core は `.codex` を OS の Explorer/Finder で開く
+  - 処理：Prompts/Skills/Templates/Agents は各ルートフォルダ、Core は `.codex` を OS の Explorer/Finder で開く
   - 出力：OS 側のフォルダ表示
   - 検索条件：なし
   - ソート：なし
@@ -124,6 +125,9 @@ codex-workspace/
     - `.codex/.codex-workspace` 配下は隠しフォルダとして同期対象外
     - 隠しフォルダ/隠しファイルは対象外
     - 上書き中にエラーが発生した場合は該当ファイルのみスキップし、スキップした旨を簡易ダイアログで通知
+    - Agent 同期では、削除された `*.toml` に対応する `[agents.<agent>]` を `config.toml` から削除する
+    - Agent 同期では、削除された `*.toml` に対応する `.codex/.codex-workspace/agents-disabled.json` の退避エントリも削除する
+    - Agent 同期では、新規追加された `*.toml` に対応する最小構成 `[agents.<agent>]` を `config.toml` に自動追記する
   - 出力：相互同期結果
   - 検索条件：なし
   - ソート：なし
@@ -233,7 +237,7 @@ codex-workspace/
   - 同期ボタンは同期先フォルダ設定が空の場合は非表示
 - **Agent Explorer**
   - 固定ルートフォルダ `agents`（`.codex/agents`）を持ち、`*.toml` を表示
-  - 操作：UI 最上部のボタンで追加/削除/リネーム/Refresh/同期、コンテキストメニューで有効化/無効化
+  - 操作：UI 最上部のボタンで追加/削除/リネーム/Refresh/フォルダを開く/同期、コンテキストメニューで有効化/無効化
   - 追加時は名前/説明/テンプレート選択のウィザードを順に表示
   - 有効時アイコンは `agent_on.png`、無効時アイコンは `agent_off.png`
   - 同期ボタンは同期先フォルダ設定 `agentFolder` が空の場合は非表示
@@ -302,6 +306,9 @@ flowchart TB
   - `agents-disabled.json` 退避/復元（コメント保持）
   - 同期対象ファイルの抽出と相互同期実行
   - Agent ファイル（`.codex/agents`）の同期実行
+  - Agent 同期削除時の `config.toml` エントリ削除
+  - Agent 同期削除時の `agents-disabled.json` エントリ削除
+  - Agent 同期追加時の `config.toml` エントリ自動追記
   - 隠しフォルダ/隠しファイルの除外
   - 上書き失敗時のスキップ処理
   - 削除同期の実行
@@ -318,6 +325,7 @@ flowchart TB
   - 追加/削除/リネーム操作の UI フロー（未選択時のメッセージ含む）
   - Agent Explorer の追加/編集/削除/有効化/無効化フロー
   - Agent Explorer の同期ボタン表示/非表示と同期実行フロー
+  - Agent Explorer の「フォルダを開く」導線
   - 同期ボタンの表示/非表示と確認ダイアログ
   - MCP トグル後の通知表示
   - 履歴ボタン/コマンドからエディタ領域に履歴ビューが表示される
