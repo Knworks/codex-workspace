@@ -1,7 +1,7 @@
 ---
 id: `TEST-001`
 title: `仕様変更分テスト整備`
-status: Reviewing
+status: Done
 ---
 
 # 🧾`TEST-001 仕様変更分テスト整備`
