@@ -198,4 +198,40 @@ export const messages = {
 			'Select a target in prompts, skills, or templates.',
 		),
 	},
+	agent: {
+		inputName: localize(
+			'message.agent.inputName',
+			'Enter an agent name.',
+		),
+		inputDescription: localize(
+			'message.agent.inputDescription',
+			'Enter an agent description.',
+		),
+		invalidName: localize(
+			'message.agent.invalidName',
+			'Please enter a valid agent name.',
+		),
+		fileExists: (agentName: string) =>
+			localize(
+				'message.agent.fileExists',
+				'An agent named "{0}" already exists.',
+				agentName,
+			),
+		configExists: (agentName: string) =>
+			localize(
+				'message.agent.configExists',
+				'config.toml already has [agents.{0}].',
+				agentName,
+			),
+		deleteConfirm: (agentName: string) =>
+			localize(
+				'message.agent.deleteConfirm',
+				'Are you sure you want to delete agent "{0}"?',
+				agentName,
+			),
+		selectionNotSupported: localize(
+			'message.agent.selectionNotSupported',
+			'Select an agent file in the Agents view.',
+		),
+	},
 };

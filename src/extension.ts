@@ -11,6 +11,7 @@ import {
 } from './services/workspaceStatus';
 import { CodexTreeItem } from './models/treeItems';
 import { registerFileCommands } from './commands/fileCommands';
+import { registerAgentCommands } from './commands/agentCommands';
 import { CoreExplorerProvider } from './views/coreExplorerProvider';
 import { FileExplorerProvider } from './views/fileExplorerProvider';
 import { McpExplorerProvider } from './views/mcpExplorerProvider';
@@ -412,6 +413,11 @@ export function activate(context: vscode.ExtensionContext) {
 		},
 		expansionState,
 		viewFocusState,
+	});
+
+	registerAgentCommands(context, {
+		getSelection: () => selectionContext.getSelection(),
+		agentProvider: agentsProvider,
 	});
 }
 

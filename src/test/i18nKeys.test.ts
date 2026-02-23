@@ -56,6 +56,13 @@ suite('Localization keys', () => {
 			'message.cancel',
 			'message.templateNone',
 			'message.templatePickPlaceholder',
+			'message.agent.inputName',
+			'message.agent.inputDescription',
+			'message.agent.invalidName',
+			'message.agent.fileExists',
+			'message.agent.configExists',
+			'message.agent.deleteConfirm',
+			'message.agent.selectionNotSupported',
 			'message.selectionNotSupported',
 			'message.helloWorld',
 		];

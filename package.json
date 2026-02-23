@@ -132,6 +132,21 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "codex-workspace.addAgent",
+        "title": "%command.addAgent%",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "codex-workspace.editAgent",
+        "title": "%command.editAgent%",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "codex-workspace.deleteAgent",
+        "title": "%command.deleteAgent%",
+        "icon": "$(trash)"
+      },
+      {
         "command": "codex-workspace.addFile",
         "title": "%command.addFile%",
         "icon": "$(new-file)"
@@ -272,7 +287,7 @@
         },
         {
           "command": "codex-workspace.refreshAll",
-          "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates'",
+          "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates' || view == 'codex-workspace.agents'",
           "group": "navigation@5"
         },
         {
@@ -319,6 +334,21 @@
           "command": "codex-workspace.syncCore",
           "when": "view == 'codex-workspace.core' && config.codex-workspace.codexFolder",
           "group": "navigation@8"
+        },
+        {
+          "command": "codex-workspace.addAgent",
+          "when": "view == 'codex-workspace.agents'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codex-workspace.editAgent",
+          "when": "view == 'codex-workspace.agents'",
+          "group": "navigation@2"
+        },
+        {
+          "command": "codex-workspace.deleteAgent",
+          "when": "view == 'codex-workspace.agents'",
+          "group": "navigation@3"
         }
       ]
     }

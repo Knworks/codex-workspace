@@ -14,6 +14,9 @@
   "command.openHistoryView": "Open Conversation History",
   "command.sync": "Sync",
   "command.refresh": "Refresh",
+  "command.addAgent": "Add Agent",
+  "command.editAgent": "Edit Agent",
+  "command.deleteAgent": "Delete Agent",
   "command.addFile": "Add File",
   "command.addFolder": "Add Folder",
   "command.rename": "Rename",
@@ -65,6 +68,13 @@
   "message.cancel": "Cancel",
   "message.templateNone": "Empty file",
   "message.templatePickPlaceholder": "Select a template.",
+  "message.agent.inputName": "Enter an agent name.",
+  "message.agent.inputDescription": "Enter an agent description.",
+  "message.agent.invalidName": "Please enter a valid agent name.",
+  "message.agent.fileExists": "An agent named \"{0}\" already exists.",
+  "message.agent.configExists": "config.toml already has [agents.{0}].",
+  "message.agent.deleteConfirm": "Are you sure you want to delete agent \"{0}\"?",
+  "message.agent.selectionNotSupported": "Select an agent file in the Agents view.",
   "message.selectionNotSupported": "Select a target in prompts, skills, or templates.",
   "message.helloWorld": "Hello World from Codex Workspace!"
 }

@@ -67,6 +67,10 @@ suite('View title menus', () => {
 				viewId: 'codex-workspace.templates',
 			},
 			{
+				command: 'codex-workspace.addAgent',
+				viewId: 'codex-workspace.agents',
+			},
+			{
 				command: 'codex-workspace.openCodexFolder',
 				viewId: 'codex-workspace.core',
 			},
@@ -119,7 +123,11 @@ suite('View title menus', () => {
 			);
 			assert.ok(entry, `Missing view/title menu for ${command}`);
 			const when = entry.when ?? '';
-			for (const viewId of viewIds) {
+			const targetViewIds =
+				command === 'codex-workspace.refreshAll'
+					? [...viewIds, 'codex-workspace.agents']
+					: viewIds;
+			for (const viewId of targetViewIds) {
 				assert.ok(
 					when.includes(`view == '${viewId}'`),
 					`${command} is missing view condition for ${viewId}`,
@@ -133,7 +141,7 @@ suite('View title menus', () => {
 			}
 		}
 
-		const perViewIds = [...viewIds, 'codex-workspace.core'];
+		const perViewIds = [...viewIds, 'codex-workspace.core', 'codex-workspace.agents'];
 		const commandsWithView = [...perViewCommands, ...syncCommands];
 
 		for (const { command, viewId } of commandsWithView) {

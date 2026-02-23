@@ -14,6 +14,9 @@
   "command.openHistoryView": "会話履歴を開く",
   "command.sync": "同期",
   "command.refresh": "更新",
+  "command.addAgent": "Agent追加",
+  "command.editAgent": "Agent編集",
+  "command.deleteAgent": "Agent削除",
   "command.addFile": "ファイル追加",
   "command.addFolder": "フォルダ追加",
   "command.rename": "リネーム",
@@ -65,6 +68,13 @@
   "message.cancel": "キャンセル",
   "message.templateNone": "空のファイル",
   "message.templatePickPlaceholder": "テンプレートを選択してください。",
+  "message.agent.inputName": "エージェント名を入力してください。",
+  "message.agent.inputDescription": "エージェント説明を入力してください。",
+  "message.agent.invalidName": "有効なエージェント名を入力してください。",
+  "message.agent.fileExists": "同名のエージェント「{0}」は既に存在します。",
+  "message.agent.configExists": "config.toml に [agents.{0}] が既に存在します。",
+  "message.agent.deleteConfirm": "エージェント「{0}」を削除します。よろしいですか？",
+  "message.agent.selectionNotSupported": "Agentsビューで対象エージェントファイルを選択してください。",
   "message.selectionNotSupported": "prompts/skills/templates の対象を選択してください。",
   "message.helloWorld": "Codex Workspace からの Hello World!"
 }
