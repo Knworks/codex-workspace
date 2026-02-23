@@ -112,10 +112,7 @@ suite('View title menus', () => {
 			},
 		];
 
-		const excludedViewIds = [
-			'codex-workspace.mcp',
-			'codex-workspace.menu',
-		];
+		const excludedViewIds = ['codex-workspace.mcp', 'codex-workspace.menu'];
 
 		const assertCommandDefinition = (command: string): void => {
 			const commandEntry = commandDefinitions.find(
@@ -134,15 +131,19 @@ suite('View title menus', () => {
 			const when = entry.when ?? '';
 			const targetViewIds =
 				command === 'codex-workspace.refreshAll'
-					? [...viewIds, 'codex-workspace.agents']
+					? [...viewIds, 'codex-workspace.mcp', 'codex-workspace.agents']
 					: viewIds;
+			const excludedForCommand =
+				command === 'codex-workspace.refreshAll'
+					? ['codex-workspace.menu']
+					: excludedViewIds;
 			for (const viewId of targetViewIds) {
 				assert.ok(
 					when.includes(`view == '${viewId}'`),
 					`${command} is missing view condition for ${viewId}`,
 				);
 			}
-			for (const viewId of excludedViewIds) {
+			for (const viewId of excludedForCommand) {
 				assert.ok(
 					!when.includes(`view == '${viewId}'`),
 					`${command} should not target ${viewId}`,

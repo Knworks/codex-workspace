@@ -319,7 +319,7 @@
         },
         {
           "command": "codex-workspace.refreshAll",
-          "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates' || view == 'codex-workspace.agents'",
+          "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates' || view == 'codex-workspace.mcp' || view == 'codex-workspace.agents'",
           "group": "navigation@5"
         },
         {
