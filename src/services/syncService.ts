@@ -13,8 +13,18 @@ type FileEntry = {
 
 type SyncState = Record<string, Record<string, true>>;
 
-const SYNC_STATE_DIR = '.codex-sync';
-const SYNC_STATE_FILE = 'state.json';
+const LEGACY_SYNC_STATE_DIR = '.codex-sync';
+const LEGACY_SYNC_STATE_FILE = 'state.json';
+const WORKSPACE_META_DIR = '.codex-workspace';
+const NEW_SYNC_STATE_FILE = 'codex-sync.json';
+
+function getLegacySyncStatePath(codexRoot: string): string {
+	return path.join(codexRoot, LEGACY_SYNC_STATE_DIR, LEGACY_SYNC_STATE_FILE);
+}
+
+function getNewSyncStatePath(codexRoot: string): string {
+	return path.join(codexRoot, WORKSPACE_META_DIR, NEW_SYNC_STATE_FILE);
+}
 
 /**
  * Removes a tracked path from sync metadata for the given scope.
@@ -46,25 +56,117 @@ function isHiddenPath(relativePath: string): boolean {
 		.some((segment) => isHiddenSegment(segment));
 }
 
+function isWorkspaceMetaPath(relativePath: string): boolean {
+	const normalized = relativePath.split(path.sep).join('/');
+	return normalized === WORKSPACE_META_DIR || normalized.startsWith(`${WORKSPACE_META_DIR}/`);
+}
+
 function readSyncState(codexRoot: string): SyncState {
-	const statePath = path.join(codexRoot, SYNC_STATE_DIR, SYNC_STATE_FILE);
-	if (!fs.existsSync(statePath)) {
+	const newStatePath = getNewSyncStatePath(codexRoot);
+	if (fs.existsSync(newStatePath)) {
+		return parseSyncStateFile(newStatePath, false);
+	}
+
+	const legacyStatePath = getLegacySyncStatePath(codexRoot);
+	if (!fs.existsSync(legacyStatePath)) {
 		return {};
 	}
+	return migrateLegacySyncState(codexRoot, legacyStatePath, newStatePath);
+}
+
+function writeSyncState(codexRoot: string, state: SyncState): void {
+	const stateDir = path.join(codexRoot, WORKSPACE_META_DIR);
+	ensureDirectoryExists(stateDir);
+	const statePath = path.join(stateDir, NEW_SYNC_STATE_FILE);
+	fs.writeFileSync(statePath, JSON.stringify(state, null, 2), 'utf8');
+}
+
+function parseSyncStateFile(statePath: string, strict: boolean): SyncState {
 	try {
 		const contents = fs.readFileSync(statePath, 'utf8');
-		const parsed = JSON.parse(contents) as SyncState;
-		return parsed ?? {};
-	} catch {
+		return parseSyncStateContents(contents, strict);
+	} catch (error) {
+		if (strict) {
+			throw error;
+		}
 		return {};
 	}
 }
 
-function writeSyncState(codexRoot: string, state: SyncState): void {
-	const stateDir = path.join(codexRoot, SYNC_STATE_DIR);
-	ensureDirectoryExists(stateDir);
-	const statePath = path.join(stateDir, SYNC_STATE_FILE);
-	fs.writeFileSync(statePath, JSON.stringify(state, null, 2), 'utf8');
+function parseSyncStateContents(contents: string, strict: boolean): SyncState {
+	try {
+		const parsed = JSON.parse(contents) as SyncState;
+		if (
+			typeof parsed !== 'object' ||
+			parsed === null ||
+			Array.isArray(parsed)
+		) {
+			if (strict) {
+				throw new Error('Invalid sync state schema');
+			}
+			return {};
+		}
+		return parsed;
+	} catch (error) {
+		if (strict) {
+			throw error;
+		}
+		return {};
+	}
+}
+
+function migrateLegacySyncState(
+	codexRoot: string,
+	legacyStatePath: string,
+	newStatePath: string,
+): SyncState {
+	const legacyContents = fs.readFileSync(legacyStatePath, 'utf8');
+	const legacyState = parseSyncStateContents(legacyContents, true);
+	const newStateDir = path.dirname(newStatePath);
+	const tempPath = path.join(
+		newStateDir,
+		`${NEW_SYNC_STATE_FILE}.tmp-${process.pid}-${Date.now()}`,
+	);
+
+	try {
+		ensureDirectoryExists(newStateDir);
+		fs.writeFileSync(tempPath, JSON.stringify(legacyState, null, 2), 'utf8');
+		fs.renameSync(tempPath, newStatePath);
+		const migratedState = parseSyncStateFile(newStatePath, true);
+		fs.rmSync(legacyStatePath, { force: true });
+		cleanupLegacySyncStateDir(path.dirname(legacyStatePath));
+		return migratedState;
+	} catch (error) {
+		try {
+			if (fs.existsSync(tempPath)) {
+				fs.rmSync(tempPath, { force: true });
+			}
+		} catch {
+			// best-effort cleanup
+		}
+		if (fs.existsSync(legacyStatePath) && fs.existsSync(newStatePath)) {
+			try {
+				fs.rmSync(newStatePath, { force: true });
+			} catch {
+				// best-effort rollback
+			}
+		}
+		throw new Error('Failed to migrate sync state from legacy path');
+	}
+}
+
+function cleanupLegacySyncStateDir(legacyStateDir: string): void {
+	try {
+		if (!fs.existsSync(legacyStateDir)) {
+			return;
+		}
+		const entries = fs.readdirSync(legacyStateDir);
+		if (entries.length === 0) {
+			fs.rmdirSync(legacyStateDir);
+		}
+	} catch {
+		// best-effort cleanup
+	}
 }
 
 function buildFileMap(rootDir: string): Map<string, FileEntry> {
@@ -78,7 +180,7 @@ function buildFileMap(rootDir: string): Map<string, FileEntry> {
 		for (const entry of dirEntries) {
 			const fullPath = path.join(currentDir, entry.name);
 			const relativePath = path.relative(rootDir, fullPath);
-			if (isHiddenPath(relativePath)) {
+			if (isHiddenPath(relativePath) || isWorkspaceMetaPath(relativePath)) {
 				continue;
 			}
 			if (entry.isDirectory()) {

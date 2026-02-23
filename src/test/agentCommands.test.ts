@@ -330,7 +330,7 @@ suite('Agent commands', () => {
 				),
 				'utf8',
 			);
-			const syncStatePath = path.join(codexDir, '.codex-sync', 'state.json');
+			const syncStatePath = path.join(codexDir, '.codex-workspace', 'codex-sync.json');
 			fs.mkdirSync(path.dirname(syncStatePath), { recursive: true });
 			fs.writeFileSync(
 				syncStatePath,
