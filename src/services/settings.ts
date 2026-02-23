@@ -13,6 +13,7 @@ export type SyncSettings = {
 	promptsFolder: string;
 	skillsFolder: string;
 	templatesFolder: string;
+	agentFolder: string;
 };
 
 type ConfigurationReader = Pick<vscode.WorkspaceConfiguration, 'get' | 'inspect'>;
@@ -47,6 +48,7 @@ export function getSyncSettings(
 		promptsFolder: readStringSetting(configuration.get('promptsFolder')),
 		skillsFolder: readStringSetting(configuration.get('skillsFolder')),
 		templatesFolder: readStringSetting(configuration.get('templatesFolder')),
+		agentFolder: readStringSetting(configuration.get('agentFolder')),
 	};
 }
 

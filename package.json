@@ -132,6 +132,11 @@
         "icon": "$(sync)"
       },
       {
+        "command": "codex-workspace.syncAgents",
+        "title": "%command.sync%",
+        "icon": "$(sync)"
+      },
+      {
         "command": "codex-workspace.refreshAll",
         "title": "%command.refresh%",
         "icon": "$(refresh)"
@@ -249,17 +254,23 @@
           "default": "",
           "description": "%configuration.templatesFolder.description%"
         },
+        "codex-workspace.agentFolder": {
+          "type": "string",
+          "order": 4,
+          "default": "",
+          "description": "%configuration.agentFolder.description%"
+        },
         "codex-workspace.maxHistoryCount": {
           "type": "number",
           "default": 100,
           "minimum": 1,
-          "order": 4,
+          "order": 5,
           "description": "%configuration.maxHistoryCount.description%"
         },
         "codex-workspace.incrudeReasoningMessage": {
           "type": "boolean",
           "default": false,
-          "order": 5,
+          "order": 6,
           "description": "%configuration.incrudeReasoningMessage.description%"
         }
       }
@@ -344,6 +355,11 @@
         {
           "command": "codex-workspace.syncTemplates",
           "when": "view == 'codex-workspace.templates' && config.codex-workspace.templatesFolder",
+          "group": "navigation@7"
+        },
+        {
+          "command": "codex-workspace.syncAgents",
+          "when": "view == 'codex-workspace.agents' && config.codex-workspace.agentFolder",
           "group": "navigation@7"
         },
         {

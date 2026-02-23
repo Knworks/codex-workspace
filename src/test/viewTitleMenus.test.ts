@@ -105,6 +105,11 @@ suite('View title menus', () => {
 				viewId: 'codex-workspace.templates',
 				configKey: 'config.codex-workspace.templatesFolder',
 			},
+			{
+				command: 'codex-workspace.syncAgents',
+				viewId: 'codex-workspace.agents',
+				configKey: 'config.codex-workspace.agentFolder',
+			},
 		];
 
 		const excludedViewIds = [

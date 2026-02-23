@@ -37,14 +37,15 @@ async function withTempHome(
 	}
 }
 
-async function withPromptsFolderSetting(
+async function withSyncFolderSetting(
+	key: 'promptsFolder' | 'agentFolder',
 	value: string,
 	run: () => Promise<void>,
 ): Promise<void> {
 	const configuration = vscode.workspace.getConfiguration('codex-workspace');
-	const original = configuration.get<string>('promptsFolder');
+	const original = configuration.get<string>(key);
 	await configuration.update(
-		'promptsFolder',
+		key,
 		value,
 		vscode.ConfigurationTarget.Global,
 	);
@@ -53,7 +54,7 @@ async function withPromptsFolderSetting(
 		await run();
 	} finally {
 		await configuration.update(
-			'promptsFolder',
+			key,
 			original,
 			vscode.ConfigurationTarget.Global,
 		);
@@ -88,7 +89,7 @@ suite('Sync commands', () => {
 				.showWarningMessage = async () => 'OK';
 
 			try {
-				await withPromptsFolderSetting(targetDir, async () => {
+				await withSyncFolderSetting('promptsFolder', targetDir, async () => {
 					await vscode.commands.executeCommand(
 						'codex-workspace.syncPrompts',
 					);
@@ -126,7 +127,7 @@ suite('Sync commands', () => {
 				.showWarningMessage = async () => undefined;
 
 			try {
-				await withPromptsFolderSetting(targetDir, async () => {
+				await withSyncFolderSetting('promptsFolder', targetDir, async () => {
 					await vscode.commands.executeCommand(
 						'codex-workspace.syncPrompts',
 					);
@@ -137,6 +138,79 @@ suite('Sync commands', () => {
 			}
 
 			assert.ok(!fs.existsSync(path.join(targetDir, 'note.md')));
+		});
+	});
+
+	test('syncAgents copies files when confirmed', async () => {
+		await withTempHome(async (homeDir) => {
+			await activateExtension();
+
+			const codexDir = path.join(homeDir, '.codex');
+			const agentsDir = path.join(codexDir, 'agents');
+			fs.mkdirSync(agentsDir, { recursive: true });
+			fs.writeFileSync(
+				path.join(codexDir, 'config.toml'),
+				'title = \"ok\"',
+				'utf8',
+			);
+			fs.writeFileSync(path.join(agentsDir, 'reviewer.toml'), 'mode = \"review\"', 'utf8');
+
+			const targetDir = path.join(homeDir, 'sync-agents');
+
+			const originalWarning = vscode.window.showWarningMessage;
+			(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+				.showWarningMessage = async () => 'OK';
+
+			try {
+				await withSyncFolderSetting('agentFolder', targetDir, async () => {
+					await vscode.commands.executeCommand(
+						'codex-workspace.syncAgents',
+					);
+				});
+			} finally {
+				(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+					.showWarningMessage = originalWarning;
+			}
+
+			assert.strictEqual(
+				fs.readFileSync(path.join(targetDir, 'reviewer.toml'), 'utf8'),
+				'mode = \"review\"',
+			);
+		});
+	});
+
+	test('syncAgents does not copy files when cancelled', async () => {
+		await withTempHome(async (homeDir) => {
+			await activateExtension();
+
+			const codexDir = path.join(homeDir, '.codex');
+			const agentsDir = path.join(codexDir, 'agents');
+			fs.mkdirSync(agentsDir, { recursive: true });
+			fs.writeFileSync(
+				path.join(codexDir, 'config.toml'),
+				'title = \"ok\"',
+				'utf8',
+			);
+			fs.writeFileSync(path.join(agentsDir, 'reviewer.toml'), 'mode = \"review\"', 'utf8');
+
+			const targetDir = path.join(homeDir, 'sync-agents-cancel');
+
+			const originalWarning = vscode.window.showWarningMessage;
+			(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+				.showWarningMessage = async () => undefined;
+
+			try {
+				await withSyncFolderSetting('agentFolder', targetDir, async () => {
+					await vscode.commands.executeCommand(
+						'codex-workspace.syncAgents',
+					);
+				});
+			} finally {
+				(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+					.showWarningMessage = originalWarning;
+			}
+
+			assert.ok(!fs.existsSync(path.join(targetDir, 'reviewer.toml')));
 		});
 	});
 });

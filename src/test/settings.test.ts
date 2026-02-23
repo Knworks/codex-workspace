@@ -37,6 +37,7 @@ suite('Sync settings', () => {
 			promptsFolder: '/tmp/prompts',
 			skillsFolder: '/tmp/skills',
 			templatesFolder: '/tmp/templates',
+			agentFolder: '/tmp/agents',
 		});
 
 		const settings = getSyncSettings(config);
@@ -46,6 +47,7 @@ suite('Sync settings', () => {
 			promptsFolder: '/tmp/prompts',
 			skillsFolder: '/tmp/skills',
 			templatesFolder: '/tmp/templates',
+			agentFolder: '/tmp/agents',
 		});
 	});
 
@@ -59,6 +61,7 @@ suite('Sync settings', () => {
 			promptsFolder: '',
 			skillsFolder: '',
 			templatesFolder: '',
+			agentFolder: '',
 		});
 	});
 

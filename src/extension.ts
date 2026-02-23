@@ -358,6 +358,36 @@ export function activate(context: vscode.ExtensionContext) {
 			}),
 	);
 
+	const syncAgentsDisposable = vscode.commands.registerCommand(
+		'codex-workspace.syncAgents',
+		() =>
+			runSafely(async () => {
+				if (!getWorkspaceStatus().isAvailable) {
+					return;
+				}
+				const { agentFolder } = getSyncSettings();
+				if (!agentFolder) {
+					return;
+				}
+				if (!(await confirmSync(agentFolder))) {
+					return;
+				}
+				const { codexDir } = resolveCodexPaths();
+				const result = syncDirectoryBidirectional(
+					'agents',
+					codexDir,
+					path.join(codexDir, 'agents'),
+					agentFolder,
+				);
+				if (result.skipped.length > 0) {
+					vscode.window.showWarningMessage(
+						messages.syncSkipped(result.skipped.length),
+					);
+				}
+				agentsProvider.refresh();
+			}),
+	);
+
 	const refreshDisposable = vscode.commands.registerCommand(
 		'codex-workspace.refreshAll',
 		() =>
@@ -408,6 +438,7 @@ export function activate(context: vscode.ExtensionContext) {
 		syncPromptsDisposable,
 		syncSkillsDisposable,
 		syncTemplatesDisposable,
+		syncAgentsDisposable,
 		refreshDisposable,
 		toggleMcpDisposable,
 	);
