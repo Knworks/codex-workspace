@@ -123,6 +123,13 @@ export function getAgentDescription(
 	return block?.description;
 }
 
+/**
+ * Lists configured agent ids from `[agents.*]` blocks in config.toml.
+ */
+export function listConfiguredAgentIds(contents: string): string[] {
+	return parseAgentBlocks(contents).map((block) => block.id);
+}
+
 function parseAgentBlocks(contents: string): AgentBlock[] {
 	const lines = contents.split(/\r?\n/);
 	const blocks: AgentBlock[] = [];

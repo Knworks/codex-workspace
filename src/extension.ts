@@ -28,6 +28,7 @@ import {
 	syncCoreFilesBidirectional,
 	syncDirectoryBidirectional,
 } from './services/syncService';
+import { reconcileAgentConfigAfterSync } from './services/agentSyncCleanupService';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -373,10 +374,12 @@ export function activate(context: vscode.ExtensionContext) {
 					return;
 				}
 				const { codexDir } = resolveCodexPaths();
+				const agentsDir = path.join(codexDir, 'agents');
+				const existingAgentIdsBeforeSync = readAgentIds(agentsDir);
 				const result = syncDirectoryBidirectional(
 					'agents',
 					codexDir,
-					path.join(codexDir, 'agents'),
+					agentsDir,
 					agentFolder,
 				);
 				if (result.skipped.length > 0) {
@@ -384,6 +387,11 @@ export function activate(context: vscode.ExtensionContext) {
 						messages.syncSkipped(result.skipped.length),
 					);
 				}
+				reconcileAgentConfigAfterSync(
+					codexDir,
+					path.join(codexDir, 'config.toml'),
+					existingAgentIdsBeforeSync,
+				);
 				agentsProvider.refresh();
 			}),
 	);
@@ -463,6 +471,18 @@ export function activate(context: vscode.ExtensionContext) {
 		getSelection: () => selectionContext.getSelection(),
 		agentProvider: agentsProvider,
 	});
+}
+
+function readAgentIds(agentsDir: string): Set<string> {
+	if (!fs.existsSync(agentsDir)) {
+		return new Set<string>();
+	}
+	return new Set(
+		fs
+			.readdirSync(agentsDir, { withFileTypes: true })
+			.filter((entry) => entry.isFile() && path.extname(entry.name).toLowerCase() === '.toml')
+			.map((entry) => path.basename(entry.name, path.extname(entry.name))),
+	);
 }
 
 // This method is called when your extension is deactivated

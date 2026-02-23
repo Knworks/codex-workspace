@@ -56,6 +56,14 @@ export function takeDisabledAgentBlock(
 	return entry.block;
 }
 
+/**
+ * Lists disabled agent ids stored in agents-disabled.json.
+ */
+export function listDisabledAgentIds(storePath: string): string[] {
+	const store = readDisabledAgentsStore(storePath);
+	return Object.keys(store.disabledAgents);
+}
+
 function readDisabledAgentsStore(storePath: string): DisabledAgentsStore {
 	if (!fs.existsSync(storePath)) {
 		return createEmptyStore();
