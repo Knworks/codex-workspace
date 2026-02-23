@@ -67,6 +67,10 @@ suite('View title menus', () => {
 				viewId: 'codex-workspace.templates',
 			},
 			{
+				command: 'codex-workspace.openAgentsFolder',
+				viewId: 'codex-workspace.agents',
+			},
+			{
 				command: 'codex-workspace.addAgent',
 				viewId: 'codex-workspace.agents',
 			},

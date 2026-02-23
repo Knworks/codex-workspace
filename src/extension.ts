@@ -209,6 +209,18 @@ export function activate(context: vscode.ExtensionContext) {
 			}),
 	);
 
+	const openAgentsFolderDisposable = vscode.commands.registerCommand(
+		'codex-workspace.openAgentsFolder',
+		() =>
+			runSafely(async () => {
+				if (!getWorkspaceStatus().isAvailable) {
+					return;
+				}
+				const { codexDir } = resolveCodexPaths();
+				await revealFolder(path.join(codexDir, 'agents'));
+			}),
+	);
+
 	const openHistoryViewDisposable = vscode.commands.registerCommand(
 		'codex-workspace.openHistoryView',
 		() =>
@@ -391,6 +403,7 @@ export function activate(context: vscode.ExtensionContext) {
 		openPromptsFolderDisposable,
 		openSkillsFolderDisposable,
 		openTemplatesFolderDisposable,
+		openAgentsFolderDisposable,
 		syncCoreDisposable,
 		syncPromptsDisposable,
 		syncSkillsDisposable,

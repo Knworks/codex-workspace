@@ -11,6 +11,7 @@
   "command.helloWorld": "Hello World",
   "command.openFile": "ファイルを開く",
   "command.openCodexFolder": ".codex を開く",
+  "command.openAgentsFolder": "agents フォルダを開く",
   "command.openHistoryView": "会話履歴を開く",
   "command.sync": "同期",
   "command.refresh": "更新",

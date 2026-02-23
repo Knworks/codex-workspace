@@ -11,6 +11,7 @@
   "command.helloWorld": "Hello World",
   "command.openFile": "Open File",
   "command.openCodexFolder": "Open .codex Folder",
+  "command.openAgentsFolder": "Open Agents Folder",
   "command.openHistoryView": "Open Conversation History",
   "command.sync": "Sync",
   "command.refresh": "Refresh",

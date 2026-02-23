@@ -107,6 +107,11 @@
         "icon": "$(folder-opened)"
       },
       {
+        "command": "codex-workspace.openAgentsFolder",
+        "title": "%command.openAgentsFolder%",
+        "icon": "$(folder-opened)"
+      },
+      {
         "command": "codex-workspace.syncCore",
         "title": "%command.sync%",
         "icon": "$(sync)"
@@ -313,6 +318,11 @@
         {
           "command": "codex-workspace.openTemplatesFolder",
           "when": "view == 'codex-workspace.templates'",
+          "group": "navigation@6"
+        },
+        {
+          "command": "codex-workspace.openAgentsFolder",
+          "when": "view == 'codex-workspace.agents'",
           "group": "navigation@6"
         },
         {
