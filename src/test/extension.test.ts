@@ -38,5 +38,14 @@ suite('Extension Test Suite', () => {
 		assert.ok(
 			views.some((view: { id: string }) => view.id === 'codex-workspace.prompts'),
 		);
+		assert.ok(
+			views.some((view: { id: string }) => view.id === 'codex-workspace.agents'),
+		);
+
+		const activationEvents = packageJson?.activationEvents;
+		assert.ok(Array.isArray(activationEvents));
+		assert.ok(
+			activationEvents.includes('onView:codex-workspace.agents'),
+		);
 	});
 });

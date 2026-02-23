@@ -30,6 +30,7 @@
     "onView:codex-workspace.skills",
     "onView:codex-workspace.templates",
     "onView:codex-workspace.mcp",
+    "onView:codex-workspace.agents",
     "onCommand:codex-workspace.openHistoryView"
   ],
   "main": "./dist/extension.js",
@@ -64,6 +65,10 @@
         {
           "id": "codex-workspace.mcp",
           "name": "%view.mcp.name%"
+        },
+        {
+          "id": "codex-workspace.agents",
+          "name": "%view.agents.name%"
         }
       ]
     },

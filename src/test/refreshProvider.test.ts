@@ -1,4 +1,6 @@
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as path from 'path';
 import { EmptyExplorerProvider } from '../views/emptyExplorerProvider';
 
 suite('CodexTreeDataProvider refresh', () => {
@@ -11,5 +13,20 @@ suite('CodexTreeDataProvider refresh', () => {
 			done();
 		});
 		provider.refresh();
+	});
+
+	test('refreshAll command refreshes agent explorer too', () => {
+		const extensionPath = path.resolve(
+			__dirname,
+			'..',
+			'..',
+			'src',
+			'extension.ts',
+		);
+		const extensionSource = fs.readFileSync(extensionPath, 'utf8');
+		assert.ok(
+			extensionSource.includes('agentsProvider.refresh();'),
+			'refreshAll should call agentsProvider.refresh()',
+		);
 	});
 });

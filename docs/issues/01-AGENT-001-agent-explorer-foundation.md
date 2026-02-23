@@ -1,7 +1,7 @@
 ---
 id: `AGENT-001`
 title: `Agent Explorer基盤実装`
-status: Todo
+status: Done
 ---
 
 # 🧾`AGENT-001 Agent Explorer基盤実装`
@@ -26,11 +26,11 @@ status: Todo
 ## ✅AC（受け入れ基準）
 
 - AC：必要十分な項目数（最低3、目安5〜10、上限なし）
-  - [ ] [機能] Agent Explorerに`.codex/agents`配下の`*.toml`のみが表示される
-  - [ ] [機能] Agentノード選択で対象ファイルがエディタ表示される
-  - [ ] [UI/UX] 有効時`agent_on.png`、無効時`agent_off.png`が表示される
-  - [ ] [機能] Refresh実行でAgent Explorerを含む全ビューが更新される
-  - [ ] [テスト] Agent一覧取得とフィルタ条件のテストが追加される
+  - [x] [機能] Agent Explorerに`.codex/agents`配下の`*.toml`のみが表示される
+  - [x] [機能] Agentノード選択で対象ファイルがエディタ表示される
+  - [x] [UI/UX] 有効時`agent_on.png`、無効時`agent_off.png`が表示される
+  - [x] [機能] Refresh実行でAgent Explorerを含む全ビューが更新される
+  - [x] [テスト] Agent一覧取得とフィルタ条件のテストが追加される
 
 ## 🔗依存関係
 

@@ -14,6 +14,7 @@ import { registerFileCommands } from './commands/fileCommands';
 import { CoreExplorerProvider } from './views/coreExplorerProvider';
 import { FileExplorerProvider } from './views/fileExplorerProvider';
 import { McpExplorerProvider } from './views/mcpExplorerProvider';
+import { AgentExplorerProvider } from './views/agentExplorerProvider';
 import { toggleMcpServer } from './services/mcpService';
 import { messages } from './i18n';
 import { runSafely } from './services/errorHandling';
@@ -35,6 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const skillsProvider = new FileExplorerProvider('skills', context);
 	const templatesProvider = new FileExplorerProvider('templates', context);
 	const mcpProvider = new McpExplorerProvider(context);
+	const agentsProvider = new AgentExplorerProvider(context);
 	const selectionContext = new SelectionContext();
 	const expansionState = new TreeExpansionState();
 	const viewFocusState = new ViewFocusState();
@@ -57,6 +59,9 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 	const mcpView = vscode.window.createTreeView('codex-workspace.mcp', {
 		treeDataProvider: mcpProvider,
+	});
+	const agentsView = vscode.window.createTreeView('codex-workspace.agents', {
+		treeDataProvider: agentsProvider,
 	});
 
 	const trackExpansion = (
@@ -90,11 +95,13 @@ export function activate(context: vscode.ExtensionContext) {
 		skillsView,
 		templatesView,
 		mcpView,
+		agentsView,
 		trackSelection(coreView),
 		trackSelection(promptsView, 'prompts'),
 		trackSelection(skillsView, 'skills'),
 		trackSelection(templatesView, 'templates'),
 		trackSelection(mcpView),
+		trackSelection(agentsView),
 		...trackExpansion('prompts', promptsView),
 		...trackExpansion('skills', skillsView),
 		...trackExpansion('templates', templatesView),
@@ -350,6 +357,7 @@ export function activate(context: vscode.ExtensionContext) {
 				skillsProvider.refresh();
 				templatesProvider.refresh();
 				mcpProvider.refresh();
+				agentsProvider.refresh();
 			}),
 	);
 

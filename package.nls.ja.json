@@ -7,6 +7,7 @@
   "view.skills.name": "Skills",
   "view.templates.name": "Templates",
   "view.mcp.name": "MCP",
+  "view.agents.name": "Agents",
   "command.helloWorld": "Hello World",
   "command.openFile": "ファイルを開く",
   "command.openCodexFolder": ".codex を開く",
