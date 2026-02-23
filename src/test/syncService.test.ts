@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import {
+	removeSyncStateEntry,
 	syncCoreFilesBidirectional,
 	syncDirectoryBidirectional,
 } from '../services/syncService';
@@ -169,6 +170,29 @@ suite('Sync service', () => {
 			syncCoreFilesBidirectional(codexRoot, targetDir);
 
 			assert.ok(!fs.existsSync(path.join(targetDir, 'AGENTS.md')));
+		});
+	});
+
+	test('removeSyncStateEntry removes tracked path from scope', () => {
+		withTempDir((root) => {
+			const codexRoot = path.join(root, '.codex');
+			const codexDir = path.join(codexRoot, 'agents');
+			const targetDir = path.join(root, 'sync-agents');
+			fs.mkdirSync(codexDir, { recursive: true });
+			fs.writeFileSync(path.join(codexDir, 'reviewer.toml'), 'x', 'utf8');
+
+			syncDirectoryBidirectional('agents', codexRoot, codexDir, targetDir);
+			const statePath = path.join(codexRoot, '.codex-sync', 'state.json');
+			const initialState = JSON.parse(
+				fs.readFileSync(statePath, 'utf8'),
+			) as Record<string, Record<string, unknown>>;
+			assert.ok(initialState.agents?.['reviewer.toml']);
+
+			removeSyncStateEntry(codexRoot, 'agents', 'reviewer.toml');
+			const nextState = JSON.parse(
+				fs.readFileSync(statePath, 'utf8'),
+			) as Record<string, Record<string, unknown>>;
+			assert.ok(!nextState.agents?.['reviewer.toml']);
 		});
 	});
 });

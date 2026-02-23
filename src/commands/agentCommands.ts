@@ -12,12 +12,20 @@ import {
 	readTemplateContents,
 } from '../services/templateService';
 import {
+	appendAgentConfigRawBlock,
 	appendAgentConfigBlock,
+	extractAgentConfigBlock,
 	getAgentDescription,
 	hasAgentConfigBlock,
 	upsertAgentConfigBlock,
 } from '../services/agentConfigService';
+import {
+	getDisabledAgentsStorePath,
+	saveDisabledAgentBlock,
+	takeDisabledAgentBlock,
+} from '../services/disabledAgentsStore';
 import { AgentExplorerProvider } from '../views/agentExplorerProvider';
+import { removeSyncStateEntry } from '../services/syncService';
 
 type AgentCommandContext = {
 	getSelection: () => CodexTreeItem | undefined;
@@ -72,6 +80,40 @@ export function registerAgentCommands(
 						return;
 					}
 					await deleteAgent(selection.fsPath, agentProvider);
+				}),
+		),
+	);
+
+	disposables.push(
+		vscode.commands.registerCommand(
+			'codex-workspace.enableAgent',
+			(item?: CodexTreeItem) =>
+				runSafely(async () => {
+					if (!ensureAvailable()) {
+						return;
+					}
+					const selection = resolveAgentSelection(item, getSelection);
+					if (!ensureSelection(selection) || !selection.fsPath) {
+						return;
+					}
+					await enableAgent(selection.fsPath, agentProvider);
+				}),
+		),
+	);
+
+	disposables.push(
+		vscode.commands.registerCommand(
+			'codex-workspace.disableAgent',
+			(item?: CodexTreeItem) =>
+				runSafely(async () => {
+					if (!ensureAvailable()) {
+						return;
+					}
+					const selection = resolveAgentSelection(item, getSelection);
+					if (!ensureSelection(selection) || !selection.fsPath) {
+						return;
+					}
+					await disableAgent(selection.fsPath, agentProvider);
 				}),
 		),
 	);
@@ -169,6 +211,9 @@ async function deleteAgent(
 	agentFilePath: string,
 	agentProvider: AgentExplorerProvider,
 ): Promise<void> {
+	const { codexDir, configPath } = resolveCodexPaths();
+	const agentId = path.basename(agentFilePath, path.extname(agentFilePath));
+	const storePath = getDisabledAgentsStorePath(codexDir);
 	const choice = await vscode.window.showWarningMessage(
 		messages.agent.deleteConfirm(path.basename(agentFilePath)),
 		{ modal: true },
@@ -178,6 +223,58 @@ async function deleteAgent(
 		return;
 	}
 	fs.rmSync(agentFilePath, { force: true });
+
+	const configContents = fs.readFileSync(configPath, 'utf8');
+	const extracted = extractAgentConfigBlock(configContents, agentId);
+	if (extracted.removed) {
+		fs.writeFileSync(configPath, extracted.contents, 'utf8');
+	}
+
+	// Delete stale disabled backup to avoid resurrecting deleted agents.
+	takeDisabledAgentBlock(storePath, agentId);
+	removeSyncStateEntry(codexDir, 'agents', `${agentId}.toml`);
+	agentProvider.refresh();
+}
+
+async function enableAgent(
+	agentFilePath: string,
+	agentProvider: AgentExplorerProvider,
+): Promise<void> {
+	const { codexDir, configPath } = resolveCodexPaths();
+	const storePath = getDisabledAgentsStorePath(codexDir);
+	const agentId = path.basename(agentFilePath, path.extname(agentFilePath));
+	const configContents = fs.readFileSync(configPath, 'utf8');
+	if (hasAgentConfigBlock(configContents, agentId)) {
+		vscode.window.showWarningMessage(messages.agent.configExists(agentId));
+		return;
+	}
+
+	const stashedBlock = takeDisabledAgentBlock(storePath, agentId);
+	const nextContents = stashedBlock
+		? appendAgentConfigRawBlock(configContents, stashedBlock)
+		: appendAgentConfigBlock(configContents, agentId, '').contents;
+	fs.writeFileSync(configPath, nextContents, 'utf8');
+	vscode.window.showInformationMessage(messages.agent.toggleUpdated);
+	agentProvider.refresh();
+}
+
+async function disableAgent(
+	agentFilePath: string,
+	agentProvider: AgentExplorerProvider,
+): Promise<void> {
+	const { codexDir, configPath } = resolveCodexPaths();
+	const storePath = getDisabledAgentsStorePath(codexDir);
+	const agentId = path.basename(agentFilePath, path.extname(agentFilePath));
+	const configContents = fs.readFileSync(configPath, 'utf8');
+	const extracted = extractAgentConfigBlock(configContents, agentId);
+	if (!extracted.removed || !extracted.block) {
+		vscode.window.showWarningMessage(messages.agent.notEnabled(agentId));
+		return;
+	}
+
+	fs.writeFileSync(configPath, extracted.contents, 'utf8');
+	saveDisabledAgentBlock(storePath, agentId, extracted.block);
+	vscode.window.showInformationMessage(messages.agent.toggleUpdated);
 	agentProvider.refresh();
 }
 

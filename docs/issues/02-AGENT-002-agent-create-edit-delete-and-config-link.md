@@ -1,7 +1,7 @@
 ---
 id: `AGENT-002`
 title: `Agent追加編集削除とconfig連携`
-status: Reviewing
+status: Done
 ---
 
 # 🧾`AGENT-002 Agent追加編集削除とconfig連携`

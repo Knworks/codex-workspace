@@ -1,7 +1,9 @@
 import * as assert from 'assert';
 import {
+	appendAgentConfigRawBlock,
 	appendAgentConfigBlock,
 	buildAgentConfigBlock,
+	extractAgentConfigBlock,
 	getAgentDescription,
 	hasAgentConfigBlock,
 	upsertAgentConfigBlock,
@@ -65,5 +67,31 @@ suite('Agent config service', () => {
 	test('buildAgentConfigBlock quotes special agent names', () => {
 		const block = buildAgentConfigBlock('beta prod', 'desc');
 		assert.ok(block.startsWith('[agents."beta prod"]'));
+	});
+
+	test('extractAgentConfigBlock removes target block and keeps comments in block text', () => {
+		const contents = [
+			'[agents.alpha]',
+			'description = "Alpha"',
+			'# keep this comment',
+			'config_file = "agents/alpha.toml"',
+			'',
+			'[mcp_servers.a]',
+			'enabled = true',
+			'',
+		].join('\n');
+		const extracted = extractAgentConfigBlock(contents, 'alpha');
+		assert.strictEqual(extracted.removed, true);
+		assert.ok(extracted.block?.includes('# keep this comment'));
+		assert.ok(!extracted.contents.includes('[agents.alpha]'));
+		assert.ok(extracted.contents.includes('[mcp_servers.a]'));
+	});
+
+	test('appendAgentConfigRawBlock appends stashed block as-is', () => {
+		const contents = 'title = "ok"\n';
+		const block = '[agents.alpha]\ndescription = "Alpha"\nconfig_file = "agents/alpha.toml"\n';
+		const appended = appendAgentConfigRawBlock(contents, block);
+		assert.ok(appended.includes('[agents.alpha]'));
+		assert.ok(appended.includes('description = "Alpha"'));
 	});
 });

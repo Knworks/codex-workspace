@@ -152,6 +152,22 @@
         "icon": "$(trash)"
       },
       {
+        "command": "codex-workspace.enableAgent",
+        "title": "%command.enableAgent%",
+        "icon": {
+          "light": "images/agent_on.png",
+          "dark": "images/agent_on.png"
+        }
+      },
+      {
+        "command": "codex-workspace.disableAgent",
+        "title": "%command.disableAgent%",
+        "icon": {
+          "light": "images/agent_off.png",
+          "dark": "images/agent_off.png"
+        }
+      },
+      {
         "command": "codex-workspace.addFile",
         "title": "%command.addFile%",
         "icon": "$(new-file)"
@@ -359,6 +375,18 @@
           "command": "codex-workspace.deleteAgent",
           "when": "view == 'codex-workspace.agents'",
           "group": "navigation@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "codex-workspace.enableAgent",
+          "when": "view == 'codex-workspace.agents' && viewItem == 'codex-agent-file-disabled'",
+          "group": "inline@1"
+        },
+        {
+          "command": "codex-workspace.disableAgent",
+          "when": "view == 'codex-workspace.agents' && viewItem == 'codex-agent-file-enabled'",
+          "group": "inline@2"
         }
       ]
     }

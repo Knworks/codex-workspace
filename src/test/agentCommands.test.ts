@@ -289,11 +289,62 @@ suite('Agent commands', () => {
 		});
 	});
 
-	test('deleteAgent removes file after confirmation', async () => {
+	test('deleteAgent removes file, config entry, disabled stash, and sync state', async () => {
 		await withTempHome(async (homeDir) => {
-			const { agentsDir } = createWorkspace(homeDir);
+			const { codexDir, agentsDir, configPath } = createWorkspace(homeDir);
 			const targetPath = path.join(agentsDir, 'to_delete.toml');
 			fs.writeFileSync(targetPath, 'mode = "delete"', 'utf8');
+			fs.writeFileSync(
+				configPath,
+				[
+					'title = "ok"',
+					'',
+					'[agents.to_delete]',
+					'description = "del"',
+					'config_file = "agents/to_delete.toml"',
+					'',
+				].join('\n'),
+				'utf8',
+			);
+			const disabledStorePath = path.join(
+				codexDir,
+				'.codex-workspace',
+				'agents-disabled.json',
+			);
+			fs.mkdirSync(path.dirname(disabledStorePath), { recursive: true });
+			fs.writeFileSync(
+				disabledStorePath,
+				JSON.stringify(
+					{
+						version: 1,
+						disabledAgents: {
+							to_delete: {
+								disabledAt: '2026-02-23T00:00:00.000Z',
+								source: 'config.toml',
+								block: '[agents.to_delete]\nconfig_file = "agents/to_delete.toml"\n',
+							},
+						},
+					},
+					null,
+					2,
+				),
+				'utf8',
+			);
+			const syncStatePath = path.join(codexDir, '.codex-sync', 'state.json');
+			fs.mkdirSync(path.dirname(syncStatePath), { recursive: true });
+			fs.writeFileSync(
+				syncStatePath,
+				JSON.stringify(
+					{
+						agents: {
+							'to_delete.toml': true,
+						},
+					},
+					null,
+					2,
+				),
+				'utf8',
+			);
 			await activateExtension();
 
 			const originalWarning = vscode.window.showWarningMessage;
@@ -311,6 +362,130 @@ suite('Agent commands', () => {
 			}
 
 			assert.ok(!fs.existsSync(targetPath));
+			const nextConfig = fs.readFileSync(configPath, 'utf8');
+			assert.ok(!nextConfig.includes('[agents.to_delete]'));
+			const disabledStore = JSON.parse(
+				fs.readFileSync(disabledStorePath, 'utf8'),
+			) as { disabledAgents: Record<string, unknown> };
+			assert.strictEqual(disabledStore.disabledAgents.to_delete, undefined);
+			const syncState = JSON.parse(fs.readFileSync(syncStatePath, 'utf8')) as {
+				agents?: Record<string, unknown>;
+			};
+			assert.strictEqual(syncState.agents?.['to_delete.toml'], undefined);
+		});
+	});
+
+	test('disableAgent removes config block and stores raw block with comments', async () => {
+		await withTempHome(async (homeDir) => {
+			const { codexDir, agentsDir, configPath } = createWorkspace(homeDir);
+			const targetPath = path.join(agentsDir, 'reviewer.toml');
+			fs.writeFileSync(targetPath, 'mode = "review"', 'utf8');
+			fs.writeFileSync(
+				configPath,
+				[
+					'title = "ok"',
+					'',
+					'[agents.reviewer]',
+					'# keep this comment',
+					'description = "reviewer"',
+					'config_file = "agents/reviewer.toml"',
+					'',
+				].join('\n'),
+				'utf8',
+			);
+			await activateExtension();
+
+			const infos: string[] = [];
+			const originalInfo = vscode.window.showInformationMessage;
+			(vscode.window as unknown as { showInformationMessage: typeof originalInfo })
+				.showInformationMessage = async (message: string | vscode.MessageItem) => {
+					infos.push(String(message));
+					return undefined;
+				};
+
+			try {
+				await vscode.commands.executeCommand(
+					'codex-workspace.disableAgent',
+					createAgentItem(targetPath),
+				);
+			} finally {
+				(vscode.window as unknown as { showInformationMessage: typeof originalInfo })
+					.showInformationMessage = originalInfo;
+			}
+
+			const nextConfig = fs.readFileSync(configPath, 'utf8');
+			assert.ok(!nextConfig.includes('[agents.reviewer]'));
+			assert.ok(infos.length > 0);
+
+			const storePath = path.join(codexDir, '.codex-workspace', 'agents-disabled.json');
+			const store = JSON.parse(fs.readFileSync(storePath, 'utf8')) as {
+				version: number;
+				disabledAgents: Record<string, { block: string }>;
+			};
+			assert.strictEqual(store.version, 1);
+			assert.ok(store.disabledAgents.reviewer.block.includes('# keep this comment'));
+		});
+	});
+
+	test('enableAgent restores stashed block and clears store entry', async () => {
+		await withTempHome(async (homeDir) => {
+			const { codexDir, agentsDir, configPath } = createWorkspace(homeDir);
+			const targetPath = path.join(agentsDir, 'restorable.toml');
+			fs.writeFileSync(targetPath, 'mode = "x"', 'utf8');
+			const storePath = path.join(codexDir, '.codex-workspace', 'agents-disabled.json');
+			fs.mkdirSync(path.dirname(storePath), { recursive: true });
+			fs.writeFileSync(
+				storePath,
+				JSON.stringify(
+					{
+						version: 1,
+						disabledAgents: {
+							restorable: {
+								disabledAt: '2026-02-23T00:00:00.000Z',
+								source: 'config.toml',
+								block: '[agents.restorable]\n# from stash\ndescription = "stash"\nconfig_file = "agents/restorable.toml"\n',
+							},
+						},
+					},
+					null,
+					2,
+				),
+				'utf8',
+			);
+			await activateExtension();
+
+			await vscode.commands.executeCommand(
+				'codex-workspace.enableAgent',
+				createAgentItem(targetPath),
+			);
+
+			const nextConfig = fs.readFileSync(configPath, 'utf8');
+			assert.ok(nextConfig.includes('[agents.restorable]'));
+			assert.ok(nextConfig.includes('# from stash'));
+
+			const store = JSON.parse(fs.readFileSync(storePath, 'utf8')) as {
+				disabledAgents: Record<string, unknown>;
+			};
+			assert.strictEqual(store.disabledAgents.restorable, undefined);
+		});
+	});
+
+	test('enableAgent falls back to minimal block when stash is missing', async () => {
+		await withTempHome(async (homeDir) => {
+			const { agentsDir, configPath } = createWorkspace(homeDir);
+			const targetPath = path.join(agentsDir, 'fallback.toml');
+			fs.writeFileSync(targetPath, 'mode = "x"', 'utf8');
+			await activateExtension();
+
+			await vscode.commands.executeCommand(
+				'codex-workspace.enableAgent',
+				createAgentItem(targetPath),
+			);
+
+			const nextConfig = fs.readFileSync(configPath, 'utf8');
+			assert.ok(nextConfig.includes('[agents.fallback]'));
+			assert.ok(nextConfig.includes('description = ""'));
+			assert.ok(nextConfig.includes('config_file = "agents/fallback.toml"'));
 		});
 	});
 });

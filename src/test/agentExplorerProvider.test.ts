@@ -48,6 +48,8 @@ suite('Agent explorer provider', () => {
 		);
 		assert.strictEqual(items[0].command?.command, 'codex-workspace.openFile');
 		assert.strictEqual(items[1].command?.command, 'codex-workspace.openFile');
+		assert.strictEqual(items[0].contextValue, 'codex-agent-file-enabled');
+		assert.strictEqual(items[1].contextValue, 'codex-agent-file-disabled');
 
 		const expectedIconPath = (fileName: string): string =>
 			vscode.Uri.file(

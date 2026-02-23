@@ -27,16 +27,26 @@ export function appendAgentConfigBlock(
 	if (hasAgentConfigBlock(contents, agentId)) {
 		return { contents, appended: false };
 	}
-	const block = buildAgentConfigBlock(agentId, description);
+	return {
+		contents: appendAgentConfigRawBlock(
+			contents,
+			buildAgentConfigBlock(agentId, description),
+		),
+		appended: true,
+	};
+}
+
+/**
+ * Appends a prebuilt `[agents.*]` block while preserving document formatting.
+ */
+export function appendAgentConfigRawBlock(contents: string, block: string): string {
+	const normalizedBlock = block.trimEnd();
 	if (contents.trim().length === 0) {
-		return { contents: `${block}\n`, appended: true };
+		return `${normalizedBlock}\n`;
 	}
 
 	const separator = contents.endsWith('\n') ? '\n' : '\n\n';
-	return {
-		contents: `${contents}${separator}${block}\n`,
-		appended: true,
-	};
+	return `${contents}${separator}${normalizedBlock}\n`;
 }
 
 /**
@@ -62,7 +72,28 @@ export function upsertAgentConfigBlock(
 		target.endLine - target.startLine + 1,
 		...replacement,
 	);
-	return `${lines.join('\n').replace(/\s+$/, '')}\n`;
+	return normalizeTomlContents(lines);
+}
+
+/**
+ * Removes an existing `[agents.<agentId>]` block and returns the raw removed text.
+ */
+export function extractAgentConfigBlock(
+	contents: string,
+	agentId: string,
+): { contents: string; block?: string; removed: boolean } {
+	const lines = contents.split(/\r?\n/);
+	const target = parseAgentBlocks(contents).find((block) => block.id === agentId);
+	if (!target) {
+		return { contents, removed: false };
+	}
+	const removedLines = lines.slice(target.startLine, target.endLine + 1);
+	lines.splice(target.startLine, target.endLine - target.startLine + 1);
+	return {
+		contents: normalizeTomlContents(lines),
+		block: `${removedLines.join('\n').trimEnd()}\n`,
+		removed: true,
+	};
 }
 
 /**
@@ -132,6 +163,10 @@ function parseAgentBlocks(contents: string): AgentBlock[] {
 	}
 
 	return blocks;
+}
+
+function normalizeTomlContents(lines: string[]): string {
+	return `${lines.join('\n').replace(/\s+$/, '')}\n`;
 }
 
 function isUnquotedHeaderKey(value: string): boolean {

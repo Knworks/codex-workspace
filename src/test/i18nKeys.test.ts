@@ -61,6 +61,8 @@ suite('Localization keys', () => {
 			'message.agent.invalidName',
 			'message.agent.fileExists',
 			'message.agent.configExists',
+			'message.agent.notEnabled',
+			'message.agent.toggleUpdated',
 			'message.agent.deleteConfirm',
 			'message.agent.selectionNotSupported',
 			'message.selectionNotSupported',

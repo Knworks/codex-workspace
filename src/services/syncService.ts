@@ -16,6 +16,26 @@ type SyncState = Record<string, Record<string, true>>;
 const SYNC_STATE_DIR = '.codex-sync';
 const SYNC_STATE_FILE = 'state.json';
 
+/**
+ * Removes a tracked path from sync metadata for the given scope.
+ */
+export function removeSyncStateEntry(
+	codexRoot: string,
+	scopeKey: string,
+	relativePath: string,
+): void {
+	const state = readSyncState(codexRoot);
+	const scopeState = state[scopeKey];
+	if (!scopeState || scopeState[relativePath] !== true) {
+		return;
+	}
+	delete scopeState[relativePath];
+	if (Object.keys(scopeState).length === 0) {
+		delete state[scopeKey];
+	}
+	writeSyncState(codexRoot, state);
+}
+
 function isHiddenSegment(segment: string): boolean {
 	return segment.startsWith('.');
 }

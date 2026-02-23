@@ -50,6 +50,7 @@ export class AgentExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> 
 				}),
 			)
 			.map((entry) => {
+				const isEnabled = enabledAgents.has(getAgentId(entry.name));
 				const item = new CodexTreeItem(
 					'file',
 					'agents',
@@ -58,13 +59,15 @@ export class AgentExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> 
 					entry.fullPath,
 				);
 				item.id = entry.fullPath;
-				item.contextValue = 'codex-agent-file';
+				item.contextValue = isEnabled
+					? 'codex-agent-file-enabled'
+					: 'codex-agent-file-disabled';
 				item.command = {
 					command: 'codex-workspace.openFile',
 					title: 'Open agent file',
 					arguments: [item],
 				};
-				item.iconPath = this.getIcon(enabledAgents.has(getAgentId(entry.name)));
+				item.iconPath = this.getIcon(isEnabled);
 				return item;
 			});
 	}

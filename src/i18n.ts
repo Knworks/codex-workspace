@@ -223,6 +223,16 @@ export const messages = {
 				'config.toml already has [agents.{0}].',
 				agentName,
 			),
+		notEnabled: (agentName: string) =>
+			localize(
+				'message.agent.notEnabled',
+				'Agent "{0}" is already disabled or missing in config.toml.',
+				agentName,
+			),
+		toggleUpdated: localize(
+			'message.agent.toggleUpdated',
+			'Agent settings updated. Please restart Codex to apply changes.',
+		),
 		deleteConfirm: (agentName: string) =>
 			localize(
 				'message.agent.deleteConfirm',
