@@ -300,4 +300,32 @@ suite('Sync service', () => {
 			assert.ok(!fs.existsSync(path.join(metaDirPath, 'codex-sync.json')));
 		});
 	});
+
+	test('migration does not move or delete codex-templates', () => {
+		withTempDir((root) => {
+			const codexRoot = path.join(root, '.codex');
+			const promptsDir = path.join(codexRoot, 'prompts');
+			const targetDir = path.join(root, 'sync-prompts');
+			fs.mkdirSync(promptsDir, { recursive: true });
+			fs.writeFileSync(path.join(promptsDir, 'prompt.md'), 'prompt', 'utf8');
+
+			const templateDir = path.join(codexRoot, 'codex-templates');
+			const templateFile = path.join(templateDir, 'keep.md');
+			fs.mkdirSync(templateDir, { recursive: true });
+			fs.writeFileSync(templateFile, 'keep', 'utf8');
+
+			const legacyStatePath = path.join(codexRoot, '.codex-sync', 'state.json');
+			fs.mkdirSync(path.dirname(legacyStatePath), { recursive: true });
+			fs.writeFileSync(legacyStatePath, JSON.stringify({ prompts: {} }, null, 2), 'utf8');
+
+			syncDirectoryBidirectional('prompts', codexRoot, promptsDir, targetDir);
+
+			assert.ok(fs.existsSync(templateFile));
+			assert.ok(
+				!fs.existsSync(
+					path.join(codexRoot, '.codex-workspace', 'codex-templates', 'keep.md'),
+				),
+			);
+		});
+	});
 });

@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { listTemplateCandidates } from '../services/templateService';
+import { getTemplateRootPath, listTemplateCandidates } from '../services/templateService';
 
 suite('Template service', () => {
 	test('lists non-hidden template files recursively', () => {
@@ -23,5 +23,12 @@ suite('Template service', () => {
 		} finally {
 			fs.rmSync(tempDir, { recursive: true, force: true });
 		}
+	});
+
+	test('uses .codex/codex-templates as template root path', () => {
+		const homeDir = path.join('home', 'tester');
+		const rootPath = getTemplateRootPath(homeDir);
+		assert.strictEqual(rootPath, path.join(homeDir, '.codex', 'codex-templates'));
+		assert.ok(!rootPath.includes(path.join('.codex', '.codex-workspace')));
 	});
 });
