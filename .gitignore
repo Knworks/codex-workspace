@@ -1,4 +1,5 @@
 .serena/
+.cocoindex_code/
 .github/
 node_modules/
 dist/

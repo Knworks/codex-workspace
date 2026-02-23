@@ -11,6 +11,10 @@ export type McpServer = {
 const mcpHeaderPattern = /^\s*\[mcp_servers\.([^\]]+)\]\s*$/;
 const enabledPattern = /^(\s*enabled\s*=\s*)(true|false)(\s*#.*)?$/i;
 
+function isMcpServerVisible(id: string): boolean {
+	return !id.toLowerCase().endsWith('.env');
+}
+
 export function readMcpServers(configPath: string): McpServer[] {
 	const contents = fs.readFileSync(configPath, 'utf8');
 	return parseMcpServers(contents);
@@ -31,8 +35,12 @@ export function parseMcpServers(contents: string): McpServer[] {
 			}
 			const mcpMatch = lines[i].match(mcpHeaderPattern);
 			if (mcpMatch) {
+				const id = mcpMatch[1];
+				if (!isMcpServerVisible(id)) {
+					continue;
+				}
 				currentBlock = {
-					id: mcpMatch[1],
+					id,
 					headerLineIndex: i,
 					endLineIndex: lines.length - 1,
 				};

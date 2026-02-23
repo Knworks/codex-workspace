@@ -21,6 +21,25 @@ suite('MCP service', () => {
 		assert.strictEqual(servers[1].enabled, false);
 	});
 
+	test('does not include mcp server ids ending with .env', () => {
+		const input = [
+			'[mcp_servers.alpha]',
+			'enabled = true',
+			'',
+			'[mcp_servers.shadcn.env]',
+			'enabled = true',
+			'',
+			'[mcp_servers.beta]',
+			'enabled = false',
+		].join('\n');
+		const servers = parseMcpServers(input);
+		assert.strictEqual(servers.length, 2);
+		assert.deepStrictEqual(
+			servers.map((server) => server.id),
+			['alpha', 'beta'],
+		);
+	});
+
 	test('toggles enabled and preserves comments', () => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-mcp-'));
 		const configPath = path.join(tempDir, 'config.toml');
