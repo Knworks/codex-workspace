@@ -1,6 +1,6 @@
 # Codex Workspace
 
-Explore and manage your .codex workspace (config.toml, AGENTS.md, prompts, skills, templates, mcp) in VS Code.
+Explore and manage your .codex workspace (config.toml, AGENTS.md, prompts, skills, templates, agents, mcp) in VS Code.
 
 ## Features
 
