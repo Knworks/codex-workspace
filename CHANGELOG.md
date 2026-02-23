@@ -11,6 +11,11 @@ Changes
 - Added specification updates for agent file sync flow (`agentFolder`, Agent Explorer sync button, bidirectional sync).
 - Added specification updates to store disabled agent blocks in `.codex/.codex-workspace/agents-disabled.json`.
 - Added specification updates to migrate sync metadata from `.codex/.codex-sync/state.json` to `.codex/.codex-workspace/codex-sync.json`.
+- Added a refresh button to MCP Explore.
+
+Fixes
+
+- Fixed an issue where `[mcp_servers.xxxxx.env]` entries were displayed in MCP Explorer.
 
 ## 1.0.4
 
