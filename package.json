@@ -51,24 +51,24 @@
           "name": "%view.core.name%"
         },
         {
-          "id": "codex-workspace.prompts",
-          "name": "%view.prompts.name%"
+          "id": "codex-workspace.agents",
+          "name": "%view.agents.name%"
         },
         {
           "id": "codex-workspace.skills",
           "name": "%view.skills.name%"
         },
         {
-          "id": "codex-workspace.templates",
-          "name": "%view.templates.name%"
+          "id": "codex-workspace.prompts",
+          "name": "%view.prompts.name%"
         },
         {
           "id": "codex-workspace.mcp",
           "name": "%view.mcp.name%"
         },
         {
-          "id": "codex-workspace.agents",
-          "name": "%view.agents.name%"
+          "id": "codex-workspace.templates",
+          "name": "%view.templates.name%"
         }
       ]
     },
