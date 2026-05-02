@@ -7,6 +7,7 @@ import { messages } from '../i18n';
 export type WorkspaceStatus = {
 	isAvailable: boolean;
 	reason?: string;
+	isConfigInvalid?: boolean;
 };
 
 export type WorkspacePaths = {
@@ -60,6 +61,43 @@ export function getWorkspaceStatus(homeDir?: string): WorkspaceStatus {
 		parse(configContents);
 	} catch {
 		return { isAvailable: false, reason: UNAVAILABLE_REASONS.configInvalid };
+	}
+
+	return { isAvailable: true };
+}
+
+/**
+ * Returns availability for Codex Core repair-oriented operations.
+ *
+ * Core files must remain openable when `config.toml` exists but is invalid TOML,
+ * because the editor is the recovery path for fixing that file.
+ */
+export function getCoreWorkspaceStatus(homeDir?: string): WorkspaceStatus {
+	const paths = resolveCodexPaths(homeDir);
+
+	if (!fs.existsSync(paths.codexDir)) {
+		return { isAvailable: false, reason: UNAVAILABLE_REASONS.codexMissing };
+	}
+
+	if (!fs.existsSync(paths.configPath)) {
+		return { isAvailable: false, reason: UNAVAILABLE_REASONS.configMissing };
+	}
+
+	let configContents = '';
+	try {
+		configContents = fs.readFileSync(paths.configPath, 'utf8');
+	} catch {
+		return { isAvailable: false, reason: UNAVAILABLE_REASONS.configUnreadable };
+	}
+
+	try {
+		parse(configContents);
+	} catch {
+		return {
+			isAvailable: true,
+			reason: UNAVAILABLE_REASONS.configInvalid,
+			isConfigInvalid: true,
+		};
 	}
 
 	return { isAvailable: true };

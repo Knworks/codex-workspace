@@ -189,6 +189,22 @@ suite('Sync service', () => {
 		});
 	});
 
+	test('syncCoreFilesBidirectional includes AGENTS.override.md', () => {
+		withTempDir((root) => {
+			const codexRoot = path.join(root, '.codex');
+			const targetDir = path.join(root, 'sync');
+			fs.mkdirSync(codexRoot, { recursive: true });
+			fs.writeFileSync(path.join(codexRoot, 'AGENTS.override.md'), 'override', 'utf8');
+
+			syncCoreFilesBidirectional(codexRoot, targetDir);
+
+			assert.strictEqual(
+				fs.readFileSync(path.join(targetDir, 'AGENTS.override.md'), 'utf8'),
+				'override',
+			);
+		});
+	});
+
 	test('removeSyncStateEntry removes tracked path from scope', () => {
 		withTempDir((root) => {
 			const codexRoot = path.join(root, '.codex');

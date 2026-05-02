@@ -108,6 +108,14 @@ export const messages = {
 		'message.historyPanelTitle',
 		'Codex History',
 	),
+	coreViewPanelTitle: localize(
+		'message.coreViewPanelTitle',
+		'Codex Core',
+	),
+	coreViewConversationHistoryTab: localize(
+		'message.coreViewConversationHistoryTab',
+		'Conversation History',
+	),
 	historyPanelPlaceholder: localize(
 		'message.historyPanelPlaceholder',
 		'Conversation history view is ready.',

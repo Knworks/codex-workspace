@@ -78,8 +78,8 @@ async function activateExtension(): Promise<void> {
 	await extension.activate();
 }
 
-suite('History command', () => {
-	test('openHistoryView command opens and reuses a single history panel', async () => {
+suite('Core view command', () => {
+	test('openHistoryView command opens and reuses a single core view panel', async () => {
 		await withTempHome(async (homeDir) => {
 			await activateExtension();
 
@@ -139,8 +139,8 @@ suite('History command', () => {
 
 			assert.strictEqual(createCount, 1);
 			assert.strictEqual(createdPanels[0]?.getRevealCount(), 1);
-			assert.strictEqual(createArgs[0]?.viewType, 'codex-workspace.history');
-			assert.strictEqual(createArgs[0]?.title, 'Codex History');
+			assert.strictEqual(createArgs[0]?.viewType, 'codex-workspace.coreView');
+			assert.strictEqual(createArgs[0]?.title, 'Codex Core');
 			assert.strictEqual(createArgs[0]?.options?.enableScripts, true);
 			assert.strictEqual(
 				createArgs[0]?.options?.retainContextWhenHidden,

@@ -30,6 +30,8 @@ suite('Localization keys', () => {
 			'message.syncConfirm',
 			'message.syncSkipped',
 			'message.historyPanelTitle',
+			'message.coreViewPanelTitle',
+			'message.coreViewConversationHistoryTab',
 			'message.historyPanelPlaceholder',
 			'message.historySearchPlaceholder',
 			'message.historySearch',

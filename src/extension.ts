@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { ensureSelection } from './services/selectionGuard';
 import {
+	getCoreWorkspaceStatus,
 	getWorkspaceStatus,
 	resolveCodexPaths,
 	TEMPLATE_FOLDER_NAME,
@@ -143,7 +144,11 @@ export function activate(context: vscode.ExtensionContext) {
 		'codex-workspace.openFile',
 		(item?: CodexTreeItem) =>
 			runSafely(async () => {
-				if (!getWorkspaceStatus().isAvailable) {
+				const status =
+					item?.kind === 'core'
+						? getCoreWorkspaceStatus()
+						: getWorkspaceStatus();
+				if (!status.isAvailable) {
 					return;
 				}
 				if (!ensureSelection(item) || !item.fsPath) {
@@ -166,7 +171,7 @@ export function activate(context: vscode.ExtensionContext) {
 		'codex-workspace.openCodexFolder',
 		() =>
 			runSafely(async () => {
-				if (!getWorkspaceStatus().isAvailable) {
+				if (!getCoreWorkspaceStatus().isAvailable) {
 					return;
 				}
 				const { codexDir } = resolveCodexPaths();
@@ -226,7 +231,7 @@ export function activate(context: vscode.ExtensionContext) {
 		'codex-workspace.openHistoryView',
 		() =>
 			runSafely(() => {
-				if (!getWorkspaceStatus().isAvailable) {
+				if (!getCoreWorkspaceStatus().isAvailable) {
 					return;
 				}
 				historyPanelManager.show();
@@ -247,7 +252,7 @@ export function activate(context: vscode.ExtensionContext) {
 		'codex-workspace.syncCore',
 		() =>
 			runSafely(async () => {
-				if (!getWorkspaceStatus().isAvailable) {
+				if (!getCoreWorkspaceStatus().isAvailable) {
 					return;
 				}
 				const { codexFolder } = getSyncSettings();

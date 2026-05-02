@@ -373,7 +373,7 @@ export function syncCoreFilesBidirectional(
 	codexDir: string,
 	targetDir: string,
 ): SyncResult {
-	const files = ['AGENTS.md', 'config.toml'];
+	const files = ['AGENTS.md', 'AGENTS.override.md', 'config.toml'];
 	const codexEntries = new Map<string, FileEntry>();
 	const targetEntries = new Map<string, FileEntry>();
 

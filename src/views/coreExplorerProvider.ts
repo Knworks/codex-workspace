@@ -1,19 +1,31 @@
 import * as vscode from 'vscode';
+import fs from 'fs';
 import path from 'path';
 import { CodexTreeDataProvider, WorkspaceStatusProvider } from './codexTreeProvider';
 import { CodexTreeItem } from '../models/treeItems';
-import { resolveCodexPaths } from '../services/workspaceStatus';
+import {
+	getCoreWorkspaceStatus,
+	getWorkspaceStatus,
+	resolveCodexPaths,
+} from '../services/workspaceStatus';
 
 export class CoreExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 	private readonly context: vscode.ExtensionContext;
+	private readonly configStatusProvider: WorkspaceStatusProvider;
 
-	constructor(context: vscode.ExtensionContext, statusProvider?: WorkspaceStatusProvider) {
+	constructor(
+		context: vscode.ExtensionContext,
+		statusProvider: WorkspaceStatusProvider = getCoreWorkspaceStatus,
+		configStatusProvider: WorkspaceStatusProvider = getWorkspaceStatus,
+	) {
 		super(statusProvider);
 		this.context = context;
+		this.configStatusProvider = configStatusProvider;
 	}
 
 	protected getAvailableChildren(): vscode.ProviderResult<CodexTreeItem[]> {
 		const paths = resolveCodexPaths();
+		const configStatus = this.configStatusProvider();
 		const configItem = new CodexTreeItem(
 			'file',
 			'core',
@@ -26,7 +38,12 @@ export class CoreExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 			title: 'Open config.toml',
 			arguments: [configItem],
 		};
-		configItem.iconPath = this.getIcon('settingsfile32.png');
+		if (!configStatus.isAvailable && configStatus.reason) {
+			configItem.tooltip = configStatus.reason;
+			configItem.iconPath = new vscode.ThemeIcon('warning');
+		} else {
+			configItem.iconPath = this.getIcon('settingsfile32.png');
+		}
 
 		const agentItem = new CodexTreeItem(
 			'file',
@@ -42,7 +59,26 @@ export class CoreExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		};
 		agentItem.iconPath = this.getIcon('agents_light.png', 'agents_dark.png');
 
-		return [configItem, agentItem];
+		const items = [configItem, agentItem];
+		const overridePath = path.join(paths.codexDir, 'AGENTS.override.md');
+		if (fs.existsSync(overridePath)) {
+			const overrideItem = new CodexTreeItem(
+				'file',
+				'core',
+				'AGENTS.override.md',
+				vscode.TreeItemCollapsibleState.None,
+				overridePath,
+			);
+			overrideItem.command = {
+				command: 'codex-workspace.openFile',
+				title: 'Open AGENTS.override.md',
+				arguments: [overrideItem],
+			};
+			overrideItem.iconPath = this.getIcon('agents_light.png', 'agents_dark.png');
+			items.push(overrideItem);
+		}
+
+		return items;
 	}
 
 	private getIcon(

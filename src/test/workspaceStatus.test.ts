@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import {
+	getCoreWorkspaceStatus,
 	getWorkspaceStatus,
 	resolveCodexPaths,
 	UNAVAILABLE_REASONS,
@@ -46,6 +47,19 @@ suite('Workspace status', () => {
 			const status = getWorkspaceStatus(homeDir);
 			assert.strictEqual(status.isAvailable, false);
 			assert.strictEqual(status.reason, UNAVAILABLE_REASONS.configInvalid);
+		});
+	});
+
+	test('core status allows invalid config.toml for repair operations', () => {
+		withTempHome((homeDir) => {
+			const paths = resolveCodexPaths(homeDir);
+			fs.mkdirSync(paths.codexDir, { recursive: true });
+			fs.writeFileSync(paths.configPath, 'invalid = [', 'utf8');
+
+			const status = getCoreWorkspaceStatus(homeDir);
+			assert.strictEqual(status.isAvailable, true);
+			assert.strictEqual(status.reason, UNAVAILABLE_REASONS.configInvalid);
+			assert.strictEqual(status.isConfigInvalid, true);
 		});
 	});
 

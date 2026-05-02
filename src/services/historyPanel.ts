@@ -6,7 +6,7 @@ import { messages } from '../i18n';
 import { getConfiguredMaxHistoryCount, getIncludeReasoningMessage } from './settings';
 import { buildHistoryIndex, HistoryDayNode, HistoryIndex, HistoryTurnRecord } from './historyService';
 
-const HISTORY_VIEW_TYPE = 'codex-workspace.history';
+const HISTORY_VIEW_TYPE = 'codex-workspace.coreView';
 export const HISTORY_MESSAGE_PREVIEW_MAX_CHARS = 100;
 
 function resolveImageUri(fileName: string): vscode.Uri {
@@ -257,6 +257,7 @@ function buildHistoryWebviewHtml(
 ): string {
 	const nonce = createNonce();
 	const labels = JSON.stringify({
+		conversationHistoryTab: messages.coreViewConversationHistoryTab,
 		searchPlaceholder: messages.historySearchPlaceholder,
 		clear: messages.historyClear,
 		noResult: messages.historyNoResult,
@@ -283,7 +284,7 @@ function buildHistoryWebviewHtml(
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<meta http-equiv="Content-Security-Policy" content="${csp}" />
 	${codiconLink}
-	<title>${messages.historyPanelTitle}</title>
+	<title>${messages.coreViewPanelTitle}</title>
 	<style>
 		:root { color-scheme: light dark; }
 		body {
@@ -294,12 +295,30 @@ function buildHistoryWebviewHtml(
 		}
 		.root {
 			display: grid;
-			grid-template-rows: auto 1fr;
+			grid-template-rows: auto auto 1fr;
 			height: 100vh;
 		}
 		.top-pane {
 			padding: 10px 12px;
 			border-bottom: 1px solid var(--vscode-panel-border);
+		}
+		.tabs {
+			display: flex;
+			gap: 4px;
+			padding: 8px 12px 0;
+			border-bottom: 1px solid var(--vscode-panel-border);
+		}
+		.tab {
+			border: 1px solid var(--vscode-panel-border);
+			border-bottom: 0;
+			background: var(--vscode-tab-inactiveBackground);
+			color: var(--vscode-tab-inactiveForeground);
+			padding: 6px 10px;
+			border-radius: 4px 4px 0 0;
+		}
+		.tab.active {
+			background: var(--vscode-tab-activeBackground);
+			color: var(--vscode-tab-activeForeground);
 		}
 		.search-box {
 			display: flex;
@@ -487,6 +506,9 @@ function buildHistoryWebviewHtml(
 </head>
 <body>
 	<div class="root">
+		<nav class="tabs" aria-label="Codex Core View tabs">
+			<button class="tab active" type="button">${messages.coreViewConversationHistoryTab}</button>
+		</nav>
 		<section class="top-pane">
 			<div class="search-box">
 				<input id="searchInput" type="text" />
@@ -727,7 +749,7 @@ export function createHistoryWebviewPanel(): vscode.WebviewPanel {
 	};
 	const panel = vscode.window.createWebviewPanel(
 		HISTORY_VIEW_TYPE,
-		messages.historyPanelTitle,
+		messages.coreViewPanelTitle,
 		{ viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
 		panelOptions,
 	);

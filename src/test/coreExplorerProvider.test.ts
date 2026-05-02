@@ -1,4 +1,6 @@
 import * as assert from 'assert';
+import fs from 'fs';
+import os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { CoreExplorerProvider } from '../views/coreExplorerProvider';
@@ -15,6 +17,48 @@ suite('Core explorer provider', () => {
 		assert.strictEqual(items.length, 2);
 		assert.strictEqual(items[0].label, 'config.toml');
 		assert.strictEqual(items[1].label, 'AGENTS.md');
+	});
+
+	test('returns AGENTS.override.md when it exists', () => {
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-core-'));
+		const originalHome = process.env.HOME;
+		try {
+			process.env.HOME = tempDir;
+			const codexDir = path.join(tempDir, '.codex');
+			fs.mkdirSync(codexDir, { recursive: true });
+			fs.writeFileSync(path.join(codexDir, 'AGENTS.override.md'), 'override', 'utf8');
+
+			const provider = new CoreExplorerProvider(contextStub, () => ({ isAvailable: true }));
+			const items = provider.getChildren() as vscode.TreeItem[];
+			assert.deepStrictEqual(
+				items.map((item) => item.label),
+				['config.toml', 'AGENTS.md', 'AGENTS.override.md'],
+			);
+		} finally {
+			process.env.HOME = originalHome;
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test('marks config item with warning when config is invalid but core is available', () => {
+		const provider = new CoreExplorerProvider(
+			contextStub,
+			() => ({
+				isAvailable: true,
+				isConfigInvalid: true,
+				reason: 'invalid config',
+			}),
+			() => ({
+				isAvailable: false,
+				reason: 'invalid config',
+			}),
+		);
+
+		const items = provider.getChildren() as vscode.TreeItem[];
+		assert.strictEqual(items[0].label, 'config.toml');
+		assert.strictEqual(items[0].tooltip, 'invalid config');
+		assert.ok(items[0].iconPath instanceof vscode.ThemeIcon);
+		assert.strictEqual((items[0].iconPath as vscode.ThemeIcon).id, 'warning');
 	});
 
 	test('returns unavailable item when not available', () => {
