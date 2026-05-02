@@ -74,6 +74,8 @@
   "message.cancel": "キャンセル",
   "message.templateNone": "空のファイル",
   "message.templatePickPlaceholder": "テンプレートを選択してください。",
+  "message.skillLocationPickPlaceholder": "Skillの保存場所を選択してください。",
+  "message.userSkillsDeleteWarning": "User Skillsを削除すると他のプロジェクトにも影響する可能性があります。",
   "message.agent.inputName": "エージェント名を入力してください。",
   "message.agent.inputDescription": "エージェント説明を入力してください。",
   "message.agent.invalidName": "有効なエージェント名を入力してください。",

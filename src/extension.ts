@@ -199,6 +199,15 @@ export function activate(context: vscode.ExtensionContext) {
 					return;
 				}
 				const { codexDir } = resolveCodexPaths();
+				const selection = skillsView.selection[0];
+				if (selection?.fsPath) {
+					const targetDir =
+						selection.nodeType === 'file'
+							? path.dirname(selection.fsPath)
+							: selection.fsPath;
+					await revealFolder(targetDir);
+					return;
+				}
 				await revealFolder(path.join(codexDir, 'skills'));
 			}),
 	);

@@ -74,6 +74,8 @@
   "message.cancel": "Cancel",
   "message.templateNone": "Empty file",
   "message.templatePickPlaceholder": "Select a template.",
+  "message.skillLocationPickPlaceholder": "Select a Skill location.",
+  "message.userSkillsDeleteWarning": "Deleting User Skills may affect other projects.",
   "message.agent.inputName": "Enter an agent name.",
   "message.agent.inputDescription": "Enter an agent description.",
   "message.agent.invalidName": "Please enter a valid agent name.",

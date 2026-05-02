@@ -201,6 +201,14 @@ export const messages = {
 			'message.templatePickPlaceholder',
 			'Select a template.',
 		),
+		skillLocationPickPlaceholder: localize(
+			'message.skillLocationPickPlaceholder',
+			'Select a Skill location.',
+		),
+		userSkillsDeleteWarning: localize(
+			'message.userSkillsDeleteWarning',
+			'Deleting User Skills may affect other projects.',
+		),
 		selectionNotSupported: localize(
 			'message.selectionNotSupported',
 			'Select a target in prompts, skills, or templates.',

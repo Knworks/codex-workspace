@@ -319,7 +319,15 @@ export function registerFileCommands(
 						selection.nodeType === 'folder'
 							? messages.file.deleteFolderConfirm
 							: messages.file.deleteFileConfirm;
-					const confirmed = await confirmDialog(message, selection.fsPath);
+					const location = provider.getLocationForPath(selection.fsPath);
+					const warning =
+						location?.kind === 'user'
+							? `\n${messages.file.userSkillsDeleteWarning}`
+							: '';
+					const confirmed = await confirmDialog(
+						`${message}${warning}`,
+						selection.fsPath,
+					);
 					if (!confirmed) {
 						return;
 					}
@@ -411,6 +419,39 @@ function resolveTargetDirectory(
 	return item.fsPath || provider.getRootPath();
 }
 
+async function resolveTargetDirectoryForAdd(
+	item: CodexTreeItem,
+	provider: FileExplorerProvider,
+): Promise<string | null> {
+	const targetDir = resolveTargetDirectory(item, provider);
+	if (item.kind !== 'skills' || !targetDir) {
+		return targetDir;
+	}
+
+	const locations = provider.getRootOptions();
+	const currentLocation = provider.getLocationForPath(targetDir);
+	const sortedLocations = [
+		...locations.filter((location) => location.kind === currentLocation?.kind),
+		...locations.filter((location) => location.kind !== currentLocation?.kind),
+	];
+	const selected = await vscode.window.showQuickPick(
+		sortedLocations.map((location) => ({
+			label: location.label,
+			description: location.rootPath,
+			location,
+		})),
+		{ placeHolder: messages.file.skillLocationPickPlaceholder },
+	);
+	if (!selected) {
+		return null;
+	}
+
+	if (currentLocation?.kind === selected.location.kind) {
+		return targetDir;
+	}
+	return selected.location.rootPath;
+}
+
 function createRootItem(viewKind: FileViewKind, rootPath: string): CodexTreeItem {
 	const rootItem = new CodexTreeItem(
 		'root',
@@ -429,7 +470,7 @@ async function addFileWithSelection(
 	provider: FileExplorerProvider,
 	views: Record<FileViewKind, vscode.TreeView<CodexTreeItem>>,
 ): Promise<void> {
-	const targetDir = resolveTargetDirectory(selection, provider);
+	const targetDir = await resolveTargetDirectoryForAdd(selection, provider);
 	if (!targetDir) {
 		return;
 	}
@@ -479,7 +520,7 @@ async function addFolderWithSelection(
 	provider: FileExplorerProvider,
 	views: Record<FileViewKind, vscode.TreeView<CodexTreeItem>>,
 ): Promise<void> {
-	const targetDir = resolveTargetDirectory(selection, provider);
+	const targetDir = await resolveTargetDirectoryForAdd(selection, provider);
 	if (!targetDir) {
 		return;
 	}

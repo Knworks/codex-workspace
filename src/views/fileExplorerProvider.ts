@@ -7,6 +7,11 @@ import {
 	TEMPLATE_FOLDER_NAME,
 } from '../services/workspaceStatus';
 import { FileEntry, listFileEntries } from '../services/fileTreeService';
+import {
+	findSkillLocationForPath,
+	getSkillLocations,
+	SkillLocation,
+} from '../services/skillLocations';
 
 const FILE_ICON_MAP: Record<string, string> = {
 	'.md': 'markdown32.png',
@@ -56,6 +61,12 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 	}
 
 	getRootPath(): string {
+		if (this.kind === 'skills') {
+			return (
+				this.getRootOptions().find((location) => location.kind === 'workspace')
+					?.rootPath ?? this.getRootOptions()[0].rootPath
+			);
+		}
 		if (this.rootPathOverride) {
 			return this.rootPathOverride;
 		}
@@ -65,8 +76,32 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		return path.join(resolveCodexPaths().codexDir, this.kind);
 	}
 
+	getRootOptions(): SkillLocation[] {
+		if (this.kind !== 'skills') {
+			return [
+				{
+					kind: 'workspace',
+					label: this.kind,
+					rootPath: this.rootPathOverride ?? this.getSingleRootPath(),
+					priority: 1,
+				},
+			];
+		}
+		return getSkillLocations();
+	}
+
+	getLocationForPath(targetPath: string): SkillLocation | undefined {
+		if (this.kind !== 'skills') {
+			return undefined;
+		}
+		return findSkillLocationForPath(targetPath, this.getRootOptions());
+	}
+
 	protected getAvailableChildren(element?: CodexTreeItem): vscode.ProviderResult<CodexTreeItem[]> {
 		if (!element) {
+			if (this.kind === 'skills') {
+				return this.readSkillRoots();
+			}
 			return this.readDirectory(this.getRootPath());
 		}
 
@@ -75,6 +110,13 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		}
 
 		return [];
+	}
+
+	private getSingleRootPath(): string {
+		if (this.kind === 'templates') {
+			return path.join(resolveCodexPaths().codexDir, TEMPLATE_FOLDER_NAME);
+		}
+		return path.join(resolveCodexPaths().codexDir, this.kind);
 	}
 
 	getParent(element: CodexTreeItem): vscode.ProviderResult<CodexTreeItem> {
@@ -91,7 +133,10 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		}
 
 		const rootPath = this.getRootPath();
-		if (parentPath === rootPath) {
+		const parentIsRoot =
+			parentPath === rootPath ||
+			this.getRootOptions().some((location) => location.rootPath === parentPath);
+		if (parentIsRoot) {
 			return undefined;
 		}
 
@@ -108,7 +153,13 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		return folderItem;
 	}
 
-	private readDirectory(targetPath: string): CodexTreeItem[] {
+	private readSkillRoots(): CodexTreeItem[] {
+		return this.getRootOptions().flatMap((location) =>
+			this.readDirectory(location.rootPath, location),
+		);
+	}
+
+	private readDirectory(targetPath: string, location?: SkillLocation): CodexTreeItem[] {
 		const entries = this.listEntries(targetPath)
 			.filter((entry) => !this.isHiddenName(entry.name))
 			.sort((left, right) => {
@@ -120,6 +171,8 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 					sensitivity: 'base',
 				});
 			});
+		const resolvedLocation =
+			location ?? this.getLocationForPath(targetPath);
 		return entries.map((entry) => {
 			if (entry.isDirectory) {
 				const folderItem = new CodexTreeItem(
@@ -132,6 +185,7 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 				folderItem.id = entry.fullPath;
 				folderItem.contextValue = 'codex-folder';
 				folderItem.iconPath = this.getFolderIcon();
+				this.applyLocationMetadata(folderItem, resolvedLocation, entry.fullPath);
 				return folderItem;
 			}
 
@@ -150,8 +204,21 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 				arguments: [fileItem],
 			};
 			fileItem.iconPath = this.getFileIcon(entry.name);
+			this.applyLocationMetadata(fileItem, resolvedLocation, entry.fullPath);
 			return fileItem;
 		});
+	}
+
+	private applyLocationMetadata(
+		item: CodexTreeItem,
+		location: SkillLocation | undefined,
+		targetPath: string,
+	): void {
+		if (!location || this.kind !== 'skills') {
+			return;
+		}
+		item.tooltip = `${location.label}: ${targetPath}`;
+		item.description = location.label;
 	}
 
 	private isHiddenName(name: string): boolean {

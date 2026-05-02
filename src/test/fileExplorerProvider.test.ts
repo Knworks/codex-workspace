@@ -258,4 +258,44 @@ suite('File explorer provider', () => {
 		// Assert
 		assert.deepStrictEqual(labels, ['public', 'visible.md']);
 	});
+
+	test('skills explorer combines multiple skill locations with location metadata', () => {
+		const entriesByRoot = new Map([
+			[
+				path.join(process.env.HOME ?? '', '.codex', 'skills'),
+				[
+					{
+						name: 'workspace-skill',
+						fullPath: path.join(process.env.HOME ?? '', '.codex', 'skills', 'workspace-skill'),
+						isDirectory: true,
+						isFile: false,
+					},
+				],
+			],
+			[
+				path.join(process.env.HOME ?? '', '.agents', 'skills'),
+				[
+					{
+						name: 'user-skill',
+						fullPath: path.join(process.env.HOME ?? '', '.agents', 'skills', 'user-skill'),
+						isDirectory: true,
+						isFile: false,
+					},
+				],
+			],
+		]);
+		const provider = new FileExplorerProvider(
+			'skills',
+			contextStub,
+			() => ({ isAvailable: true }),
+			undefined,
+			(targetPath) => entriesByRoot.get(targetPath) ?? [],
+		);
+
+		const children = provider.getChildren() as vscode.TreeItem[];
+		assert.ok(children.some((item) => item.label === 'workspace-skill'));
+		assert.ok(children.some((item) => item.label === 'user-skill'));
+		const userSkill = children.find((item) => item.label === 'user-skill');
+		assert.ok(String(userSkill?.tooltip).includes('User Skills'));
+	});
 });

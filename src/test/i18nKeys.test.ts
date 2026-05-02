@@ -58,6 +58,8 @@ suite('Localization keys', () => {
 			'message.cancel',
 			'message.templateNone',
 			'message.templatePickPlaceholder',
+			'message.skillLocationPickPlaceholder',
+			'message.userSkillsDeleteWarning',
 			'message.agent.inputName',
 			'message.agent.inputDescription',
 			'message.agent.invalidName',
