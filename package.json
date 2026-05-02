@@ -31,7 +31,8 @@
     "onView:codex-workspace.templates",
     "onView:codex-workspace.mcp",
     "onView:codex-workspace.agents",
-    "onCommand:codex-workspace.openHistoryView"
+    "onCommand:codex-workspace.openHistoryView",
+    "onCommand:codex-workspace.openSkillManager"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -90,6 +91,11 @@
         "command": "codex-workspace.openHistoryView",
         "title": "%command.openHistoryView%",
         "icon": "$(history)"
+      },
+      {
+        "command": "codex-workspace.openSkillManager",
+        "title": "%command.openSkillManager%",
+        "icon": "$(list-tree)"
       },
       {
         "command": "codex-workspace.openPromptsFolder",
@@ -341,6 +347,11 @@
           "command": "codex-workspace.syncSkills",
           "when": "view == 'codex-workspace.skills' && config.codex-workspace.skillsFolder",
           "group": "navigation@7"
+        },
+        {
+          "command": "codex-workspace.openSkillManager",
+          "when": "view == 'codex-workspace.skills'",
+          "group": "navigation@8"
         },
         {
           "command": "codex-workspace.openTemplatesFolder",

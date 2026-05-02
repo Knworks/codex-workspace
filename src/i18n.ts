@@ -116,6 +116,19 @@ export const messages = {
 		'message.coreViewConversationHistoryTab',
 		'Conversation History',
 	),
+	skillManagerTitle: localize(
+		'message.skillManagerTitle',
+		'Skill Manager',
+	),
+	skillManagerSearchPlaceholder: localize(
+		'message.skillManagerSearchPlaceholder',
+		'Search skills',
+	),
+	skillManagerOpen: localize('message.skillManagerOpen', 'Open'),
+	skillManagerNoResult: localize(
+		'message.skillManagerNoResult',
+		'No skills found.',
+	),
 	historyPanelPlaceholder: localize(
 		'message.historyPanelPlaceholder',
 		'Conversation history view is ready.',

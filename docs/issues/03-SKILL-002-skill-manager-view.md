@@ -1,7 +1,7 @@
 ---
 id: `SKILL-002`
 title: `Skill Manager View`
-status: Todo
+status: Reviewing
 ---
 
 # 🧾 SKILL-002 Skill Manager View
@@ -26,11 +26,11 @@ status: Todo
 
 ## ✅ AC（受け入れ基準）
 
-- [ ] [機能] Skill名、説明、ファイルパス、有効状態を一覧表示できる。
-- [ ] [UI/UX] 検索文字列で Skill名、説明、ファイルパスを部分一致絞り込みできる。
-- [ ] [機能] 開く操作で対象 `SKILL.md` をエディタで開ける。
-- [ ] [状態/エラー] トグル操作後に `config.toml` と Skills Explorer / Manager View が更新される。
-- [ ] [テスト] `[[skills.config]]` の追加、既存 `enabled` 更新、検索をテストする。
+- [x] [機能] Skill名、説明、ファイルパス、有効状態を一覧表示できる。
+- [x] [UI/UX] 検索文字列で Skill名、説明、ファイルパスを部分一致絞り込みできる。
+- [x] [機能] 開く操作で対象 `SKILL.md` をエディタで開ける。
+- [x] [状態/エラー] トグル操作後に `config.toml` と Skills Explorer / Manager View が更新される。
+- [x] [テスト] `[[skills.config]]` の追加、既存 `enabled` 更新、検索をテストする。
 
 ## 🔗 依存関係
 
@@ -42,4 +42,3 @@ status: Todo
 - `[[skills.config]]` の新規追加と既存更新。
 - 検索と開く操作。
 - 検証方法: `npm run compile`、関連テスト、`npm test`。
-
