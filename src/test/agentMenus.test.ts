@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 suite('Agent menu contributions', () => {
-	test('agent commands are contributed to view title and item context', () => {
+	test('agent commands are contributed to view title without item toggles', () => {
 		const packageJsonPath = path.resolve(__dirname, '..', '..', 'package.json');
 		const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
@@ -51,19 +51,13 @@ suite('Agent menu contributions', () => {
 			| Array<{ command?: string; when?: string }>
 			| undefined;
 		assert.ok(Array.isArray(itemContext));
-
-		const enableMenu = itemContext?.find(
-			(item) => item.command === 'codex-workspace.enableAgent',
+		assert.ok(
+			!itemContext?.some((item) =>
+				[
+					'codex-workspace.enableAgent',
+					'codex-workspace.disableAgent',
+				].includes(item.command ?? ''),
+			),
 		);
-		assert.ok(enableMenu);
-		assert.ok(enableMenu?.when?.includes("view == 'codex-workspace.agents'"));
-		assert.ok(enableMenu?.when?.includes("viewItem == 'codex-agent-file-disabled'"));
-
-		const disableMenu = itemContext?.find(
-			(item) => item.command === 'codex-workspace.disableAgent',
-		);
-		assert.ok(disableMenu);
-		assert.ok(disableMenu?.when?.includes("view == 'codex-workspace.agents'"));
-		assert.ok(disableMenu?.when?.includes("viewItem == 'codex-agent-file-enabled'"));
 	});
 });

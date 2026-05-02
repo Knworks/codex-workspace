@@ -89,6 +89,8 @@
   "message.agent.notEnabled": "エージェント「{0}」は既に無効か、config.toml に存在しません。",
   "message.agent.toggleUpdated": "Agent設定を更新しました。反映には Codex の再起動が必要です。",
   "message.agent.deleteConfirm": "エージェント「{0}」を削除します。よろしいですか？",
+  "message.agent.locationPickPlaceholder": "Agentの保存場所を選択してください。",
+  "message.agent.userAgentsDeleteWarning": "User Agentsを削除すると他のプロジェクトにも影響する可能性があります。",
   "message.agent.selectionNotSupported": "Agentsビューで対象エージェントファイルを選択してください。",
   "message.selectionNotSupported": "prompts/skills/templates の対象を選択してください。",
   "message.helloWorld": "Codex Workspace からの Hello World!"

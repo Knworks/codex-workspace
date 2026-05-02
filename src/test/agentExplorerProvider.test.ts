@@ -39,6 +39,14 @@ suite('Agent explorer provider', () => {
 				},
 			],
 			() => new Set(['alpha']),
+			() => [
+				{
+					kind: 'workspace',
+					label: 'Workspace Agents',
+					rootPath: path.join('root', 'agents'),
+					priority: 2,
+				},
+			],
 		);
 
 		const items = provider.getChildren() as vscode.TreeItem[];
@@ -48,8 +56,9 @@ suite('Agent explorer provider', () => {
 		);
 		assert.strictEqual(items[0].command?.command, 'codex-workspace.openFile');
 		assert.strictEqual(items[1].command?.command, 'codex-workspace.openFile');
-		assert.strictEqual(items[0].contextValue, 'codex-agent-file-enabled');
-		assert.strictEqual(items[1].contextValue, 'codex-agent-file-disabled');
+		assert.strictEqual(items[0].contextValue, 'codex-agent-file');
+		assert.strictEqual(items[1].contextValue, 'codex-agent-file');
+		assert.strictEqual(items[0].description, 'Workspace Agents');
 
 		const expectedIconPath = (fileName: string): string =>
 			vscode.Uri.file(
@@ -71,6 +80,7 @@ suite('Agent explorer provider', () => {
 			() => ({ isAvailable: false, reason: 'missing' }),
 			() => [],
 			() => new Set<string>(),
+			() => [],
 		);
 		const items = provider.getChildren() as vscode.TreeItem[];
 		assert.strictEqual(items.length, 1);

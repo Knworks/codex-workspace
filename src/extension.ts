@@ -237,6 +237,11 @@ export function activate(context: vscode.ExtensionContext) {
 					return;
 				}
 				const { codexDir } = resolveCodexPaths();
+				const selection = agentsView.selection[0];
+				if (selection?.fsPath) {
+					await revealFolder(path.dirname(selection.fsPath));
+					return;
+				}
 				await revealFolder(path.join(codexDir, 'agents'));
 			}),
 	);

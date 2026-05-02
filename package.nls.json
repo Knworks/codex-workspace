@@ -89,6 +89,8 @@
   "message.agent.notEnabled": "Agent \"{0}\" is already disabled or missing in config.toml.",
   "message.agent.toggleUpdated": "Agent settings updated. Please restart Codex to apply changes.",
   "message.agent.deleteConfirm": "Are you sure you want to delete agent \"{0}\"?",
+  "message.agent.locationPickPlaceholder": "Select an Agent location.",
+  "message.agent.userAgentsDeleteWarning": "Deleting User Agents may affect other projects.",
   "message.agent.selectionNotSupported": "Select an agent file in the Agents view.",
   "message.selectionNotSupported": "Select a target in prompts, skills, or templates.",
   "message.helloWorld": "Hello World from Codex Workspace!"

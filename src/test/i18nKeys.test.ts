@@ -72,6 +72,8 @@ suite('Localization keys', () => {
 			'message.agent.notEnabled',
 			'message.agent.toggleUpdated',
 			'message.agent.deleteConfirm',
+			'message.agent.locationPickPlaceholder',
+			'message.agent.userAgentsDeleteWarning',
 			'message.agent.selectionNotSupported',
 			'message.selectionNotSupported',
 			'message.helloWorld',

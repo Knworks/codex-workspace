@@ -85,6 +85,10 @@ suite('Agent commands', () => {
 				};
 			(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
 				async (items: any) => {
+					if (items.some((item: { label?: string }) => item.label === 'Workspace Agents')) {
+						sequence.push('location');
+						return items.find((item: { label?: string }) => item.label === 'Workspace Agents');
+					}
 					sequence.push('template');
 					return items[0];
 				};
@@ -98,7 +102,7 @@ suite('Agent commands', () => {
 					originalPick;
 			}
 
-			assert.deepStrictEqual(sequence, ['name', 'description', 'template']);
+			assert.deepStrictEqual(sequence, ['name', 'description', 'location', 'template']);
 			const createdPath = path.join(agentsDir, 'reviewer.toml');
 			assert.ok(fs.existsSync(createdPath));
 			assert.strictEqual(fs.readFileSync(createdPath, 'utf8'), '');
@@ -128,7 +132,10 @@ suite('Agent commands', () => {
 					return inputCount === 1 ? 'templated' : 'Template agent';
 				};
 			(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
-				async (items: any) => items[1];
+				async (items: any) => {
+					const workspace = items.find((item: { label?: string }) => item.label === 'Workspace Agents');
+					return workspace ?? items[1];
+				};
 
 			try {
 				await vscode.commands.executeCommand('codex-workspace.addAgent');
@@ -162,7 +169,8 @@ suite('Agent commands', () => {
 					return inputCount === 1 ? 'exists' : 'desc';
 				};
 			(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
-				async (items: any) => items[0];
+				async (items: any) =>
+					items.find((item: { label?: string }) => item.label === 'Workspace Agents') ?? items[0];
 			(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
 				.showWarningMessage = async (message: string | vscode.MessageItem) => {
 					warnings.push(String(message));
@@ -215,7 +223,8 @@ suite('Agent commands', () => {
 					return inputCount === 1 ? 'reviewer' : 'new desc';
 				};
 			(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
-				async (items: any) => items[0];
+				async (items: any) =>
+					items.find((item: { label?: string }) => item.label === 'Workspace Agents') ?? items[0];
 			(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
 				.showWarningMessage = async (message: string | vscode.MessageItem) => {
 					warnings.push(String(message));

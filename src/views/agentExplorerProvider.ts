@@ -4,6 +4,11 @@ import * as vscode from 'vscode';
 import { CodexTreeItem } from '../models/treeItems';
 import { resolveCodexPaths } from '../services/workspaceStatus';
 import { CodexTreeDataProvider, WorkspaceStatusProvider } from './codexTreeProvider';
+import {
+	AgentLocation,
+	findAgentLocationForPath,
+	getAgentLocations,
+} from '../services/agentLocations';
 
 type AgentEntry = {
 	name: string;
@@ -13,6 +18,7 @@ type AgentEntry = {
 
 type AgentEntryReader = (agentsDir: string) => AgentEntry[];
 type EnabledAgentReader = (configPath: string) => Set<string>;
+type AgentLocationReader = () => AgentLocation[];
 
 const AGENT_CONFIG_HEADER_PATTERN = /^\s*\[agents\.(?:"([^"]+)"|([A-Za-z0-9_-]+))\]\s*$/;
 
@@ -24,32 +30,51 @@ export class AgentExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> 
 	private readonly context: vscode.ExtensionContext;
 	private readonly readEntries: AgentEntryReader;
 	private readonly readEnabledAgents: EnabledAgentReader;
+	private readonly readLocations: AgentLocationReader;
 
 	constructor(
 		context: vscode.ExtensionContext,
 		statusProvider?: WorkspaceStatusProvider,
 		readEntries: AgentEntryReader = listAgentEntries,
 		readEnabledAgents: EnabledAgentReader = readEnabledAgentIds,
+		readLocations: AgentLocationReader = getAgentLocations,
 	) {
 		super(statusProvider);
 		this.context = context;
 		this.readEntries = readEntries;
 		this.readEnabledAgents = readEnabledAgents;
+		this.readLocations = readLocations;
 	}
 
 	protected getAvailableChildren(): vscode.ProviderResult<CodexTreeItem[]> {
-		const { codexDir, configPath } = resolveCodexPaths();
-		const agentsDir = path.join(codexDir, 'agents');
+		const { configPath } = resolveCodexPaths();
 		const enabledAgents = this.readEnabledAgents(configPath);
-		return this.readEntries(agentsDir)
-			.filter((entry) => entry.isFile && path.extname(entry.name).toLowerCase() === '.toml')
-			.sort((left, right) =>
-				left.name.localeCompare(right.name, undefined, {
-					numeric: true,
-					sensitivity: 'base',
-				}),
-			)
-			.map((entry) => {
+		return this.readLocations().flatMap((location) =>
+			this.readEntries(location.rootPath)
+				.filter((entry) => entry.isFile && path.extname(entry.name).toLowerCase() === '.toml')
+				.sort((left, right) =>
+					left.name.localeCompare(right.name, undefined, {
+						numeric: true,
+						sensitivity: 'base',
+					}),
+				)
+				.map((entry) => this.toTreeItem(entry, enabledAgents, location)),
+		);
+	}
+
+	getLocationForPath(targetPath: string): AgentLocation | undefined {
+		return findAgentLocationForPath(targetPath, this.readLocations());
+	}
+
+	getRootOptions(): AgentLocation[] {
+		return this.readLocations();
+	}
+
+	private toTreeItem(
+		entry: AgentEntry,
+		enabledAgents: Set<string>,
+		location: AgentLocation,
+	): CodexTreeItem {
 				const isEnabled = enabledAgents.has(getAgentId(entry.name));
 				const item = new CodexTreeItem(
 					'file',
@@ -59,9 +84,9 @@ export class AgentExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> 
 					entry.fullPath,
 				);
 				item.id = entry.fullPath;
-				item.contextValue = isEnabled
-					? 'codex-agent-file-enabled'
-					: 'codex-agent-file-disabled';
+				item.contextValue = 'codex-agent-file';
+				item.description = location.label;
+				item.tooltip = `${location.label}: ${entry.fullPath}`;
 				item.command = {
 					command: 'codex-workspace.openFile',
 					title: 'Open agent file',
@@ -69,7 +94,6 @@ export class AgentExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> 
 				};
 				item.iconPath = this.getIcon(isEnabled);
 				return item;
-			});
 	}
 
 	private getIcon(isEnabled: boolean): { light: vscode.Uri; dark: vscode.Uri } {

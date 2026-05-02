@@ -405,16 +405,6 @@
         }
       ],
       "view/item/context": [
-        {
-          "command": "codex-workspace.enableAgent",
-          "when": "view == 'codex-workspace.agents' && viewItem == 'codex-agent-file-disabled'",
-          "group": "inline@1"
-        },
-        {
-          "command": "codex-workspace.disableAgent",
-          "when": "view == 'codex-workspace.agents' && viewItem == 'codex-agent-file-enabled'",
-          "group": "inline@2"
-        }
       ]
     }
   },

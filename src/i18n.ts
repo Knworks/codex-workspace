@@ -268,6 +268,14 @@ export const messages = {
 				'Are you sure you want to delete agent "{0}"?',
 				agentName,
 			),
+		locationPickPlaceholder: localize(
+			'message.agent.locationPickPlaceholder',
+			'Select an Agent location.',
+		),
+		userAgentsDeleteWarning: localize(
+			'message.agent.userAgentsDeleteWarning',
+			'Deleting User Agents may affect other projects.',
+		),
 		selectionNotSupported: localize(
 			'message.agent.selectionNotSupported',
 			'Select an agent file in the Agents view.',

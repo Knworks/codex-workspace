@@ -1,7 +1,7 @@
 ---
 id: `AGENT-001`
 title: `AGENTS 複数保存場所 Explorer`
-status: Todo
+status: Reviewing
 ---
 
 # 🧾 AGENT-001 AGENTS 複数保存場所 Explorer
@@ -26,11 +26,11 @@ status: Todo
 
 ## ✅ AC（受け入れ基準）
 
-- [ ] [機能] `AGENTS.md` と `AGENTS.override.md` は AGENTS Explorer に表示されない。
-- [ ] [機能] 3種類の Agents 保存場所を優先度順、同一保存場所内はファイル名昇順で表示できる。
-- [ ] [UI/UX] 保存場所種別と絶対パスをアイコンまたはツールチップで識別できる。
-- [ ] [状態/エラー] User Agents 削除時に他プロジェクト影響の警告を表示する。
-- [ ] [テスト] 複数保存場所検出、対象除外、保存場所別操作をテストする。
+- [x] [機能] `AGENTS.md` と `AGENTS.override.md` は AGENTS Explorer に表示されない。
+- [x] [機能] 3種類の Agents 保存場所を優先度順、同一保存場所内はファイル名昇順で表示できる。
+- [x] [UI/UX] 保存場所種別と絶対パスをアイコンまたはツールチップで識別できる。
+- [x] [状態/エラー] User Agents 削除時に他プロジェクト影響の警告を表示する。
+- [x] [テスト] 複数保存場所検出、対象除外、保存場所別操作をテストする。
 
 ## 🔗 依存関係
 
@@ -42,4 +42,3 @@ status: Todo
 - `*.toml` のみ対象であること。
 - Explorer に ON/OFF 操作が残っていないこと。
 - 検証方法: `npm run compile`、関連テスト、`npm test`。
-

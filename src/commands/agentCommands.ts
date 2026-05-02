@@ -124,13 +124,16 @@ export function registerAgentCommands(
 
 async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
 	const { codexDir, configPath } = resolveCodexPaths();
-	const agentsDir = path.join(codexDir, 'agents');
 	const agentName = await promptAgentName();
 	if (!agentName) {
 		return;
 	}
 	const description = await promptAgentDescription();
 	if (description === undefined) {
+		return;
+	}
+	const agentsDir = await pickAgentLocationRoot(agentProvider);
+	if (!agentsDir) {
 		return;
 	}
 	const templateContent = await pickTemplateContents();
@@ -214,8 +217,13 @@ async function deleteAgent(
 	const { codexDir, configPath } = resolveCodexPaths();
 	const agentId = path.basename(agentFilePath, path.extname(agentFilePath));
 	const storePath = getDisabledAgentsStorePath(codexDir);
+	const location = agentProvider.getLocationForPath(agentFilePath);
+	const warning =
+		location?.kind === 'user'
+			? `\n${messages.agent.userAgentsDeleteWarning}`
+			: '';
 	const choice = await vscode.window.showWarningMessage(
-		messages.agent.deleteConfirm(path.basename(agentFilePath)),
+		`${messages.agent.deleteConfirm(path.basename(agentFilePath))}${warning}`,
 		{ modal: true },
 		'OK',
 	);
@@ -234,6 +242,25 @@ async function deleteAgent(
 	takeDisabledAgentBlock(storePath, agentId);
 	removeSyncStateEntry(codexDir, 'agents', `${agentId}.toml`);
 	agentProvider.refresh();
+}
+
+async function pickAgentLocationRoot(
+	agentProvider: AgentExplorerProvider,
+): Promise<string | null> {
+	const locations = agentProvider.getRootOptions();
+	const workspaceFirst = [
+		...locations.filter((location) => location.kind === 'workspace'),
+		...locations.filter((location) => location.kind !== 'workspace'),
+	];
+	const selected = await vscode.window.showQuickPick(
+		workspaceFirst.map((location) => ({
+			label: location.label,
+			description: location.rootPath,
+			location,
+		})),
+		{ placeHolder: messages.agent.locationPickPlaceholder },
+	);
+	return selected?.location.rootPath ?? null;
 }
 
 async function enableAgent(
