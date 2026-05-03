@@ -33,7 +33,8 @@
     "onView:codex-workspace.agents",
     "onCommand:codex-workspace.openHistoryView",
     "onCommand:codex-workspace.openSkillManager",
-    "onCommand:codex-workspace.openAgentManager"
+    "onCommand:codex-workspace.openAgentManager",
+    "onCommand:codex-workspace.openMcpManager"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -102,6 +103,11 @@
         "command": "codex-workspace.openAgentManager",
         "title": "%command.openAgentManager%",
         "icon": "$(list-tree)"
+      },
+      {
+        "command": "codex-workspace.openMcpManager",
+        "title": "%command.openMcpManager%",
+        "icon": "$(server-process)"
       },
       {
         "command": "codex-workspace.openPromptsFolder",
@@ -333,6 +339,11 @@
           "command": "codex-workspace.refreshAll",
           "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates' || view == 'codex-workspace.mcp' || view == 'codex-workspace.agents'",
           "group": "navigation@5"
+        },
+        {
+          "command": "codex-workspace.openMcpManager",
+          "when": "view == 'codex-workspace.mcp'",
+          "group": "navigation@6"
         },
         {
           "command": "codex-workspace.openPromptsFolder",

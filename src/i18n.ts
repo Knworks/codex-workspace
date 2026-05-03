@@ -148,6 +148,25 @@ export const messages = {
 			'[agents.{0}] was overwritten with the disabled definition.',
 			agentName,
 		),
+	mcpManagerTitle: localize('message.mcpManagerTitle', 'MCP Manager'),
+	mcpManagerSearchPlaceholder: localize(
+		'message.mcpManagerSearchPlaceholder',
+		'Search MCP servers',
+	),
+	mcpManagerAdd: localize('message.mcpManagerAdd', 'Add'),
+	mcpManagerDelete: localize('message.mcpManagerDelete', 'Delete'),
+	mcpManagerSave: localize('message.mcpManagerSave', 'Save'),
+	mcpManagerCancel: localize('message.mcpManagerCancel', 'Cancel'),
+	mcpManagerServerName: localize(
+		'message.mcpManagerServerName',
+		'Server name',
+	),
+	mcpManagerDeleteConfirm: (serverId: string) =>
+		localize(
+			'message.mcpManagerDeleteConfirm',
+			'Delete MCP server [mcp_servers.{0}]?',
+			serverId,
+		),
 	historyPanelPlaceholder: localize(
 		'message.historyPanelPlaceholder',
 		'Conversation history view is ready.',
