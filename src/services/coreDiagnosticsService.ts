@@ -196,6 +196,8 @@ function parseProjectBlocks(contents: string): Array<{
 	trustLevel?: string;
 }> {
 	const lines = contents.split(/\r?\n/);
+	const projectHeaderPattern =
+		/^\s*\[projects\.(?:"((?:[^"\\]|\\.)*)"|'((?:[^']|'')*)')\]\s*$/;
 	const blocks: Array<{
 		projectPath: string;
 		startLine: number;
@@ -205,7 +207,7 @@ function parseProjectBlocks(contents: string): Array<{
 	}> = [];
 	let current: (typeof blocks)[number] | undefined;
 	for (let index = 0; index < lines.length; index += 1) {
-		const header = lines[index].match(/^\s*\[projects\."((?:[^"\\]|\\.)*)"\]\s*$/);
+		const header = lines[index].match(projectHeaderPattern);
 		if (/^\s*\[[^\]]+\]\s*$/.test(lines[index])) {
 			if (current) {
 				current.endLine = index - 1;
@@ -213,7 +215,9 @@ function parseProjectBlocks(contents: string): Array<{
 			}
 			if (header) {
 				current = {
-					projectPath: header[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'),
+					projectPath: header[1]
+						? header[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+						: (header[2] ?? '').replace(/''/g, "'"),
 					startLine: index,
 					endLine: lines.length - 1,
 				};

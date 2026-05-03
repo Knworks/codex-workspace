@@ -82,4 +82,24 @@ suite('Core diagnostics service', () => {
 			assert.strictEqual(trusted.length, 0);
 		});
 	});
+
+	test('trusted directories support single-quoted project headers', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			const projectPath = '\\\\?\\E:\\Projects\\codex-workspace';
+			fs.writeFileSync(
+				configPath,
+				[
+					`[projects.'${projectPath}']`,
+					'trust_level = "trusted"',
+				].join('\n'),
+				'utf8',
+			);
+
+			const trusted = listTrustedDirectories(configPath);
+			assert.strictEqual(trusted.length, 1);
+			assert.strictEqual(trusted[0].path, projectPath);
+			assert.strictEqual(trusted[0].exists, false);
+		});
+	});
 });
