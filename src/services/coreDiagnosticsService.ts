@@ -141,7 +141,7 @@ function buildNode(
 			: 'Standard';
 	if (!fs.existsSync(absolutePath)) {
 		return {
-			status: isFallback ? 'Missing' : 'Skipped',
+			status: 'Missing',
 			kind,
 			type,
 			fileName,

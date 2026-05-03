@@ -72,6 +72,43 @@ suite('MCP manager service', () => {
 		});
 	});
 
+	test('listMcpFormModels reads quoted server headers', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			fs.writeFileSync(
+				configPath,
+				'[mcp_servers."github.enterprise"]\ncommand = "gh"\n',
+				'utf8',
+			);
+
+			const models = listMcpFormModels(configPath);
+
+			assert.strictEqual(models.length, 1);
+			assert.strictEqual(models[0].id, 'github.enterprise');
+		});
+	});
+
+	test('saveMcpServer quotes server headers when needed', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+
+			const result = saveMcpServer(configPath, {
+				id: 'github.enterprise',
+				transport: 'stdio',
+				command: 'gh',
+				args: [],
+				url: '',
+				enabledTools: [],
+				disabledTools: [],
+				enabled: true,
+			});
+
+			const contents = fs.readFileSync(configPath, 'utf8');
+			assert.strictEqual(result.ok, true);
+			assert.ok(contents.includes('[mcp_servers."github.enterprise"]'));
+		});
+	});
+
 	test('deleteMcpServer removes only target block', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, 'config.toml');

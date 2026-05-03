@@ -115,7 +115,7 @@ export const messages = {
 	),
 	coreViewConversationHistoryTab: localize(
 		'message.coreViewConversationHistoryTab',
-		'Conversation History',
+		'History',
 	),
 	skillManagerTitle: localize(
 		'message.skillManagerTitle',
@@ -174,7 +174,7 @@ export const messages = {
 	),
 	coreViewTrustedDirectoriesTab: localize(
 		'message.coreViewTrustedDirectoriesTab',
-		'Trusted Directories',
+		'Trusted Directory',
 	),
 	trustedDirectoryDeleteConfirm: (targetPath: string) =>
 		localize(

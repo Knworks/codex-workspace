@@ -8,7 +8,8 @@ export type McpServer = {
 	headerLineIndex: number;
 };
 
-const mcpHeaderPattern = /^\s*\[mcp_servers\.([^\]]+)\]\s*$/;
+const mcpHeaderPattern =
+	/^\s*\[mcp_servers\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.-]+))\]\s*$/;
 const enabledPattern = /^(\s*enabled\s*=\s*)(true|false)(\s*#.*)?$/i;
 
 function isMcpServerVisible(id: string): boolean {
@@ -35,7 +36,7 @@ export function parseMcpServers(contents: string): McpServer[] {
 			}
 			const mcpMatch = lines[i].match(mcpHeaderPattern);
 			if (mcpMatch) {
-				const id = mcpMatch[1];
+				const id = unescapeTomlString(mcpMatch[1] ?? mcpMatch[2] ?? '');
 				if (!isMcpServerVisible(id)) {
 					continue;
 				}
@@ -69,6 +70,10 @@ export function parseMcpServers(contents: string): McpServer[] {
 			headerLineIndex: block.headerLineIndex,
 		};
 	});
+}
+
+function unescapeTomlString(value: string): string {
+	return value.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
 }
 
 export function toggleMcpServer(configPath: string, serverId: string): boolean {

@@ -92,17 +92,17 @@
       {
         "command": "codex-workspace.openHistoryView",
         "title": "%command.openHistoryView%",
-        "icon": "$(history)"
+        "icon": "$(server-process)"
       },
       {
         "command": "codex-workspace.openSkillManager",
         "title": "%command.openSkillManager%",
-        "icon": "$(list-tree)"
+        "icon": "$(server-process)"
       },
       {
         "command": "codex-workspace.openAgentManager",
         "title": "%command.openAgentManager%",
-        "icon": "$(list-tree)"
+        "icon": "$(server-process)"
       },
       {
         "command": "codex-workspace.openMcpManager",
@@ -368,7 +368,7 @@
         {
           "command": "codex-workspace.openSkillManager",
           "when": "view == 'codex-workspace.skills'",
-          "group": "navigation@8"
+          "group": "navigation@9"
         },
         {
           "command": "codex-workspace.openTemplatesFolder",
@@ -398,7 +398,7 @@
         {
           "command": "codex-workspace.openHistoryView",
           "when": "view == 'codex-workspace.core'",
-          "group": "navigation@7"
+          "group": "navigation@9"
         },
         {
           "command": "codex-workspace.syncCore",
@@ -423,7 +423,7 @@
         {
           "command": "codex-workspace.openAgentManager",
           "when": "view == 'codex-workspace.agents'",
-          "group": "navigation@4"
+          "group": "navigation@9"
         }
       ],
       "view/item/context": [

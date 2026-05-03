@@ -7,6 +7,7 @@ import {
 	listAgentManagerRecords,
 	resolveAgentManagerPaths,
 } from './agentManagerService';
+import { CODICON_RESOURCE_ROOTS, getCodiconCssHref, getCodiconIconPath } from './webviewAssets';
 
 const AGENT_MANAGER_VIEW_TYPE = 'codex-workspace.agentManager';
 
@@ -57,7 +58,8 @@ function buildRows(records: AgentManagerRecord[]): string {
 	}
 	return records.map((record) => {
 		const disabledClass = record.enabled ? '' : ' disabled';
-		return `<article class="agent-row${disabledClass}">
+		return `<article class="agent-row${disabledClass}" data-filter-text="${escapeHtml(`${record.name} ${record.description} ${record.model} ${record.reasoningEffort} ${record.sandboxMode} ${record.agentPath}`.toLocaleLowerCase())}">
+			<span class="codicon codicon-hubot row-icon" aria-hidden="true"></span>
 			<div class="agent-main">
 				<div class="agent-title">${escapeHtml(record.name)}</div>
 				<div class="agent-description">${escapeHtml(record.description)}</div>
@@ -74,7 +76,7 @@ function buildRows(records: AgentManagerRecord[]): string {
 					<input type="checkbox" data-agent-name="${escapeHtml(record.name)}" ${record.enabled ? 'checked' : ''} />
 					<span></span>
 				</label>
-				<button type="button" data-open-path="${escapeHtml(record.agentPath)}">${escapeHtml(messages.agentManagerOpen)}</button>
+				<button class="icon-button" type="button" data-open-path="${escapeHtml(record.agentPath)}" title="${escapeHtml(messages.agentManagerOpen)}" aria-label="${escapeHtml(messages.agentManagerOpen)}"><span class="codicon codicon-file-text" aria-hidden="true"></span></button>
 			</div>
 		</article>`;
 	}).join('');
@@ -82,24 +84,31 @@ function buildRows(records: AgentManagerRecord[]): string {
 
 function buildHtml(webview: vscode.Webview, records: AgentManagerRecord[], query: string): string {
 	const nonce = createNonce();
+	const codiconCssHref = getCodiconCssHref(webview);
 	const csp = [
 		"default-src 'none'",
+		`font-src ${webview.cspSource} data:`,
 		`style-src ${webview.cspSource} 'unsafe-inline'`,
 		`script-src 'nonce-${nonce}'`,
 	].join('; ');
+	const codiconLink = codiconCssHref
+		? `<link rel="stylesheet" href="${codiconCssHref}" />`
+		: '';
 	return `<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<meta http-equiv="Content-Security-Policy" content="${csp}" />
+	${codiconLink}
 	<title>${escapeHtml(messages.agentManagerTitle)}</title>
 	<style>
 		body { margin: 0; font-family: var(--vscode-font-family); color: var(--vscode-foreground); background: var(--vscode-editor-background); }
-		.toolbar { padding: 10px 12px; border-bottom: 1px solid var(--vscode-panel-border); }
-		.toolbar input { width: 100%; box-sizing: border-box; }
-		.body { padding: 10px 12px; display: grid; gap: 8px; }
-		.agent-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 10px; border: 1px solid var(--vscode-panel-border); border-radius: 4px; }
+		.toolbar { padding: 10px 12px; border-bottom: 1px solid var(--vscode-panel-border); display: flex; gap: 8px; align-items: center; }
+		.toolbar input { flex: 1; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); border-radius: 8px; padding: 6px 8px; }
+		.toolbar input:focus { outline: none; border-color: var(--vscode-focusBorder, #0e639c); box-shadow: 0 0 0 1px var(--vscode-focusBorder, #0e639c); }
+		.body { padding: 10px 8px; display: grid; gap: 6px; }
+		.agent-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 8px; border: 1px solid var(--vscode-panel-border); border-radius: 6px; background: var(--vscode-editorWidget-background); }
 		.agent-row.disabled { opacity: 0.55; }
 		.agent-title { font-weight: 600; }
 		.agent-description, .agent-path, .location, .agent-meta { color: var(--vscode-descriptionForeground); font-size: 12px; }
@@ -107,23 +116,41 @@ function buildHtml(webview: vscode.Webview, records: AgentManagerRecord[], query
 		.agent-path { word-break: break-all; }
 		.agent-actions { display: flex; align-items: center; gap: 10px; }
 		.switch input { display: none; }
-		.switch span { display: inline-block; width: 34px; height: 18px; border-radius: 999px; background: var(--vscode-inputValidation-errorBorder); position: relative; vertical-align: middle; }
-		.switch span::after { content: ""; position: absolute; width: 14px; height: 14px; top: 2px; left: 2px; border-radius: 50%; background: var(--vscode-editor-background); transition: left 0.12s ease; }
+		.switch span { display: inline-block; width: 34px; height: 18px; border-radius: 999px; background: #d85b74; position: relative; vertical-align: middle; }
+		.switch span::after { content: ""; position: absolute; width: 14px; height: 14px; top: 2px; left: 2px; border-radius: 50%; background: #6e6e6e; transition: left 0.12s ease; }
 		.switch input:checked + span { background: var(--vscode-testing-iconPassed); }
 		.switch input:checked + span::after { left: 18px; }
+		@media (prefers-color-scheme: dark) {
+			.switch span::after { background: #ffffff; }
+		}
+		.icon-button { width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--vscode-panel-border); border-radius: 4px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); cursor: pointer; }
+		.row-icon { font-size: 22px; color: var(--vscode-descriptionForeground); }
 		.empty { color: var(--vscode-descriptionForeground); }
 	</style>
 </head>
 <body>
 	<section class="toolbar">
 		<input id="searchInput" type="text" value="${escapeHtml(query)}" placeholder="${escapeHtml(messages.agentManagerSearchPlaceholder)}" />
+		<button id="clearSearch" class="icon-button" type="button" title="${escapeHtml(messages.historyClear)}" aria-label="${escapeHtml(messages.historyClear)}"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
 	</section>
 	<section class="body">${buildRows(records)}</section>
 	<script nonce="${nonce}">
 		const vscode = acquireVsCodeApi();
-		document.getElementById('searchInput').addEventListener('input', (event) => {
-			vscode.postMessage({ type: 'search', query: event.target.value });
+		const searchInput = document.getElementById('searchInput');
+		const applyFilter = () => {
+			const query = searchInput.value.trim().toLocaleLowerCase();
+			document.querySelectorAll('.agent-row').forEach((row) => {
+				const text = row.dataset?.filterText || '';
+				row.style.display = query.length > 0 && !text.includes(query) ? 'none' : '';
+			});
+		};
+		searchInput.addEventListener('input', applyFilter);
+		document.getElementById('clearSearch')?.addEventListener('click', () => {
+			searchInput.value = '';
+			applyFilter();
+			searchInput.focus();
 		});
+		applyFilter();
 		document.addEventListener('change', (event) => {
 			const target = event.target;
 			if (target?.dataset?.agentName) {
@@ -131,9 +158,10 @@ function buildHtml(webview: vscode.Webview, records: AgentManagerRecord[], query
 			}
 		});
 		document.addEventListener('click', (event) => {
-			const target = event.target;
-			if (target?.dataset?.openPath) {
-				vscode.postMessage({ type: 'openAgent', agentPath: target.dataset.openPath });
+			const target = event.target instanceof Element ? event.target : null;
+			const openButton = target?.closest('[data-open-path]');
+			if (openButton?.dataset?.openPath) {
+				vscode.postMessage({ type: 'openAgent', agentPath: openButton.dataset.openPath });
 			}
 		});
 		vscode.postMessage({ type: 'ready' });
@@ -160,8 +188,15 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 			AGENT_MANAGER_VIEW_TYPE,
 			messages.agentManagerTitle,
 			{ viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
-			{ enableScripts: true, retainContextWhenHidden: true },
+			{
+				enableScripts: true,
+				retainContextWhenHidden: true,
+				...(CODICON_RESOURCE_ROOTS.length > 0
+					? { localResourceRoots: CODICON_RESOURCE_ROOTS }
+				: {}),
+			},
 		);
+		this.panel.iconPath = getCodiconIconPath('hubot');
 		this.panel.onDidDispose(() => {
 			this.panel = undefined;
 		});

@@ -258,11 +258,11 @@ suite('History panel manager', () => {
 		const chainMessage = fakePanel.getPostedMessages()[0] as {
 			type: string;
 			tab: string;
-			html: string;
+			nodes: unknown[];
 		};
 		assert.strictEqual(chainMessage.type, 'tabContent');
 		assert.strictEqual(chainMessage.tab, 'chain');
-		assert.ok(chainMessage.html.length > 0);
+		assert.ok(Array.isArray(chainMessage.nodes));
 		assert.strictEqual(loadCount, 1);
 
 		fakePanel.sendMessage({ type: 'refreshTab', tab: 'history' });

@@ -40,6 +40,30 @@ suite('MCP service', () => {
 		);
 	});
 
+	test('parses and toggles quoted mcp server headers', () => {
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-mcp-'));
+		const configPath = path.join(tempDir, 'config.toml');
+		try {
+			const input = [
+				'[mcp_servers."github.enterprise"]',
+				'enabled = false',
+				'command = "gh"',
+			].join('\n');
+			fs.writeFileSync(configPath, input, 'utf8');
+
+			const servers = parseMcpServers(input);
+			assert.strictEqual(servers.length, 1);
+			assert.strictEqual(servers[0].id, 'github.enterprise');
+			assert.strictEqual(servers[0].enabled, false);
+
+			const updated = toggleMcpServer(configPath, 'github.enterprise');
+			assert.strictEqual(updated, true);
+			assert.ok(fs.readFileSync(configPath, 'utf8').includes('enabled = true'));
+		} finally {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
 	test('toggles enabled and preserves comments', () => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-mcp-'));
 		const configPath = path.join(tempDir, 'config.toml');

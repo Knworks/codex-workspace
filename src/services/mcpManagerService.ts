@@ -28,9 +28,13 @@ type McpBlock = {
 	lines: string[];
 };
 
-const MCP_HEADER_PATTERN = /^\s*\[mcp_servers\.([^\]]+)\]\s*$/;
+const MCP_HEADER_PATTERN =
+	/^\s*\[mcp_servers\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.-]+))\]\s*$/;
 
 export function listMcpFormModels(configPath: string): McpFormModel[] {
+	if (!fs.existsSync(configPath)) {
+		return [];
+	}
 	const contents = fs.readFileSync(configPath, 'utf8');
 	return parseMcpBlocks(contents).map(blockToModel);
 }
@@ -123,8 +127,9 @@ function parseMcpBlocks(contents: string): McpBlock[] {
 			}
 			const mcpHeader = lines[index].match(MCP_HEADER_PATTERN);
 			if (mcpHeader) {
+				const id = unescapeTomlString(mcpHeader[1] ?? mcpHeader[2] ?? '');
 				current = {
-					id: mcpHeader[1],
+					id,
 					startLine: index,
 					endLine: lines.length - 1,
 					lines: [],
@@ -222,7 +227,7 @@ function buildMcpBlock(model: McpFormModel, previous?: McpBlock): string {
 		'enabled_tools',
 		'disabled_tools',
 	]);
-	const lines = [`[mcp_servers.${model.id}]`];
+	const lines = [`[mcp_servers.${formatHeaderKey(model.id)}]`];
 	if (!model.enabled) {
 		lines.push('enabled = false');
 	}
@@ -259,6 +264,16 @@ function buildMcpBlock(model: McpFormModel, previous?: McpBlock): string {
 
 function escapeTomlString(value: string): string {
 	return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function unescapeTomlString(value: string): string {
+	return value.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+}
+
+function formatHeaderKey(value: string): string {
+	return /^[A-Za-z0-9_-]+$/.test(value)
+		? value
+		: `"${escapeTomlString(value)}"`;
 }
 
 function formatStringArray(values: string[]): string {

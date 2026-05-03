@@ -153,8 +153,8 @@ suite('Core view command', () => {
 			assert.ok(iconPath && 'light' in iconPath && 'dark' in iconPath);
 			const lightIcon = (iconPath as { light: vscode.Uri; dark: vscode.Uri }).light.fsPath;
 			const darkIcon = (iconPath as { light: vscode.Uri; dark: vscode.Uri }).dark.fsPath;
-			assert.ok(lightIcon.endsWith(path.join('images', 'agents_light.png')));
-			assert.ok(darkIcon.endsWith(path.join('images', 'agents_dark.png')));
+			assert.ok(lightIcon.endsWith(path.join('icons', 'light', 'terminal.svg')));
+			assert.ok(darkIcon.endsWith(path.join('icons', 'dark', 'terminal.svg')));
 		});
 	});
 });

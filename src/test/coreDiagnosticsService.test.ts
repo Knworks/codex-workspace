@@ -41,6 +41,30 @@ suite('Core diagnostics service', () => {
 		});
 	});
 
+	test('buildAgentsLoadingChain marks deleted standard project file as missing', () => {
+		withTempDir((root) => {
+			const homeDir = path.join(root, 'home');
+			const codexDir = path.join(homeDir, '.codex');
+			const workspaceRoot = path.join(root, 'workspace');
+			fs.mkdirSync(codexDir, { recursive: true });
+			fs.mkdirSync(workspaceRoot, { recursive: true });
+			fs.writeFileSync(path.join(codexDir, 'config.toml'), '', 'utf8');
+			const agentsPath = path.join(workspaceRoot, 'AGENTS.md');
+			fs.writeFileSync(agentsPath, 'standard', 'utf8');
+
+			let nodes = buildAgentsLoadingChain(workspaceRoot, homeDir);
+			let standard = nodes.find((node) => node.fileName === 'AGENTS.md' && node.kind === 'Project');
+			assert.strictEqual(standard?.status, 'Active');
+			assert.strictEqual(standard?.contentPreview, 'standard');
+
+			fs.rmSync(agentsPath);
+			nodes = buildAgentsLoadingChain(workspaceRoot, homeDir);
+			standard = nodes.find((node) => node.fileName === 'AGENTS.md' && node.kind === 'Project');
+			assert.strictEqual(standard?.status, 'Missing');
+			assert.strictEqual(standard?.contentPreview, undefined);
+		});
+	});
+
 	test('trusted directories can be listed added and removed', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, 'config.toml');

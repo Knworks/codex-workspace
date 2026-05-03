@@ -77,6 +77,34 @@ suite('Agent manager service', () => {
 		});
 	});
 
+	test('listAgentManagerRecords keeps disabled agent description from stash', () => {
+		withTempDir((root) => {
+			const codexDir = path.join(root, '.codex');
+			const agentsDir = path.join(codexDir, 'agents');
+			fs.mkdirSync(agentsDir, { recursive: true });
+			fs.writeFileSync(path.join(agentsDir, 'reviewer.toml'), '', 'utf8');
+			const configPath = path.join(codexDir, 'config.toml');
+			fs.writeFileSync(
+				configPath,
+				'[agents.reviewer]\ndescription = "Reviews code"\nconfig_file = "agents/reviewer.toml"\n',
+				'utf8',
+			);
+			const location: AgentLocation = {
+				kind: 'workspace',
+				label: 'Workspace Agents',
+				rootPath: agentsDir,
+				priority: 2,
+			};
+
+			disableAgentByName(codexDir, configPath, 'reviewer');
+			const records = listAgentManagerRecords(configPath, [location]);
+
+			assert.strictEqual(records.length, 1);
+			assert.strictEqual(records[0].enabled, false);
+			assert.strictEqual(records[0].description, 'Reviews code');
+		});
+	});
+
 	test('enableAgentByName restores stashed block and overwrites existing entry', () => {
 		withTempDir((root) => {
 			const codexDir = path.join(root, '.codex');

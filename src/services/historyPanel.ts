@@ -1,62 +1,19 @@
 import * as vscode from 'vscode';
-import { createRequire } from 'node:module';
-import fs from 'node:fs';
-import path from 'node:path';
 import { messages } from '../i18n';
 import { getConfiguredMaxHistoryCount, getIncludeReasoningMessage } from './settings';
 import { buildHistoryIndex, HistoryDayNode, HistoryIndex, HistoryTurnRecord } from './historyService';
 import {
+	AgentsChainNode,
 	addTrustedDirectory,
 	buildAgentsLoadingChain,
 	listTrustedDirectories,
 	removeTrustedDirectory,
 } from './coreDiagnosticsService';
 import { getCoreWorkspaceStatus, resolveCodexPaths } from './workspaceStatus';
+import { CODICON_RESOURCE_ROOTS, getCodiconCssHref, getCodiconIconPath } from './webviewAssets';
 
 const HISTORY_VIEW_TYPE = 'codex-workspace.coreView';
 export const HISTORY_MESSAGE_PREVIEW_MAX_CHARS = 100;
-
-function resolveImageUri(fileName: string): vscode.Uri {
-	const baseDir = vscode.Uri.file(__dirname);
-	const candidates = [
-		vscode.Uri.joinPath(baseDir, '..', 'images', fileName),
-		vscode.Uri.joinPath(baseDir, '..', '..', 'images', fileName),
-		vscode.Uri.joinPath(baseDir, 'images', fileName),
-	];
-	for (const candidate of candidates) {
-		if (fs.existsSync(candidate.fsPath)) {
-			return candidate;
-		}
-	}
-	return candidates[0];
-}
-
-const HISTORY_TAB_ICON_LIGHT_URI = resolveImageUri('agents_light.png');
-const HISTORY_TAB_ICON_DARK_URI = resolveImageUri('agents_dark.png');
-
-function resolveCodiconCssFsPath(): string | undefined {
-	const distCandidates = [
-		path.join(__dirname, 'webview', 'codicons', 'codicon.css'),
-		path.join(__dirname, '..', 'dist', 'webview', 'codicons', 'codicon.css'),
-		path.join(__dirname, '..', '..', 'dist', 'webview', 'codicons', 'codicon.css'),
-	];
-	for (const candidate of distCandidates) {
-		if (fs.existsSync(candidate)) {
-			return candidate;
-		}
-	}
-	try {
-		const nodeRequire = createRequire(__filename);
-		return nodeRequire.resolve('@vscode/codicons/dist/codicon.css');
-	} catch {
-		return undefined;
-	}
-}
-
-const CODICON_CSS_FS_PATH = resolveCodiconCssFsPath();
-const CODICON_RESOURCE_ROOTS = CODICON_CSS_FS_PATH
-	? [vscode.Uri.joinPath(vscode.Uri.file(CODICON_CSS_FS_PATH), '..')]
-	: [];
 
 type HistoryPanelInboundMessage =
 	| { type: 'ready' }
@@ -277,34 +234,31 @@ function isCoreViewTab(value: unknown): value is CoreViewTab {
 }
 
 function buildRefreshButtonHtml(tab: CoreViewTab): string {
-	return `<button class="refresh-button" type="button" data-refresh-tab="${tab}">${messages.commandRefresh}</button>`;
+	return `<button class="icon-button refresh-button" type="button" data-refresh-tab="${tab}" title="${escapeHtml(messages.commandRefresh)}" aria-label="${escapeHtml(messages.commandRefresh)}"><span class="codicon codicon-refresh" aria-hidden="true"></span></button>`;
 }
 
-function buildAgentsChainHtml(): string {
-	const chainNodes = buildAgentsLoadingChain();
-	const chainHtml = chainNodes.map((node, index) => `<article class="diag-node ${node.status.toLowerCase()}">
-		<div><strong>${index + 1}. ${node.fileName}</strong> <span>${node.status}</span> <span>${node.kind}/${node.type}</span></div>
-		<div class="muted">${escapeHtml(node.absolutePath)}</div>
-		<div class="muted">${escapeHtml(node.reason)}</div>
-		${node.contentPreview ? `<pre>${escapeHtml(node.contentPreview)}</pre>` : ''}
-	</article>`).join('');
-	return chainHtml || `<p class="muted">${messages.historyNoResult}</p>`;
+function buildAgentsChainPayload(): AgentsChainNode[] {
+	return buildAgentsLoadingChain();
 }
 
 function buildTrustedDirectoriesHtml(): string {
 	const trustedDirectories = listTrustedDirectories(resolveCodexPaths().configPath);
 	const coreStatus = getCoreWorkspaceStatus();
-	const trustedHtml = trustedDirectories.map((directory) => `<article class="trusted-row">
-		<span>${directory.exists ? 'OK' : 'WARN'}</span>
-		<span title="${escapeHtml(directory.reason ?? '')}">${escapeHtml(directory.path)}</span>
-		<button type="button" data-remove-trusted="${escapeHtml(directory.path)}" ${coreStatus.isConfigInvalid ? 'disabled' : ''}>${messages.mcpManagerDelete}</button>
+	const trustedHtml = trustedDirectories.map((directory) => `<article class="trusted-row turn-card">
+		<span class="codicon ${directory.exists ? 'codicon-pass-filled trusted-ok' : 'codicon-warning trusted-warning'}" aria-hidden="true"></span>
+		<span class="trusted-path" title="${escapeHtml(directory.reason ?? directory.path)}">${escapeHtml(directory.path)}</span>
+		<button class="icon-button" type="button" data-remove-trusted="${escapeHtml(directory.path)}" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}" ${coreStatus.isConfigInvalid ? 'disabled' : ''}><span class="codicon codicon-trash" aria-hidden="true"></span></button>
 	</article>`).join('');
 	return `<div class="trusted-toolbar">
+		<button id="addTrusted" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerAdd)}" aria-label="${escapeHtml(messages.mcpManagerAdd)}" ${coreStatus.isConfigInvalid ? 'disabled' : ''}><span class="codicon codicon-add" aria-hidden="true"></span></button>
 		${buildRefreshButtonHtml('trusted')}
-		<button id="addTrusted" type="button" ${coreStatus.isConfigInvalid ? 'disabled' : ''}>${messages.mcpManagerAdd}</button>
 		${coreStatus.isConfigInvalid ? `<span class="muted">${messages.reasonConfigInvalid}</span>` : ''}
 	</div>
-	${trustedHtml || `<p class="muted">${messages.historyNoResult}</p>`}`;
+	<div class="trusted-list">${trustedHtml || `<p class="muted">${messages.historyNoResult}</p>`}</div>`;
+}
+
+function serializeAgentsChain(nodes: AgentsChainNode[]): string {
+	return JSON.stringify(nodes);
 }
 
 function buildHistoryWebviewHtml(
@@ -323,7 +277,9 @@ function buildHistoryWebviewHtml(
 		copy: messages.historyCopy,
 		user: messages.historyUserLabel,
 		assistant: messages.historyAssistantLabel,
+		agentPreviewEmpty: messages.historyNoPreview,
 	});
+	const agentsChain = buildAgentsChainPayload();
 	const csp = [
 		"default-src 'none'",
 		`img-src ${webview.cspSource} https: data:`,
@@ -373,6 +329,9 @@ function buildHistoryWebviewHtml(
 			color: var(--vscode-tab-inactiveForeground);
 			padding: 6px 10px;
 			border-radius: 4px 4px 0 0;
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
 		}
 		.tab.active {
 			background: var(--vscode-tab-activeBackground);
@@ -460,7 +419,7 @@ function buildHistoryWebviewHtml(
 			display: grid;
 			gap: 12px;
 		}
-		.copy-button {
+		.copy-button, .icon-button {
 			background: var(--vscode-button-secondaryBackground);
 			color: var(--vscode-button-secondaryForeground);
 			border: 1px solid var(--vscode-panel-border);
@@ -472,6 +431,10 @@ function buildHistoryWebviewHtml(
 			align-items: center;
 			justify-content: center;
 			cursor: pointer;
+		}
+		.icon-button:disabled {
+			opacity: 0.45;
+			cursor: not-allowed;
 		}
 		.codicon {
 			font: normal normal normal 16px/1 codicon;
@@ -486,6 +449,30 @@ function buildHistoryWebviewHtml(
 		}
 		.codicon-hubot::before {
 			content: '\\eb08';
+		}
+		.codicon-history::before {
+			content: '\\ea82';
+		}
+		.codicon-server::before {
+			content: '\\eb50';
+		}
+		.codicon-shield::before {
+			content: '\\eb65';
+		}
+		.codicon-refresh::before {
+			content: '\\eb37';
+		}
+		.codicon-add::before {
+			content: '\\ea60';
+		}
+		.codicon-trash::before {
+			content: '\\ea81';
+		}
+		.codicon-pass-filled::before {
+			content: '\\ebb3';
+		}
+		.codicon-warning::before {
+			content: '\\ea6c';
 		}
 		.codicon-chevron-right::before {
 			content: '\\eab6';
@@ -552,22 +539,77 @@ function buildHistoryWebviewHtml(
 		}
 		.diag-tab { display: none; overflow: auto; height: 100%; }
 		.diag-tab.active { display: block; }
-		.diag-node, .trusted-row {
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 4px;
-			padding: 10px;
-			margin: 8px 12px;
+		.chain-list {
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
 		}
-		.diag-node.skipped, .diag-node.missing { opacity: 0.6; }
-		.diag-node.error { border-color: var(--vscode-inputValidation-errorBorder); }
+		.chain-card {
+			width: 100%;
+			display: grid;
+			grid-template-columns: auto 1fr auto;
+			gap: 8px;
+			align-items: start;
+		}
+		.chain-card.skipped {
+			opacity: 0.55;
+		}
+		.chain-card.missing {
+			opacity: 0.55;
+		}
+		.chain-card.error {
+			border-color: var(--vscode-inputValidation-errorBorder);
+		}
+		.chain-status {
+			font-size: 11px;
+			border: 1px solid var(--vscode-panel-border);
+			border-radius: 999px;
+			padding: 1px 6px;
+			white-space: nowrap;
+		}
+		.chain-meta {
+			display: flex;
+			gap: 6px;
+			flex-wrap: wrap;
+			margin-top: 3px;
+		}
+		.chain-detail {
+			border: 1px solid var(--vscode-panel-border);
+			border-radius: 6px;
+			padding: 12px;
+			display: grid;
+			gap: 10px;
+		}
+		.chain-detail pre {
+			background: var(--vscode-textCodeBlock-background);
+			padding: 8px;
+			border-radius: 4px;
+			overflow: auto;
+			margin: 0;
+		}
+		.trusted-row {
+			display: grid;
+			grid-template-columns: auto 1fr auto;
+			gap: 8px;
+			align-items: center;
+			margin: 0 0 6px 0;
+			width: 100%;
+			box-sizing: border-box;
+			cursor: default;
+		}
+		.trusted-path { word-break: break-all; }
+		.trusted-ok { color: var(--vscode-testing-iconPassed); }
+		.trusted-warning { color: var(--vscode-editorWarning-foreground); }
 		.muted { color: var(--vscode-descriptionForeground); font-size: 12px; }
 		.tab-toolbar, .trusted-toolbar {
 			display: flex;
 			gap: 8px;
 			align-items: center;
 			padding: 10px 12px;
+			justify-content: flex-end;
+			border-bottom: 1px solid var(--vscode-panel-border);
 		}
-		.trusted-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+		.trusted-list { padding: 10px 8px; }
 		.markdown-content p {
 			margin: 0 0 10px 0;
 			line-height: 1.5;
@@ -583,16 +625,16 @@ function buildHistoryWebviewHtml(
 <body>
 	<div class="root">
 		<nav class="tabs" aria-label="Codex Core View tabs">
-			<button class="tab active" data-tab="history" type="button">${messages.coreViewConversationHistoryTab}</button>
-			<button class="tab" data-tab="chain" type="button">${messages.coreViewAgentsChainTab}</button>
-			<button class="tab" data-tab="trusted" type="button">${messages.coreViewTrustedDirectoriesTab}</button>
+			<button class="tab active" data-tab="history" type="button"><span class="codicon codicon-history" aria-hidden="true"></span>${messages.coreViewConversationHistoryTab}</button>
+			<button class="tab" data-tab="chain" type="button"><span class="codicon codicon-server" aria-hidden="true"></span>${messages.coreViewAgentsChainTab}</button>
+			<button class="tab" data-tab="trusted" type="button"><span class="codicon codicon-shield" aria-hidden="true"></span>${messages.coreViewTrustedDirectoriesTab}</button>
 		</nav>
 		<section id="historyTab" class="diag-tab active">
 			<section class="top-pane">
-				<div class="tab-toolbar">${buildRefreshButtonHtml('history')}</div>
 				<div class="search-box">
 					<input id="searchInput" type="text" />
 					<button id="clearButton" class="copy-button" type="button"></button>
+					${buildRefreshButtonHtml('history')}
 				</div>
 			</section>
 			<section class="bottom-pane">
@@ -602,7 +644,10 @@ function buildHistoryWebviewHtml(
 		</section>
 		<section id="chainTab" class="diag-tab">
 			<div class="tab-toolbar">${buildRefreshButtonHtml('chain')}</div>
-			<div id="chainContent">${buildAgentsChainHtml()}</div>
+			<section class="bottom-pane">
+				<aside id="chainList" class="left-pane"></aside>
+				<main id="chainPreview" class="right-pane"></main>
+			</section>
 		</section>
 		<section id="trustedTab" class="diag-tab">
 			<div id="trustedContent">${buildTrustedDirectoriesHtml()}</div>
@@ -611,10 +656,17 @@ function buildHistoryWebviewHtml(
 	<script nonce="${nonce}">
 		const vscode = acquireVsCodeApi();
 		const labels = ${labels};
+		let chainNodes = ${serializeAgentsChain(agentsChain)};
+		let selectedChainIndex = chainNodes.findIndex((node) => node.status === 'Active');
+		if (selectedChainIndex < 0) {
+			selectedChainIndex = 0;
+		}
 		const searchInput = document.getElementById('searchInput');
 		const clearButton = document.getElementById('clearButton');
 		const treeArea = document.getElementById('treeArea');
 		const previewArea = document.getElementById('previewArea');
+		const chainList = document.getElementById('chainList');
+		const chainPreview = document.getElementById('chainPreview');
 		for (const button of document.querySelectorAll('[data-tab]')) {
 			button.addEventListener('click', () => {
 				document.querySelectorAll('[data-tab]').forEach((item) => item.classList.remove('active'));
@@ -624,17 +676,20 @@ function buildHistoryWebviewHtml(
 			});
 		}
 		document.addEventListener('click', (event) => {
-			const target = event.target;
-			if (target?.id === 'addTrusted') {
+			const target = event.target instanceof Element ? event.target : null;
+			const addTrustedButton = target?.closest('#addTrusted');
+			if (addTrustedButton) {
 				vscode.postMessage({ type: 'addTrustedDirectory' });
 				return;
 			}
-			if (target?.dataset?.refreshTab) {
-				vscode.postMessage({ type: 'refreshTab', tab: target.dataset.refreshTab });
+			const refreshButton = target?.closest('[data-refresh-tab]');
+			if (refreshButton?.dataset?.refreshTab) {
+				vscode.postMessage({ type: 'refreshTab', tab: refreshButton.dataset.refreshTab });
 				return;
 			}
-			if (target?.dataset?.removeTrusted) {
-				vscode.postMessage({ type: 'removeTrustedDirectory', targetPath: target.dataset.removeTrusted });
+			const removeTrustedButton = target?.closest('[data-remove-trusted]');
+			if (removeTrustedButton?.dataset?.removeTrusted) {
+				vscode.postMessage({ type: 'removeTrustedDirectory', targetPath: removeTrustedButton.dataset.removeTrusted });
 			}
 		});
 		searchInput.placeholder = labels.searchPlaceholder;
@@ -679,6 +734,58 @@ function buildHistoryWebviewHtml(
 				.split(/\\n{2,}/)
 				.map((chunk) => '<p>' + chunk.replaceAll('\\n', '<br />') + '</p>')
 				.join('');
+		};
+
+		const renderChain = () => {
+			if (!chainList || !chainPreview) {
+				return;
+			}
+			if (chainNodes.length === 0) {
+				chainList.innerHTML = '<div class="preview-empty">' + labels.noResult + '</div>';
+				chainPreview.innerHTML = '<div class="preview-empty">' + labels.agentPreviewEmpty + '</div>';
+				return;
+			}
+			if (selectedChainIndex < 0 || selectedChainIndex >= chainNodes.length) {
+				selectedChainIndex = 0;
+			}
+			chainList.innerHTML = '<div class="chain-list"></div>';
+			const container = chainList.querySelector('.chain-list');
+			chainNodes.forEach((node, index) => {
+				const card = document.createElement('button');
+				card.type = 'button';
+				card.className =
+					'turn-card chain-card ' +
+					String(node.status || '').toLocaleLowerCase() +
+					(index === selectedChainIndex ? ' active' : '');
+				card.addEventListener('click', () => {
+					selectedChainIndex = index;
+					renderChain();
+				});
+				card.innerHTML =
+					'<span class="codicon codicon-server message-role-icon" aria-hidden="true"></span>' +
+					'<span>' +
+					'<span class="turn-title">' + escapeHtml(node.fileName) + '</span>' +
+					'<span class="chain-meta muted">' +
+					'<span>' + escapeHtml(node.kind) + '</span>' +
+					'<span>' + escapeHtml(node.type) + '</span>' +
+					'</span>' +
+					'</span>' +
+					'<span class="chain-status">' + escapeHtml(node.status) + '</span>';
+				container?.appendChild(card);
+			});
+			const selected = chainNodes[selectedChainIndex];
+			chainPreview.innerHTML =
+				'<section class="chain-detail">' +
+				'<div class="frame-header">' +
+				'<div>' +
+				'<h2 class="section-title">' + escapeHtml(selected.fileName) + '</h2>' +
+				'<p class="message-meta">' + escapeHtml(selected.kind) + ' / ' + escapeHtml(selected.type) + ' / ' + escapeHtml(selected.status) + '</p>' +
+				'</div>' +
+				'</div>' +
+				'<div class="muted">' + escapeHtml(selected.absolutePath) + '</div>' +
+				'<div>' + escapeHtml(selected.reason) + '</div>' +
+				(selected.contentPreview ? '<pre>' + escapeHtml(selected.contentPreview) + '</pre>' : '') +
+				'</section>';
 		};
 
 		const renderTree = () => {
@@ -816,6 +923,7 @@ function buildHistoryWebviewHtml(
 			searchInput.value = state.appliedQuery;
 			renderTree();
 			renderPreview();
+			renderChain();
 		};
 
 		const postSearch = () => {
@@ -838,10 +946,12 @@ function buildHistoryWebviewHtml(
 			const message = event.data;
 			if (message?.type === 'tabContent') {
 				if (message.tab === 'chain') {
-					const chainContent = document.getElementById('chainContent');
-					if (chainContent) {
-						chainContent.innerHTML = message.html;
+					chainNodes = message.nodes || [];
+					selectedChainIndex = chainNodes.findIndex((node) => node.status === 'Active');
+					if (selectedChainIndex < 0) {
+						selectedChainIndex = 0;
 					}
+					renderChain();
 				}
 				if (message.tab === 'trusted') {
 					const trustedContent = document.getElementById('trustedContent');
@@ -878,10 +988,7 @@ export function createHistoryWebviewPanel(): vscode.WebviewPanel {
 		{ viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
 		panelOptions,
 	);
-	panel.iconPath = {
-		light: HISTORY_TAB_ICON_LIGHT_URI,
-		dark: HISTORY_TAB_ICON_DARK_URI,
-	};
+	panel.iconPath = getCodiconIconPath('terminal');
 	return panel;
 }
 
@@ -919,10 +1026,7 @@ export class HistoryPanelManager implements vscode.Disposable {
 			appliedQuery: '',
 			includeReasoningMessage: this.includeReasoningMessage(),
 		};
-		const codiconCssHref =
-			CODICON_CSS_FS_PATH && typeof panel.webview.asWebviewUri === 'function'
-				? panel.webview.asWebviewUri(vscode.Uri.file(CODICON_CSS_FS_PATH)).toString()
-				: undefined;
+		const codiconCssHref = getCodiconCssHref(panel.webview);
 		panel.webview.html = buildHistoryWebviewHtml(panel.webview, codiconCssHref);
 		panel.webview.onDidReceiveMessage((message: unknown) =>
 			this.handleInboundMessage(message),
@@ -1021,7 +1125,7 @@ export class HistoryPanelManager implements vscode.Disposable {
 			void this.panel.webview.postMessage({
 				type: 'tabContent',
 				tab,
-				html: buildAgentsChainHtml(),
+				nodes: buildAgentsChainPayload(),
 			});
 			return;
 		}

@@ -46,10 +46,15 @@ export function listAgentManagerRecords(
 			const configFile = getAgentConfigFile(contents, name) ?? `agents/${name}.toml`;
 			const resolvedConfigFile = resolveAgentConfigFile(configPath, configFile);
 			const detail = readAgentTomlDetails(resolvedConfigFile);
+			const enabledDescription = getAgentDescription(contents, name);
+			const disabledDescription = readDisabledAgentDescription(
+				configPath,
+				name,
+			);
 			return {
 				id: `${location.kind}:${agentPath}`,
 				name,
-				description: getAgentDescription(contents, name) ?? '',
+				description: enabledDescription ?? disabledDescription ?? '',
 				model: detail.model ?? INHERITED,
 				reasoningEffort: detail.model_reasoning_effort ?? INHERITED,
 				sandboxMode: detail.sandbox_mode ?? INHERITED,
@@ -142,4 +147,24 @@ function readAgentTomlDetails(agentPath: string): Record<string, string> {
 		}
 	}
 	return result;
+}
+
+function readDisabledAgentDescription(
+	configPath: string,
+	agentName: string,
+): string | undefined {
+	const storePath = getDisabledAgentsStorePath(path.dirname(configPath));
+	const block = getDisabledAgentBlock(storePath, agentName);
+	if (!block) {
+		return undefined;
+	}
+	const match = block.match(/^\s*description\s*=\s*"((?:[^"\\]|\\.)*)"\s*(?:#.*)?$/m);
+	return match ? unescapeTomlString(match[1]) : undefined;
+}
+
+function unescapeTomlString(value: string): string {
+	return value
+		.replace(/\\n/g, '\n')
+		.replace(/\\"/g, '"')
+		.replace(/\\\\/g, '\\');
 }

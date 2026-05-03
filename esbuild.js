@@ -6,8 +6,10 @@ const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
 
 const codiconSourceDir = path.resolve(__dirname, 'node_modules', '@vscode', 'codicons', 'dist');
+const codiconIconSourceDir = path.resolve(__dirname, 'node_modules', '@vscode', 'codicons', 'src', 'icons');
 const codiconDistDir = path.resolve(__dirname, 'dist', 'webview', 'codicons');
 const codiconAssetNames = ['codicon.css', 'codicon.ttf'];
+const codiconIconNames = ['agent', 'history', 'hubot', 'mcp', 'server', 'sparkle', 'terminal'];
 
 async function copyWebviewAssets() {
 	await fs.mkdir(codiconDistDir, { recursive: true });
@@ -15,6 +17,30 @@ async function copyWebviewAssets() {
 		const from = path.join(codiconSourceDir, assetName);
 		const to = path.join(codiconDistDir, assetName);
 		await fs.copyFile(from, to);
+	}
+	const codiconIconDistDir = path.join(codiconDistDir, 'icons');
+	await fs.mkdir(codiconIconDistDir, { recursive: true });
+	const themedIconDirs = {
+		light: path.join(codiconIconDistDir, 'light'),
+		dark: path.join(codiconIconDistDir, 'dark'),
+	};
+	await fs.mkdir(themedIconDirs.light, { recursive: true });
+	await fs.mkdir(themedIconDirs.dark, { recursive: true });
+	for (const iconName of codiconIconNames) {
+		const from = path.join(codiconIconSourceDir, `${iconName}.svg`);
+		const to = path.join(codiconIconDistDir, `${iconName}.svg`);
+		await fs.copyFile(from, to);
+		const svg = await fs.readFile(from, 'utf8');
+		await fs.writeFile(
+			path.join(themedIconDirs.light, `${iconName}.svg`),
+			svg.replace(/fill="currentColor"/g, 'fill="#000000"'),
+			'utf8',
+		);
+		await fs.writeFile(
+			path.join(themedIconDirs.dark, `${iconName}.svg`),
+			svg.replace(/fill="currentColor"/g, 'fill="#ffffff"'),
+			'utf8',
+		);
 	}
 }
 

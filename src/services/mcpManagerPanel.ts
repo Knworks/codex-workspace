@@ -8,6 +8,7 @@ import {
 } from './mcpManagerService';
 import { toggleMcpServer } from './mcpService';
 import { resolveCodexPaths } from './workspaceStatus';
+import { CODICON_RESOURCE_ROOTS, getCodiconCssHref, getCodiconIconPath } from './webviewAssets';
 
 const MCP_MANAGER_VIEW_TYPE = 'codex-workspace.mcpManager';
 
@@ -51,35 +52,70 @@ function emptyModel(): McpFormModel {
 }
 
 function buildList(models: McpFormModel[], selectedId: string | undefined, query: string): string {
-	const normalized = query.trim().toLocaleLowerCase();
-	const visible = normalized
-		? models.filter((model) => model.id.toLocaleLowerCase().includes(normalized))
-		: models;
-	return visible.map((model) => `<button type="button" class="server ${model.id === selectedId ? 'active' : ''}" data-select="${escapeHtml(model.id)}">
-		<span>${escapeHtml(model.id)}</span>
-		<input type="checkbox" data-toggle="${escapeHtml(model.id)}" ${model.enabled ? 'checked' : ''} />
+	return models.map((model) => `<button type="button" class="server ${model.id === selectedId ? 'active' : ''}${model.enabled ? '' : ' disabled'}" data-select="${escapeHtml(model.id)}" data-filter-text="${escapeHtml(model.id.toLocaleLowerCase())}">
+		<span class="codicon codicon-mcp server-icon" aria-hidden="true"></span>
+		<span class="server-name">${escapeHtml(model.id)}</span>
+		<label class="switch" title="Toggle">
+			<input type="checkbox" data-toggle="${escapeHtml(model.id)}" ${model.enabled ? 'checked' : ''} />
+			<span></span>
+		</label>
 	</button>`).join('');
+}
+
+function buildFieldLabel(label: string, description: string): string {
+	return `<span class="field-label">${escapeHtml(label)}<span class="codicon codicon-info info-icon" title="${escapeHtml(description)}" aria-label="${escapeHtml(description)}"></span></span>`;
+}
+
+function getMcpFieldDescriptions(language: string): Record<string, string> {
+	const isJapanese = language.toLocaleLowerCase().startsWith('ja');
+	if (isJapanese) {
+		return {
+			id: '[mcp_servers.<name>] の一意なサーバー名です。',
+			transport: '接続方式です。コマンド起動は stdio、URL 接続は http を選択してください。',
+			command: 'stdio MCP サーバーを起動するコマンドです。http の場合は空にしてください。',
+			args: 'stdio サーバーに渡す引数です。1項目を1行で記載してください。',
+			url: 'http MCP サーバーの URL です。stdio の場合は空にしてください。',
+			required: 'Codex がこの MCP サーバーを必須として扱うかを指定します。',
+			startupTimeoutSec: '起動タイムアウト秒数です。0以上の数値を指定してください。',
+			toolTimeoutSec: 'ツール実行タイムアウト秒数です。0以上の数値を指定してください。',
+			enabledTools: '許可するツール名です。1項目を1行で記載してください。Disabled Tools とは同時指定できません。',
+			disabledTools: '無効化するツール名です。1項目を1行で記載してください。Enabled Tools とは同時指定できません。',
+		};
+	}
+	return {
+		id: 'Unique server name under [mcp_servers.<name>].',
+		transport: 'Connection type. Use stdio for command based servers, http for URL based servers.',
+		command: 'Command to launch a stdio MCP server. Leave empty for http servers.',
+		args: 'Command arguments for stdio servers. Enter one item per line.',
+		url: 'HTTP MCP server URL. Leave empty for stdio servers.',
+		required: 'Whether Codex should treat this MCP server as required.',
+		startupTimeoutSec: 'Startup timeout in seconds. Use a non-negative number.',
+		toolTimeoutSec: 'Tool execution timeout in seconds. Use a non-negative number.',
+		enabledTools: 'Allow only these tools. Enter one tool name per line. Do not combine with Disabled Tools.',
+		disabledTools: 'Disable these tools. Enter one tool name per line. Do not combine with Enabled Tools.',
+	};
 }
 
 function buildForm(model: McpFormModel | undefined, previousId?: string): string {
 	const current = model ?? emptyModel();
-	return `<form id="form" data-previous-id="${escapeHtml(previousId ?? current.id)}">
-		<label>${escapeHtml(messages.mcpManagerServerName)}<input name="id" value="${escapeHtml(current.id)}" /></label>
-		<label>Transport<select name="transport">
+	const descriptions = getMcpFieldDescriptions(vscode.env.language ?? 'en');
+	return `<form id="form" data-previous-id="${escapeHtml(previousId ?? current.id)}" data-enabled="${current.enabled ? 'true' : 'false'}">
+		<label>${buildFieldLabel(messages.mcpManagerServerName, descriptions.id)}<input name="id" value="${escapeHtml(current.id)}" /></label>
+		<label>${buildFieldLabel('Transport', descriptions.transport)}<select name="transport">
 			<option value="stdio" ${current.transport === 'stdio' ? 'selected' : ''}>stdio</option>
 			<option value="http" ${current.transport === 'http' ? 'selected' : ''}>http</option>
 		</select></label>
-		<label>Command<input name="command" value="${escapeHtml(current.command)}" /></label>
-		<label>Args<textarea name="args">${escapeHtml(current.args.join('\n'))}</textarea></label>
-		<label>URL<input name="url" value="${escapeHtml(current.url)}" /></label>
-		<label>Required<input name="required" type="checkbox" ${current.required ? 'checked' : ''} /></label>
-		<label>Startup Timeout<input name="startupTimeoutSec" value="${current.startupTimeoutSec ?? ''}" /></label>
-		<label>Tool Timeout<input name="toolTimeoutSec" value="${current.toolTimeoutSec ?? ''}" /></label>
-		<label>Enabled Tools<textarea name="enabledTools">${escapeHtml(current.enabledTools.join('\n'))}</textarea></label>
-		<label>Disabled Tools<textarea name="disabledTools">${escapeHtml(current.disabledTools.join('\n'))}</textarea></label>
+		<label>${buildFieldLabel('Command', descriptions.command)}<input name="command" value="${escapeHtml(current.command)}" /></label>
+		<label>${buildFieldLabel('Args', descriptions.args)}<textarea name="args">${escapeHtml(current.args.join('\n'))}</textarea></label>
+		<label>${buildFieldLabel('URL', descriptions.url)}<input name="url" value="${escapeHtml(current.url)}" /></label>
+		<label class="required-field">${buildFieldLabel('Required', descriptions.required)}<span class="switch"><input name="required" type="checkbox" ${current.required ? 'checked' : ''} /><span></span></span></label>
+		<label>${buildFieldLabel('Startup Timeout', descriptions.startupTimeoutSec)}<input name="startupTimeoutSec" value="${current.startupTimeoutSec ?? ''}" /></label>
+		<label>${buildFieldLabel('Tool Timeout', descriptions.toolTimeoutSec)}<input name="toolTimeoutSec" value="${current.toolTimeoutSec ?? ''}" /></label>
+		<label>${buildFieldLabel('Enabled Tools', descriptions.enabledTools)}<textarea name="enabledTools">${escapeHtml(current.enabledTools.join('\n'))}</textarea></label>
+		<label>${buildFieldLabel('Disabled Tools', descriptions.disabledTools)}<textarea name="disabledTools">${escapeHtml(current.disabledTools.join('\n'))}</textarea></label>
 		<div class="actions">
-			<button type="submit">${escapeHtml(messages.mcpManagerSave)}</button>
-			<button id="cancel" type="button">${escapeHtml(messages.mcpManagerCancel)}</button>
+			<button class="icon-button" type="submit" title="${escapeHtml(messages.mcpManagerSave)}" aria-label="${escapeHtml(messages.mcpManagerSave)}"><span class="codicon codicon-save" aria-hidden="true"></span></button>
+			<button id="cancel" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerCancel)}" aria-label="${escapeHtml(messages.mcpManagerCancel)}"><span class="codicon codicon-discard" aria-hidden="true"></span></button>
 		</div>
 	</form>`;
 }
@@ -91,95 +127,224 @@ function buildHtml(
 	query: string,
 ): string {
 	const nonce = createNonce();
-	const selected = models.find((model) => model.id === selectedId) ?? models[0];
+	const selected = models.find((model) => model.id === selectedId) ?? models[0] ?? emptyModel();
+	const selectedModelId = selected.id;
+	const codiconCssHref = getCodiconCssHref(webview);
+	const serializedModels = JSON.stringify(models);
+	const fieldDescriptions = JSON.stringify(
+		getMcpFieldDescriptions(vscode.env.language ?? 'en'),
+	);
 	const csp = [
 		"default-src 'none'",
+		`font-src ${webview.cspSource} data:`,
 		`style-src ${webview.cspSource} 'unsafe-inline'`,
 		`script-src 'nonce-${nonce}'`,
 	].join('; ');
+	const codiconLink = codiconCssHref
+		? `<link rel="stylesheet" href="${codiconCssHref}" />`
+		: '';
 	return `<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<meta http-equiv="Content-Security-Policy" content="${csp}" />
+	${codiconLink}
 	<title>${escapeHtml(messages.mcpManagerTitle)}</title>
 	<style>
 		body { margin: 0; font-family: var(--vscode-font-family); color: var(--vscode-foreground); background: var(--vscode-editor-background); }
-		.root { display: grid; grid-template-columns: 280px 1fr; height: 100vh; }
-		.left { border-right: 1px solid var(--vscode-panel-border); padding: 10px; display: grid; grid-template-rows: auto auto 1fr; gap: 8px; }
-		.right { padding: 10px; overflow: auto; }
-		.server { display: flex; width: 100%; justify-content: space-between; margin-bottom: 4px; padding: 6px; background: transparent; color: var(--vscode-foreground); border: 1px solid var(--vscode-panel-border); }
-		.server.active { background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
-		form { display: grid; gap: 8px; max-width: 720px; }
+		.root { display: grid; grid-template-rows: auto 1fr; height: 100vh; min-width: 0; }
+		.panes { display: grid; grid-template-columns: 40% 60%; min-height: 0; }
+		.left { border-right: 1px solid var(--vscode-panel-border); display: grid; grid-template-rows: auto 1fr; min-width: 0; min-height: 0; }
+		.right { padding: 12px; overflow: auto; min-width: 0; }
+		.search-area { padding: 10px 12px; border-bottom: 1px solid var(--vscode-panel-border); display: flex; gap: 8px; align-items: center; }
+		.search-area input { flex: 1; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); border-radius: 8px; padding: 6px 8px; }
+		.search-area input:focus, input:focus, textarea:focus, select:focus { outline: none; border-color: var(--vscode-focusBorder, #0e639c); box-shadow: 0 0 0 1px var(--vscode-focusBorder, #0e639c); }
+		.actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+		.list-actions { padding: 10px 12px; border-bottom: 1px solid var(--vscode-panel-border); }
+		.server-list { padding: 10px 8px; overflow: auto; }
+		.server { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; width: 100%; margin-bottom: 6px; padding: 8px; background: var(--vscode-editorWidget-background); color: var(--vscode-foreground); border: 1px solid var(--vscode-panel-border); border-radius: 6px; text-align: left; cursor: pointer; }
+		.server.disabled { opacity: 0.55; }
+		.server.active { border-color: var(--vscode-focusBorder); background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
+		.server-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.server-icon { color: var(--vscode-descriptionForeground); }
+		form { display: grid; gap: 10px; max-width: 760px; }
 		label { display: grid; gap: 4px; }
+		.field-label { display: inline-flex; align-items: center; gap: 6px; }
+		.info-icon { color: var(--vscode-descriptionForeground); }
+		.required-field { justify-items: start; }
+		input, textarea, select { box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); border-radius: 6px; padding: 6px 8px; }
 		textarea { min-height: 70px; }
-		.actions { display: flex; gap: 8px; }
+		.icon-button { width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--vscode-panel-border); border-radius: 4px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); cursor: pointer; }
+		.switch input { display: none; }
+		.switch span { display: inline-block; width: 34px; height: 18px; border-radius: 999px; background: #d85b74; position: relative; vertical-align: middle; }
+		.switch span::after { content: ""; position: absolute; width: 14px; height: 14px; top: 2px; left: 2px; border-radius: 50%; background: #6e6e6e; transition: left 0.12s ease; }
+		.switch input:checked + span { background: var(--vscode-testing-iconPassed); }
+		.switch input:checked + span::after { left: 18px; }
+		@media (prefers-color-scheme: dark) {
+			.switch span::after { background: #ffffff; }
+		}
 	</style>
 </head>
 <body>
 	<div class="root">
-		<section class="left">
+		<div class="search-area">
 			<input id="search" value="${escapeHtml(query)}" placeholder="${escapeHtml(messages.mcpManagerSearchPlaceholder)}" />
-			<div class="actions">
-				<button id="add" type="button">${escapeHtml(messages.mcpManagerAdd)}</button>
-				<button id="delete" type="button">${escapeHtml(messages.mcpManagerDelete)}</button>
-			</div>
-			<div>${buildList(models, selected?.id, query)}</div>
-		</section>
-		<section class="right">${buildForm(selected)}</section>
+			<button id="clearSearch" class="icon-button" type="button" title="${escapeHtml(messages.historyClear)}" aria-label="${escapeHtml(messages.historyClear)}"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
+		</div>
+		<div class="panes">
+			<section class="left">
+				<div class="actions list-actions">
+					<button id="add" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerAdd)}" aria-label="${escapeHtml(messages.mcpManagerAdd)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>
+					<button id="delete" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}"><span class="codicon codicon-trash" aria-hidden="true"></span></button>
+				</div>
+				<div class="server-list">${buildList(models, selectedModelId, query)}</div>
+			</section>
+			<section id="detailPane" class="right">${buildForm(selected)}</section>
+		</div>
 	</div>
 	<script nonce="${nonce}">
 		const vscode = acquireVsCodeApi();
+		const models = ${serializedModels};
+		const descriptions = ${fieldDescriptions};
+		let selectedId = ${JSON.stringify(selectedModelId)};
 		let dirty = false;
-		const form = document.getElementById('form');
-		document.getElementById('search').addEventListener('input', (event) => vscode.postMessage({ type: 'search', query: event.target.value }));
-		document.getElementById('add').addEventListener('click', () => vscode.postMessage({ type: 'add' }));
+		const searchInput = document.getElementById('search');
+		const detailPane = document.getElementById('detailPane');
+		const escapeHtml = (value) =>
+			String(value ?? '')
+				.replaceAll('&', '&amp;')
+				.replaceAll('<', '&lt;')
+				.replaceAll('>', '&gt;')
+				.replaceAll('"', '&quot;');
+		const fieldLabel = (label, description) =>
+			'<span class="field-label">' + escapeHtml(label) + '<span class="codicon codicon-info info-icon" title="' + escapeHtml(description) + '" aria-label="' + escapeHtml(description) + '"></span></span>';
+		const renderForm = (model) => {
+			const current = model || {
+				id: '',
+				transport: 'stdio',
+				command: '',
+				args: [],
+				url: '',
+				enabledTools: [],
+				disabledTools: [],
+				enabled: true,
+			};
+			detailPane.innerHTML =
+				'<form id="form" data-previous-id="' + escapeHtml(current.id) + '" data-enabled="' + (current.enabled === false ? 'false' : 'true') + '">' +
+				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerServerName)}, descriptions.id) + '<input name="id" value="' + escapeHtml(current.id) + '" /></label>' +
+				'<label>' + fieldLabel('Transport', descriptions.transport) + '<select name="transport">' +
+				'<option value="stdio" ' + (current.transport === 'stdio' ? 'selected' : '') + '>stdio</option>' +
+				'<option value="http" ' + (current.transport === 'http' ? 'selected' : '') + '>http</option>' +
+				'</select></label>' +
+				'<label>' + fieldLabel('Command', descriptions.command) + '<input name="command" value="' + escapeHtml(current.command) + '" /></label>' +
+				'<label>' + fieldLabel('Args', descriptions.args) + '<textarea name="args">' + escapeHtml((current.args || []).join('\\n')) + '</textarea></label>' +
+				'<label>' + fieldLabel('URL', descriptions.url) + '<input name="url" value="' + escapeHtml(current.url) + '" /></label>' +
+				'<label class="required-field">' + fieldLabel('Required', descriptions.required) + '<span class="switch"><input name="required" type="checkbox" ' + (current.required ? 'checked' : '') + ' /><span></span></span></label>' +
+				'<label>' + fieldLabel('Startup Timeout', descriptions.startupTimeoutSec) + '<input name="startupTimeoutSec" value="' + escapeHtml(current.startupTimeoutSec ?? '') + '" /></label>' +
+				'<label>' + fieldLabel('Tool Timeout', descriptions.toolTimeoutSec) + '<input name="toolTimeoutSec" value="' + escapeHtml(current.toolTimeoutSec ?? '') + '" /></label>' +
+				'<label>' + fieldLabel('Enabled Tools', descriptions.enabledTools) + '<textarea name="enabledTools">' + escapeHtml((current.enabledTools || []).join('\\n')) + '</textarea></label>' +
+				'<label>' + fieldLabel('Disabled Tools', descriptions.disabledTools) + '<textarea name="disabledTools">' + escapeHtml((current.disabledTools || []).join('\\n')) + '</textarea></label>' +
+				'<div class="actions">' +
+				'<button class="icon-button" type="submit" title="${escapeHtml(messages.mcpManagerSave)}" aria-label="${escapeHtml(messages.mcpManagerSave)}"><span class="codicon codicon-save" aria-hidden="true"></span></button>' +
+				'<button id="cancel" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerCancel)}" aria-label="${escapeHtml(messages.mcpManagerCancel)}"><span class="codicon codicon-discard" aria-hidden="true"></span></button>' +
+				'</div>' +
+				'</form>';
+			bindForm();
+		};
+		const getForm = () => document.getElementById('form');
+		const bindForm = () => {
+			const form = getForm();
+			document.getElementById('cancel')?.addEventListener('click', () => vscode.postMessage({ type: 'cancel' }));
+			form?.addEventListener('input', () => { dirty = true; });
+			form?.addEventListener('submit', (event) => {
+				event.preventDefault();
+				const data = new FormData(form);
+				const lines = (name) => String(data.get(name) ?? '').split(/\\r?\\n/).map((item) => item.trim()).filter(Boolean);
+				const numberValue = (name) => {
+					const value = String(data.get(name) ?? '').trim();
+					return value ? Number(value) : undefined;
+				};
+				vscode.postMessage({
+					type: 'save',
+					previousId: form.dataset.previousId || undefined,
+					model: {
+						id: String(data.get('id') ?? '').trim(),
+						transport: data.get('transport'),
+						command: String(data.get('command') ?? ''),
+						args: lines('args'),
+						url: String(data.get('url') ?? ''),
+						required: data.get('required') === 'on',
+						startupTimeoutSec: numberValue('startupTimeoutSec'),
+						toolTimeoutSec: numberValue('toolTimeoutSec'),
+						enabledTools: lines('enabledTools'),
+						disabledTools: lines('disabledTools'),
+						enabled: form.dataset.enabled !== 'false',
+					},
+				});
+			});
+		};
+		const selectServer = (id) => {
+			selectedId = id;
+			document.querySelectorAll('.server').forEach((server) => {
+				server.classList.toggle('active', server.dataset?.select === id);
+			});
+			renderForm(models.find((model) => model.id === id));
+		};
+		document.querySelectorAll('.server').forEach((server) => {
+			const model = models.find((item) => item.id === server.dataset?.select);
+			server.classList.toggle('disabled', model?.enabled === false);
+		});
+		const applyFilter = () => {
+			const query = searchInput.value.trim().toLocaleLowerCase();
+			document.querySelectorAll('.server').forEach((server) => {
+				const text = server.dataset?.filterText || '';
+				server.style.display = query.length > 0 && !text.includes(query) ? 'none' : '';
+			});
+		};
+		searchInput.addEventListener('input', applyFilter);
+		document.getElementById('clearSearch')?.addEventListener('click', () => {
+			searchInput.value = '';
+			applyFilter();
+			searchInput.focus();
+		});
+		applyFilter();
+		document.getElementById('add').addEventListener('click', () => {
+			selectedId = '';
+			document.querySelectorAll('.server').forEach((server) => server.classList.remove('active'));
+			renderForm(undefined);
+			vscode.postMessage({ type: 'add' });
+		});
 		document.getElementById('delete').addEventListener('click', () => {
-			const previousId = form?.dataset?.previousId;
+			const previousId = getForm()?.dataset?.previousId;
 			if (previousId) vscode.postMessage({ type: 'delete', id: previousId });
 		});
-		document.getElementById('cancel')?.addEventListener('click', () => vscode.postMessage({ type: 'cancel' }));
-		document.addEventListener('click', (event) => {
-			const target = event.target;
-			if (target?.dataset?.select && target.tagName !== 'INPUT') vscode.postMessage({ type: 'select', id: target.dataset.select });
+		document.querySelector('.server-list')?.addEventListener('click', (event) => {
+			const target = event.target instanceof Element ? event.target : null;
+			const toggle = target?.closest?.('[data-toggle]');
+			if (toggle) return;
+			const server = target?.closest?.('[data-select]');
+			if (server?.dataset?.select !== undefined) {
+				selectServer(server.dataset.select);
+				vscode.postMessage({ type: 'select', id: server.dataset.select });
+			}
 		});
 		document.addEventListener('change', (event) => {
 			const target = event.target;
 			if (target?.dataset?.toggle) {
 				event.stopPropagation();
+				const model = models.find((item) => item.id === target.dataset.toggle);
+				if (model) {
+					model.enabled = Boolean(target.checked);
+				}
+				const server = target.closest('.server');
+				server?.classList.toggle('disabled', !target.checked);
 				vscode.postMessage({ type: 'toggle', id: target.dataset.toggle });
 				return;
 			}
 			dirty = true;
 		});
-		form?.addEventListener('input', () => { dirty = true; });
-		form?.addEventListener('submit', (event) => {
-			event.preventDefault();
-			const data = new FormData(form);
-			const lines = (name) => String(data.get(name) ?? '').split(/\\r?\\n/).map((item) => item.trim()).filter(Boolean);
-			const numberValue = (name) => {
-				const value = String(data.get(name) ?? '').trim();
-				return value ? Number(value) : undefined;
-			};
-			vscode.postMessage({
-				type: 'save',
-				previousId: form.dataset.previousId || undefined,
-				model: {
-					id: String(data.get('id') ?? '').trim(),
-					transport: data.get('transport'),
-					command: String(data.get('command') ?? ''),
-					args: lines('args'),
-					url: String(data.get('url') ?? ''),
-					required: data.get('required') === 'on',
-					startupTimeoutSec: numberValue('startupTimeoutSec'),
-					toolTimeoutSec: numberValue('toolTimeoutSec'),
-					enabledTools: lines('enabledTools'),
-					disabledTools: lines('disabledTools'),
-					enabled: true,
-				},
-			});
-		});
+		bindForm();
 		vscode.postMessage({ type: 'ready' });
 	</script>
 </body>
@@ -206,19 +371,29 @@ export class McpManagerPanelManager implements vscode.Disposable {
 			MCP_MANAGER_VIEW_TYPE,
 			messages.mcpManagerTitle,
 			{ viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
-			{ enableScripts: true, retainContextWhenHidden: true },
+			{
+				enableScripts: true,
+				retainContextWhenHidden: true,
+				...(CODICON_RESOURCE_ROOTS.length > 0
+					? { localResourceRoots: CODICON_RESOURCE_ROOTS }
+				: {}),
+			},
 		);
+		this.panel.iconPath = getCodiconIconPath('mcp');
 		this.panel.onDidDispose(() => {
 			this.panel = undefined;
 		});
 		this.panel.webview.onDidReceiveMessage((message: InboundMessage) =>
 			this.handleMessage(message),
 		);
-		this.render();
+		this.refresh();
 	}
 
 	refresh(): void {
 		this.models = this.readModels();
+		if (!this.selectedId || !this.models.some((model) => model.id === this.selectedId)) {
+			this.selectedId = this.models[0]?.id;
+		}
 		this.render();
 	}
 
@@ -228,6 +403,9 @@ export class McpManagerPanelManager implements vscode.Disposable {
 
 	private async handleMessage(message: InboundMessage): Promise<void> {
 		const { configPath } = resolveCodexPaths();
+		if (message.type === 'ready') {
+			return;
+		}
 		if (message.type === 'search') {
 			this.query = message.query;
 		} else if (message.type === 'select') {
