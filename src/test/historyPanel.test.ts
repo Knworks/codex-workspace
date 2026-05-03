@@ -241,6 +241,36 @@ suite('History panel manager', () => {
 		assert.strictEqual(clearedState.payload.selectedTurn?.turnId, 't2');
 	});
 
+	test('refreshTab refreshes only the requested core view tab', () => {
+		const fakePanel = createFakePanel();
+		let loadCount = 0;
+		const index: HistoryIndex = { turns: [], days: [] };
+		const manager = new HistoryPanelManager(
+			() => fakePanel.panel,
+			() => {
+				loadCount += 1;
+				return index;
+			},
+		);
+		manager.show();
+
+		fakePanel.sendMessage({ type: 'refreshTab', tab: 'chain' });
+		const chainMessage = fakePanel.getPostedMessages()[0] as {
+			type: string;
+			tab: string;
+			html: string;
+		};
+		assert.strictEqual(chainMessage.type, 'tabContent');
+		assert.strictEqual(chainMessage.tab, 'chain');
+		assert.ok(chainMessage.html.length > 0);
+		assert.strictEqual(loadCount, 1);
+
+		fakePanel.sendMessage({ type: 'refreshTab', tab: 'history' });
+		const historyMessage = fakePanel.getPostedMessages()[1] as { type: string };
+		assert.strictEqual(historyMessage.type, 'state');
+		assert.strictEqual(loadCount, 2);
+	});
+
 	test('limits history list to newest maxHistoryCount entries when configured', () => {
 		const fakePanel = createFakePanel();
 		const index: HistoryIndex = {

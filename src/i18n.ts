@@ -92,6 +92,7 @@ export const messages = {
 		'message.mcpToggleUpdated',
 		'Settings updated. Please restart Codex to apply changes.',
 	),
+	commandRefresh: localize('command.refresh', 'Refresh'),
 	syncConfirm: (targetPath: string) =>
 		localize(
 			'message.syncConfirm',
@@ -166,6 +167,20 @@ export const messages = {
 			'message.mcpManagerDeleteConfirm',
 			'Delete MCP server [mcp_servers.{0}]?',
 			serverId,
+		),
+	coreViewAgentsChainTab: localize(
+		'message.coreViewAgentsChainTab',
+		'AGENTS Loading Chain',
+	),
+	coreViewTrustedDirectoriesTab: localize(
+		'message.coreViewTrustedDirectoriesTab',
+		'Trusted Directories',
+	),
+	trustedDirectoryDeleteConfirm: (targetPath: string) =>
+		localize(
+			'message.trustedDirectoryDeleteConfirm',
+			'Remove trusted directory [{0}]?',
+			targetPath,
 		),
 	historyPanelPlaceholder: localize(
 		'message.historyPanelPlaceholder',

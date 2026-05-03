@@ -5,6 +5,13 @@ import path from 'node:path';
 import { messages } from '../i18n';
 import { getConfiguredMaxHistoryCount, getIncludeReasoningMessage } from './settings';
 import { buildHistoryIndex, HistoryDayNode, HistoryIndex, HistoryTurnRecord } from './historyService';
+import {
+	addTrustedDirectory,
+	buildAgentsLoadingChain,
+	listTrustedDirectories,
+	removeTrustedDirectory,
+} from './coreDiagnosticsService';
+import { getCoreWorkspaceStatus, resolveCodexPaths } from './workspaceStatus';
 
 const HISTORY_VIEW_TYPE = 'codex-workspace.coreView';
 export const HISTORY_MESSAGE_PREVIEW_MAX_CHARS = 100;
@@ -56,7 +63,12 @@ type HistoryPanelInboundMessage =
 	| { type: 'selectTurn'; turnId: string }
 	| { type: 'search'; query: string }
 	| { type: 'clearSearch' }
-	| { type: 'copyText'; text: string };
+	| { type: 'copyText'; text: string }
+	| { type: 'refreshTab'; tab: CoreViewTab }
+	| { type: 'addTrustedDirectory' }
+	| { type: 'removeTrustedDirectory'; targetPath: string };
+
+type CoreViewTab = 'history' | 'chain' | 'trusted';
 
 type HistoryTurnSummary = {
 	turnId: string;
@@ -251,6 +263,50 @@ function createNonce(): string {
 	return nonce;
 }
 
+function escapeHtml(value: string): string {
+	return value
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
+function isCoreViewTab(value: unknown): value is CoreViewTab {
+	return value === 'history' || value === 'chain' || value === 'trusted';
+}
+
+function buildRefreshButtonHtml(tab: CoreViewTab): string {
+	return `<button class="refresh-button" type="button" data-refresh-tab="${tab}">${messages.commandRefresh}</button>`;
+}
+
+function buildAgentsChainHtml(): string {
+	const chainNodes = buildAgentsLoadingChain();
+	const chainHtml = chainNodes.map((node, index) => `<article class="diag-node ${node.status.toLowerCase()}">
+		<div><strong>${index + 1}. ${node.fileName}</strong> <span>${node.status}</span> <span>${node.kind}/${node.type}</span></div>
+		<div class="muted">${escapeHtml(node.absolutePath)}</div>
+		<div class="muted">${escapeHtml(node.reason)}</div>
+		${node.contentPreview ? `<pre>${escapeHtml(node.contentPreview)}</pre>` : ''}
+	</article>`).join('');
+	return chainHtml || `<p class="muted">${messages.historyNoResult}</p>`;
+}
+
+function buildTrustedDirectoriesHtml(): string {
+	const trustedDirectories = listTrustedDirectories(resolveCodexPaths().configPath);
+	const coreStatus = getCoreWorkspaceStatus();
+	const trustedHtml = trustedDirectories.map((directory) => `<article class="trusted-row">
+		<span>${directory.exists ? 'OK' : 'WARN'}</span>
+		<span title="${escapeHtml(directory.reason ?? '')}">${escapeHtml(directory.path)}</span>
+		<button type="button" data-remove-trusted="${escapeHtml(directory.path)}" ${coreStatus.isConfigInvalid ? 'disabled' : ''}>${messages.mcpManagerDelete}</button>
+	</article>`).join('');
+	return `<div class="trusted-toolbar">
+		${buildRefreshButtonHtml('trusted')}
+		<button id="addTrusted" type="button" ${coreStatus.isConfigInvalid ? 'disabled' : ''}>${messages.mcpManagerAdd}</button>
+		${coreStatus.isConfigInvalid ? `<span class="muted">${messages.reasonConfigInvalid}</span>` : ''}
+	</div>
+	${trustedHtml || `<p class="muted">${messages.historyNoResult}</p>`}`;
+}
+
 function buildHistoryWebviewHtml(
 	webview: vscode.Webview,
 	codiconCssHref: string | undefined,
@@ -258,6 +314,8 @@ function buildHistoryWebviewHtml(
 	const nonce = createNonce();
 	const labels = JSON.stringify({
 		conversationHistoryTab: messages.coreViewConversationHistoryTab,
+		agentsChainTab: messages.coreViewAgentsChainTab,
+		trustedDirectoriesTab: messages.coreViewTrustedDirectoriesTab,
 		searchPlaceholder: messages.historySearchPlaceholder,
 		clear: messages.historyClear,
 		noResult: messages.historyNoResult,
@@ -492,6 +550,24 @@ function buildHistoryWebviewHtml(
 		.reasoning-content {
 			padding: 10px;
 		}
+		.diag-tab { display: none; overflow: auto; height: 100%; }
+		.diag-tab.active { display: block; }
+		.diag-node, .trusted-row {
+			border: 1px solid var(--vscode-panel-border);
+			border-radius: 4px;
+			padding: 10px;
+			margin: 8px 12px;
+		}
+		.diag-node.skipped, .diag-node.missing { opacity: 0.6; }
+		.diag-node.error { border-color: var(--vscode-inputValidation-errorBorder); }
+		.muted { color: var(--vscode-descriptionForeground); font-size: 12px; }
+		.tab-toolbar, .trusted-toolbar {
+			display: flex;
+			gap: 8px;
+			align-items: center;
+			padding: 10px 12px;
+		}
+		.trusted-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
 		.markdown-content p {
 			margin: 0 0 10px 0;
 			line-height: 1.5;
@@ -507,17 +583,29 @@ function buildHistoryWebviewHtml(
 <body>
 	<div class="root">
 		<nav class="tabs" aria-label="Codex Core View tabs">
-			<button class="tab active" type="button">${messages.coreViewConversationHistoryTab}</button>
+			<button class="tab active" data-tab="history" type="button">${messages.coreViewConversationHistoryTab}</button>
+			<button class="tab" data-tab="chain" type="button">${messages.coreViewAgentsChainTab}</button>
+			<button class="tab" data-tab="trusted" type="button">${messages.coreViewTrustedDirectoriesTab}</button>
 		</nav>
-		<section class="top-pane">
-			<div class="search-box">
-				<input id="searchInput" type="text" />
-				<button id="clearButton" class="copy-button" type="button"></button>
-			</div>
+		<section id="historyTab" class="diag-tab active">
+			<section class="top-pane">
+				<div class="tab-toolbar">${buildRefreshButtonHtml('history')}</div>
+				<div class="search-box">
+					<input id="searchInput" type="text" />
+					<button id="clearButton" class="copy-button" type="button"></button>
+				</div>
+			</section>
+			<section class="bottom-pane">
+				<aside id="treeArea" class="left-pane"></aside>
+				<main id="previewArea" class="right-pane"></main>
+			</section>
 		</section>
-		<section class="bottom-pane">
-			<aside id="treeArea" class="left-pane"></aside>
-			<main id="previewArea" class="right-pane"></main>
+		<section id="chainTab" class="diag-tab">
+			<div class="tab-toolbar">${buildRefreshButtonHtml('chain')}</div>
+			<div id="chainContent">${buildAgentsChainHtml()}</div>
+		</section>
+		<section id="trustedTab" class="diag-tab">
+			<div id="trustedContent">${buildTrustedDirectoriesHtml()}</div>
 		</section>
 	</div>
 	<script nonce="${nonce}">
@@ -527,6 +615,28 @@ function buildHistoryWebviewHtml(
 		const clearButton = document.getElementById('clearButton');
 		const treeArea = document.getElementById('treeArea');
 		const previewArea = document.getElementById('previewArea');
+		for (const button of document.querySelectorAll('[data-tab]')) {
+			button.addEventListener('click', () => {
+				document.querySelectorAll('[data-tab]').forEach((item) => item.classList.remove('active'));
+				document.querySelectorAll('.diag-tab').forEach((item) => item.classList.remove('active'));
+				button.classList.add('active');
+				document.getElementById(button.dataset.tab + 'Tab')?.classList.add('active');
+			});
+		}
+		document.addEventListener('click', (event) => {
+			const target = event.target;
+			if (target?.id === 'addTrusted') {
+				vscode.postMessage({ type: 'addTrustedDirectory' });
+				return;
+			}
+			if (target?.dataset?.refreshTab) {
+				vscode.postMessage({ type: 'refreshTab', tab: target.dataset.refreshTab });
+				return;
+			}
+			if (target?.dataset?.removeTrusted) {
+				vscode.postMessage({ type: 'removeTrustedDirectory', targetPath: target.dataset.removeTrusted });
+			}
+		});
 		searchInput.placeholder = labels.searchPlaceholder;
 		clearButton.title = labels.clear;
 		clearButton.setAttribute('aria-label', labels.clear);
@@ -726,6 +836,21 @@ function buildHistoryWebviewHtml(
 
 		window.addEventListener('message', (event) => {
 			const message = event.data;
+			if (message?.type === 'tabContent') {
+				if (message.tab === 'chain') {
+					const chainContent = document.getElementById('chainContent');
+					if (chainContent) {
+						chainContent.innerHTML = message.html;
+					}
+				}
+				if (message.tab === 'trusted') {
+					const trustedContent = document.getElementById('trustedContent');
+					if (trustedContent) {
+						trustedContent.innerHTML = message.html;
+					}
+				}
+				return;
+			}
 			if (message?.type !== 'state') {
 				return;
 			}
@@ -841,7 +966,76 @@ export class HistoryPanelManager implements vscode.Disposable {
 		if (incoming.type === 'copyText' && typeof incoming.text === 'string') {
 			void this.copyToClipboard(incoming.text);
 			void this.notifyCopied();
+			return;
 		}
+		if (incoming.type === 'refreshTab' && isCoreViewTab(incoming.tab)) {
+			this.refreshTab(incoming.tab);
+			return;
+		}
+		if (incoming.type === 'addTrustedDirectory') {
+			void this.addTrustedDirectory();
+			return;
+		}
+		if (
+			incoming.type === 'removeTrustedDirectory' &&
+			typeof incoming.targetPath === 'string'
+		) {
+			void this.removeTrustedDirectory(incoming.targetPath);
+		}
+	}
+
+	private async addTrustedDirectory(): Promise<void> {
+		const picked = await vscode.window.showOpenDialog({
+			canSelectFiles: false,
+			canSelectFolders: true,
+			canSelectMany: false,
+		});
+		const targetPath = picked?.[0]?.fsPath;
+		if (!targetPath) {
+			return;
+		}
+		addTrustedDirectory(resolveCodexPaths().configPath, targetPath);
+		vscode.window.showInformationMessage(messages.mcpToggleUpdated);
+		this.refreshTab('trusted');
+	}
+
+	private async removeTrustedDirectory(targetPath: string): Promise<void> {
+		const choice = await vscode.window.showWarningMessage(
+			messages.trustedDirectoryDeleteConfirm(targetPath),
+			{ modal: true },
+			'OK',
+		);
+		if (choice !== 'OK') {
+			return;
+		}
+		removeTrustedDirectory(resolveCodexPaths().configPath, targetPath);
+		vscode.window.showInformationMessage(messages.mcpToggleUpdated);
+		this.refreshTab('trusted');
+	}
+
+	private refreshTab(tab: CoreViewTab): void {
+		if (!this.panel || !this.state) {
+			return;
+		}
+		if (tab === 'chain') {
+			void this.panel.webview.postMessage({
+				type: 'tabContent',
+				tab,
+				html: buildAgentsChainHtml(),
+			});
+			return;
+		}
+		if (tab === 'trusted') {
+			void this.panel.webview.postMessage({
+				type: 'tabContent',
+				tab,
+				html: buildTrustedDirectoriesHtml(),
+			});
+			return;
+		}
+		this.state.index = limitHistoryIndex(this.loadIndex(), this.getMaxHistoryCount());
+		this.state.includeReasoningMessage = this.includeReasoningMessage();
+		this.postState();
 	}
 
 	private postState(): void {

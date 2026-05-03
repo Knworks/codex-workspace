@@ -1,7 +1,7 @@
 ---
 id: `CORE-002`
 title: `Core View 診断タブと信頼ディレクトリ`
-status: Todo
+status: Reviewing
 ---
 
 # 🧾 CORE-002 Core View 診断タブと信頼ディレクトリ
@@ -26,11 +26,11 @@ status: Todo
 
 ## ✅ AC（受け入れ基準）
 
-- [ ] [機能] ワークスペースルート基準で Active / Skipped / Missing / Error のチェーンを表示できる。
-- [ ] [UI/UX] 状態を色だけでなくバッジ、文字、トーン差で識別できる。
-- [ ] [機能] trusted な `[projects."<path>"]` のみを一覧表示できる。
-- [ ] [状態/エラー] `config.toml` 不正時は信頼ディレクトリの追加削除を無効化し、エラー内容を表示する。
-- [ ] [テスト] Loading Chain 判定、信頼ディレクトリ追加削除、タブ Refresh をテストする。
+- [x] [機能] ワークスペースルート基準で Active / Skipped / Missing / Error のチェーンを表示できる。
+- [x] [UI/UX] 状態を色だけでなくバッジ、文字、トーン差で識別できる。
+- [x] [機能] trusted な `[projects."<path>"]` のみを一覧表示できる。
+- [x] [状態/エラー] `config.toml` 不正時は信頼ディレクトリの追加削除を無効化し、エラー内容を表示する。
+- [x] [テスト] Loading Chain 判定、信頼ディレクトリ追加削除、タブ Refresh をテストする。
 
 ## 🔗 依存関係
 
@@ -42,4 +42,3 @@ status: Todo
 - Missing と Error の表示。
 - trusted project の追加、更新、削除。
 - 検証方法: `npm run compile`、関連テスト、`npm test`。
-
