@@ -64,6 +64,14 @@ export function listDisabledAgentIds(storePath: string): string[] {
 	return Object.keys(store.disabledAgents);
 }
 
+export function getDisabledAgentBlock(
+	storePath: string,
+	agentId: string,
+): string | undefined {
+	const store = readDisabledAgentsStore(storePath);
+	return store.disabledAgents[agentId]?.block;
+}
+
 function readDisabledAgentsStore(storePath: string): DisabledAgentsStore {
 	if (!fs.existsSync(storePath)) {
 		return createEmptyStore();

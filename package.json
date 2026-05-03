@@ -32,7 +32,8 @@
     "onView:codex-workspace.mcp",
     "onView:codex-workspace.agents",
     "onCommand:codex-workspace.openHistoryView",
-    "onCommand:codex-workspace.openSkillManager"
+    "onCommand:codex-workspace.openSkillManager",
+    "onCommand:codex-workspace.openAgentManager"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -95,6 +96,11 @@
       {
         "command": "codex-workspace.openSkillManager",
         "title": "%command.openSkillManager%",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "codex-workspace.openAgentManager",
+        "title": "%command.openAgentManager%",
         "icon": "$(list-tree)"
       },
       {
@@ -402,6 +408,11 @@
           "command": "codex-workspace.deleteAgent",
           "when": "view == 'codex-workspace.agents'",
           "group": "navigation@3"
+        },
+        {
+          "command": "codex-workspace.openAgentManager",
+          "when": "view == 'codex-workspace.agents'",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [

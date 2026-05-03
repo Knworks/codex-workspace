@@ -7,7 +7,10 @@ type AgentBlock = {
 	startLine: number;
 	endLine: number;
 	description?: string;
+	configFile?: string;
 };
+const AGENT_CONFIG_FILE_PATTERN =
+	/^\s*config_file\s*=\s*"((?:[^"\\]|\\.)*)"\s*(?:#.*)?$/;
 
 /**
  * Returns true when config.toml already has an `[agents.<agentId>]` block.
@@ -130,6 +133,23 @@ export function listConfiguredAgentIds(contents: string): string[] {
 	return parseAgentBlocks(contents).map((block) => block.id);
 }
 
+export function getAgentConfigFile(
+	contents: string,
+	agentId: string,
+): string | undefined {
+	const block = parseAgentBlocks(contents).find((item) => item.id === agentId);
+	return block?.configFile;
+}
+
+export function replaceAgentConfigRawBlock(
+	contents: string,
+	agentId: string,
+	block: string,
+): string {
+	const extracted = extractAgentConfigBlock(contents, agentId);
+	return appendAgentConfigRawBlock(extracted.contents, block);
+}
+
 function parseAgentBlocks(contents: string): AgentBlock[] {
 	const lines = contents.split(/\r?\n/);
 	const blocks: AgentBlock[] = [];
@@ -163,10 +183,13 @@ function parseAgentBlocks(contents: string): AgentBlock[] {
 		}
 
 		const descriptionMatch = lines[i].match(AGENT_DESCRIPTION_PATTERN);
-		if (!descriptionMatch) {
-			continue;
+		if (descriptionMatch && current.description === undefined) {
+			current.description = unescapeTomlString(descriptionMatch[1]);
 		}
-		current.description = unescapeTomlString(descriptionMatch[1]);
+		const configFileMatch = lines[i].match(AGENT_CONFIG_FILE_PATTERN);
+		if (configFileMatch && current.configFile === undefined) {
+			current.configFile = unescapeTomlString(configFileMatch[1]);
+		}
 	}
 
 	return blocks;

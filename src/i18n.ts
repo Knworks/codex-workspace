@@ -129,6 +129,25 @@ export const messages = {
 		'message.skillManagerNoResult',
 		'No skills found.',
 	),
+	agentManagerTitle: localize(
+		'message.agentManagerTitle',
+		'AGENTS Manager',
+	),
+	agentManagerSearchPlaceholder: localize(
+		'message.agentManagerSearchPlaceholder',
+		'Search agents',
+	),
+	agentManagerOpen: localize('message.agentManagerOpen', 'Open'),
+	agentManagerNoResult: localize(
+		'message.agentManagerNoResult',
+		'No agents found.',
+	),
+	agentManagerOverwritten: (agentName: string) =>
+		localize(
+			'message.agentManagerOverwritten',
+			'[agents.{0}] was overwritten with the disabled definition.',
+			agentName,
+		),
 	historyPanelPlaceholder: localize(
 		'message.historyPanelPlaceholder',
 		'Conversation history view is ready.',

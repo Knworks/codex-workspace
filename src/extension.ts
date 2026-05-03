@@ -26,6 +26,7 @@ import { ViewFocusState } from './services/viewFocusState';
 import { getSyncSettings } from './services/settings';
 import { HistoryPanelManager } from './services/historyPanel';
 import { SkillManagerPanelManager } from './services/skillManagerPanel';
+import { AgentManagerPanelManager } from './services/agentManagerPanel';
 import {
 	syncCoreFilesBidirectional,
 	syncDirectoryBidirectional,
@@ -47,6 +48,9 @@ export function activate(context: vscode.ExtensionContext) {
 	const historyPanelManager = new HistoryPanelManager();
 	const skillManagerPanelManager = new SkillManagerPanelManager(() =>
 		skillsProvider.refresh(),
+	);
+	const agentManagerPanelManager = new AgentManagerPanelManager(() =>
+		agentsProvider.refresh(),
 	);
 
 	const coreView = vscode.window.createTreeView('codex-workspace.core', {
@@ -114,6 +118,7 @@ export function activate(context: vscode.ExtensionContext) {
 		...trackExpansion('templates', templatesView),
 		historyPanelManager,
 		skillManagerPanelManager,
+		agentManagerPanelManager,
 	);
 
 	context.subscriptions.push(
@@ -265,6 +270,17 @@ export function activate(context: vscode.ExtensionContext) {
 					return;
 				}
 				skillManagerPanelManager.show();
+			}),
+	);
+
+	const openAgentManagerDisposable = vscode.commands.registerCommand(
+		'codex-workspace.openAgentManager',
+		() =>
+			runSafely(() => {
+				if (!getWorkspaceStatus().isAvailable) {
+					return;
+				}
+				agentManagerPanelManager.show();
 			}),
 	);
 
@@ -474,6 +490,7 @@ export function activate(context: vscode.ExtensionContext) {
 		openCodexFolderDisposable,
 		openHistoryViewDisposable,
 		openSkillManagerDisposable,
+		openAgentManagerDisposable,
 		openPromptsFolderDisposable,
 		openSkillsFolderDisposable,
 		openTemplatesFolderDisposable,

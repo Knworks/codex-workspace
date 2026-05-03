@@ -1,7 +1,7 @@
 ---
 id: `AGENT-002`
 title: `AGENTS Manager View と ON/OFF 管理`
-status: Todo
+status: Reviewing
 ---
 
 # 🧾 AGENT-002 AGENTS Manager View と ON/OFF 管理
@@ -26,11 +26,11 @@ status: Todo
 
 ## ✅ AC（受け入れ基準）
 
-- [ ] [機能] 名前、説明、モデル、推論の深さ、サンドボックスモード、ON/OFF を一覧表示できる。
-- [ ] [UI/UX] 未指定項目は `継承` と表示し、OFF の項目は暗いトーンで表示する。
-- [ ] [機能] OFF 操作で `[agents.<name>]` を退避して `config.toml` から削除できる。
-- [ ] [機能] ON 操作で退避定義を復元し、同名定義がある場合は退避済み定義で上書きできる。
-- [ ] [テスト] OFF、ON、復元上書き、`config_file` 解決をテストする。
+- [x] [機能] 名前、説明、モデル、推論の深さ、サンドボックスモード、ON/OFF を一覧表示できる。
+- [x] [UI/UX] 未指定項目は `継承` と表示し、OFF の項目は暗いトーンで表示する。
+- [x] [機能] OFF 操作で `[agents.<name>]` を退避して `config.toml` から削除できる。
+- [x] [機能] ON 操作で退避定義を復元し、同名定義がある場合は退避済み定義で上書きできる。
+- [x] [テスト] OFF、ON、復元上書き、`config_file` 解決をテストする。
 
 ## 🔗 依存関係
 
@@ -42,4 +42,3 @@ status: Todo
 - 退避、復元、上書き。
 - `config_file` の相対解決と存在しない場合のエラー。
 - 検証方法: `npm run compile`、関連テスト、`npm test`。
-
