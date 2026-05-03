@@ -27,20 +27,18 @@ const AGENT_CONFIG_HEADER_PATTERN = /^\s*\[agents\.(?:"([^"]+)"|([A-Za-z0-9_-]+)
  * Icon state is derived from whether `[agents.<id>]` exists in config.toml.
  */
 export class AgentExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
-	private readonly context: vscode.ExtensionContext;
 	private readonly readEntries: AgentEntryReader;
 	private readonly readEnabledAgents: EnabledAgentReader;
 	private readonly readLocations: AgentLocationReader;
 
 	constructor(
-		context: vscode.ExtensionContext,
+		_context: vscode.ExtensionContext,
 		statusProvider?: WorkspaceStatusProvider,
 		readEntries: AgentEntryReader = listAgentEntries,
 		readEnabledAgents: EnabledAgentReader = readEnabledAgentIds,
 		readLocations: AgentLocationReader = getAgentLocations,
 	) {
 		super(statusProvider);
-		this.context = context;
 		this.readEntries = readEntries;
 		this.readEnabledAgents = readEnabledAgents;
 		this.readLocations = readLocations;
@@ -96,14 +94,15 @@ export class AgentExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> 
 				return item;
 	}
 
-	private getIcon(isEnabled: boolean): { light: vscode.Uri; dark: vscode.Uri } {
-		const iconName = isEnabled ? 'agent_on.png' : 'agent_off.png';
-		const iconPath = this.context.asAbsolutePath(path.join('images', iconName));
-		const iconUri = vscode.Uri.file(iconPath);
-		return {
-			light: iconUri,
-			dark: iconUri,
-		};
+	private getIcon(isEnabled: boolean): vscode.ThemeIcon {
+		if (isEnabled) {
+			return new vscode.ThemeIcon('hubot');
+		}
+
+		return new vscode.ThemeIcon(
+			'circle-slash',
+			new vscode.ThemeColor('disabledForeground'),
+		);
 	}
 }
 

@@ -7,9 +7,7 @@ import {
 	parseEnabledAgentIds,
 } from '../views/agentExplorerProvider';
 
-const contextStub = {
-	asAbsolutePath: (target: string) => path.join('root', target),
-} as vscode.ExtensionContext;
+const contextStub = {} as vscode.ExtensionContext;
 
 suite('Agent explorer provider', () => {
 	test('returns only .toml files with open command and status icons', () => {
@@ -60,18 +58,16 @@ suite('Agent explorer provider', () => {
 		assert.strictEqual(items[1].contextValue, 'codex-agent-file');
 		assert.strictEqual(items[0].description, 'Workspace Agents');
 
-		const expectedIconPath = (fileName: string): string =>
-			vscode.Uri.file(
-				contextStub.asAbsolutePath(path.join('images', fileName)),
-			).fsPath;
+		assert.ok(items[0].iconPath instanceof vscode.ThemeIcon);
+		assert.strictEqual((items[0].iconPath as vscode.ThemeIcon).id, 'hubot');
+		assert.strictEqual((items[0].iconPath as vscode.ThemeIcon).color, undefined);
 
-		const alphaIconPath = items[0].iconPath as { light: vscode.Uri; dark: vscode.Uri };
-		assert.strictEqual(alphaIconPath.light.fsPath, expectedIconPath('agent_on.png'));
-		assert.strictEqual(alphaIconPath.dark.fsPath, expectedIconPath('agent_on.png'));
-
-		const betaIconPath = items[1].iconPath as { light: vscode.Uri; dark: vscode.Uri };
-		assert.strictEqual(betaIconPath.light.fsPath, expectedIconPath('agent_off.png'));
-		assert.strictEqual(betaIconPath.dark.fsPath, expectedIconPath('agent_off.png'));
+		assert.ok(items[1].iconPath instanceof vscode.ThemeIcon);
+		assert.strictEqual((items[1].iconPath as vscode.ThemeIcon).id, 'circle-slash');
+		assert.strictEqual(
+			(items[1].iconPath as vscode.ThemeIcon).color?.id,
+			'disabledForeground',
+		);
 	});
 
 	test('returns unavailable item when not available', () => {
