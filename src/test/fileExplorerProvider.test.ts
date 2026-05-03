@@ -70,7 +70,7 @@ suite('File explorer provider', () => {
 	test('Given file types When listing children Then icons match', () => {
 		// Arrange
 		const provider = new FileExplorerProvider(
-			'prompts',
+			'templates',
 			contextStub,
 			() => ({ isAvailable: true }),
 			'root',
@@ -215,6 +215,35 @@ suite('File explorer provider', () => {
 			iconIconPath.dark.fsPath,
 			expectedIconPath('image32.png'),
 		);
+	});
+
+	test('Given prompt files When listing children Then terminal codicon is used', () => {
+		const provider = new FileExplorerProvider(
+			'prompts',
+			contextStub,
+			() => ({ isAvailable: true }),
+			'root',
+			() => [
+				{
+					name: 'note.md',
+					fullPath: path.join('root', 'note.md'),
+					isDirectory: false,
+					isFile: true,
+				},
+				{
+					name: 'script.py',
+					fullPath: path.join('root', 'script.py'),
+					isDirectory: false,
+					isFile: true,
+				},
+			],
+		);
+
+		const children = provider.getChildren() as vscode.TreeItem[];
+		for (const child of children) {
+			assert.ok(child.iconPath instanceof vscode.ThemeIcon);
+			assert.strictEqual((child.iconPath as vscode.ThemeIcon).id, 'terminal');
+		}
 	});
 
 	test('Given hidden entries When listing children Then they are excluded', () => {

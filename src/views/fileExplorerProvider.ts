@@ -276,6 +276,10 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		| vscode.ThemeIcon
 		| { light: vscode.Uri; dark: vscode.Uri }
 		| undefined {
+		if (this.kind === 'prompts') {
+			return new vscode.ThemeIcon('terminal');
+		}
+
 		if (this.kind === 'skills' && fileName === 'SKILL.md' && filePath && enabledByPath) {
 			const enabled = enabledByPath.get(path.resolve(filePath)) ?? true;
 			return enabled
