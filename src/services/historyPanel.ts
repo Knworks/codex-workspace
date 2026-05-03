@@ -747,31 +747,45 @@ function buildHistoryWebviewHtml(
 		.chain-summary-text {
 			margin: 3px 0 0;
 			font-size: 12px;
-			line-height: 1.45;
+			line-height: 1.5;
 		}
 		.chain-detail {
 			border: 1px solid var(--vscode-panel-border);
 			border-radius: 6px;
-			padding: 12px;
+			padding: 14px;
+			background: var(--vscode-editorWidget-background);
 			display: grid;
-			gap: 10px;
+			gap: 12px;
 		}
 		.chain-detail-grid {
 			display: grid;
-			grid-template-columns: 110px 1fr;
-			gap: 8px 12px;
+			grid-template-columns: 120px 1fr;
+			gap: 10px 14px;
 			align-items: start;
 		}
 		.chain-detail-label {
 			font-size: 12px;
+			font-weight: 600;
 			color: var(--vscode-descriptionForeground);
+		}
+		.chain-detail-grid > div:not(.chain-detail-label) {
+			font-size: 13px;
+			line-height: 1.55;
+			color: var(--vscode-foreground);
+			word-break: break-word;
 		}
 		.chain-detail pre {
 			background: var(--vscode-textCodeBlock-background);
-			padding: 8px;
+			border: 1px solid var(--vscode-panel-border);
+			padding: 10px;
 			border-radius: 4px;
 			overflow: auto;
 			margin: 0;
+			font-size: 12px;
+			line-height: 1.6;
+			color: var(--vscode-editor-foreground);
+			white-space: pre-wrap;
+			word-break: break-word;
 		}
 		.trusted-row {
 			display: grid;
