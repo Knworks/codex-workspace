@@ -112,6 +112,11 @@ suite('View title menus', () => {
 			},
 		];
 
+		const managerCommands = [
+			'codex-workspace.openSkillManager',
+			'codex-workspace.openAgentManager',
+			'codex-workspace.openMcpManager',
+		];
 		const excludedViewIds = ['codex-workspace.mcp', 'codex-workspace.menu'];
 
 		const assertCommandDefinition = (command: string): void => {
@@ -188,6 +193,22 @@ suite('View title menus', () => {
 			assert.ok(
 				when.includes(configKey),
 				`${command} is missing config condition`,
+			);
+		}
+
+		for (const command of managerCommands) {
+			const entry = viewTitle.find(
+				(item: { command?: string }) => item.command === command,
+			);
+			assert.ok(entry, `Missing view/title menu for ${command}`);
+			const when = entry.when ?? '';
+			assert.ok(
+				!when.includes("view == 'codex-workspace.prompts'"),
+				`${command} should not target prompts view`,
+			);
+			assert.ok(
+				!when.includes("view == 'codex-workspace.templates'"),
+				`${command} should not target templates view`,
 			);
 		}
 	});
