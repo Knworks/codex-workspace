@@ -108,7 +108,7 @@ function buildForm(model: McpFormModel | undefined, previousId?: string): string
 		<label>${buildFieldLabel('Command', descriptions.command)}<input name="command" value="${escapeHtml(current.command)}" /></label>
 		<label>${buildFieldLabel('Args', descriptions.args)}<textarea class="textarea-args" name="args">${escapeHtml(current.args.join('\n'))}</textarea></label>
 		<label>${buildFieldLabel('URL', descriptions.url)}<input name="url" value="${escapeHtml(current.url)}" /></label>
-		<label class="required-field">${buildFieldLabel('Required', descriptions.required)}<span class="switch"><input name="required" type="checkbox" ${current.required ? 'checked' : ''} /><span></span></span></label>
+		<label class="required-field">${buildFieldLabel('Required', descriptions.required)}<span class="required-switch"><input name="required" type="checkbox" ${current.required ? 'checked' : ''} /><span></span></span></label>
 		<label>${buildFieldLabel('Startup Timeout', descriptions.startupTimeoutSec)}<input name="startupTimeoutSec" value="${current.startupTimeoutSec ?? ''}" /></label>
 		<label>${buildFieldLabel('Tool Timeout', descriptions.toolTimeoutSec)}<input name="toolTimeoutSec" value="${current.toolTimeoutSec ?? ''}" /></label>
 		<label>${buildFieldLabel('Enabled Tools', descriptions.enabledTools)}<textarea name="enabledTools">${escapeHtml(current.enabledTools.join('\n'))}</textarea></label>
@@ -186,6 +186,13 @@ function buildHtml(
 		@media (prefers-color-scheme: dark) {
 			.switch span::after { background: #ffffff; }
 		}
+		.required-switch { display: inline-flex; align-items: center; cursor: pointer; user-select: none; }
+		.required-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+		.required-switch span { display: inline-block; width: 34px; height: 18px; border-radius: 999px; background: var(--vscode-checkbox-background, var(--vscode-input-background)); border: 1px solid var(--vscode-checkbox-border, var(--vscode-panel-border)); position: relative; vertical-align: middle; box-sizing: border-box; transition: background 0.15s ease, border-color 0.15s ease; }
+		.required-switch span::after { content: ""; position: absolute; top: 50%; left: 1px; width: 14px; height: 14px; border-radius: 50%; background: var(--vscode-button-secondaryForeground); transform: translateY(-50%); transition: transform 0.15s ease; }
+		.required-switch input:checked + span { background: var(--vscode-button-background); border-color: var(--vscode-button-background); }
+		.required-switch input:checked + span::after { transform: translate(16px, -50%); background: var(--vscode-button-foreground); }
+		.required-switch input:focus-visible + span { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
 	</style>
 </head>
 <body>
@@ -242,7 +249,7 @@ function buildHtml(
 				'<label>' + fieldLabel('Command', descriptions.command) + '<input name="command" value="' + escapeHtml(current.command) + '" /></label>' +
 				'<label>' + fieldLabel('Args', descriptions.args) + '<textarea class="textarea-args" name="args">' + escapeHtml((current.args || []).join('\\n')) + '</textarea></label>' +
 				'<label>' + fieldLabel('URL', descriptions.url) + '<input name="url" value="' + escapeHtml(current.url) + '" /></label>' +
-				'<label class="required-field">' + fieldLabel('Required', descriptions.required) + '<span class="switch"><input name="required" type="checkbox" ' + (current.required ? 'checked' : '') + ' /><span></span></span></label>' +
+				'<label class="required-field">' + fieldLabel('Required', descriptions.required) + '<span class="required-switch"><input name="required" type="checkbox" ' + (current.required ? 'checked' : '') + ' /><span></span></span></label>' +
 				'<label>' + fieldLabel('Startup Timeout', descriptions.startupTimeoutSec) + '<input name="startupTimeoutSec" value="' + escapeHtml(current.startupTimeoutSec ?? '') + '" /></label>' +
 				'<label>' + fieldLabel('Tool Timeout', descriptions.toolTimeoutSec) + '<input name="toolTimeoutSec" value="' + escapeHtml(current.toolTimeoutSec ?? '') + '" /></label>' +
 				'<label>' + fieldLabel('Enabled Tools', descriptions.enabledTools) + '<textarea name="enabledTools">' + escapeHtml((current.enabledTools || []).join('\\n')) + '</textarea></label>' +
