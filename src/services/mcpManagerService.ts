@@ -36,7 +36,9 @@ export function listMcpFormModels(configPath: string): McpFormModel[] {
 		return [];
 	}
 	const contents = fs.readFileSync(configPath, 'utf8');
-	return parseMcpBlocks(contents).map(blockToModel);
+	return parseMcpBlocks(contents)
+		.filter((block) => !block.id.endsWith('.env'))
+		.map(blockToModel);
 }
 
 export function validateMcpModel(
@@ -103,12 +105,16 @@ export function saveMcpServer(
 
 export function deleteMcpServer(configPath: string, serverId: string): boolean {
 	const contents = fs.readFileSync(configPath, 'utf8');
-	const target = parseMcpBlocks(contents).find((block) => block.id === serverId);
-	if (!target) {
+	const blocks = parseMcpBlocks(contents);
+	const targetIds = new Set([serverId, `${serverId}.env`]);
+	const targets = blocks.filter((block) => targetIds.has(block.id));
+	if (targets.length === 0) {
 		return false;
 	}
 	const lines = contents.split(/\r?\n/);
-	lines.splice(target.startLine, target.endLine - target.startLine + 1);
+	for (const target of [...targets].sort((left, right) => right.startLine - left.startLine)) {
+		lines.splice(target.startLine, target.endLine - target.startLine + 1);
+	}
 	fs.writeFileSync(configPath, normalizeLines(lines), 'utf8');
 	return true;
 }

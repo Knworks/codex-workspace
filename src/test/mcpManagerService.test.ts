@@ -88,6 +88,28 @@ suite('MCP manager service', () => {
 		});
 	});
 
+	test('listMcpFormModels excludes env suffix entries', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			fs.writeFileSync(
+				configPath,
+				[
+					'[mcp_servers.context7]',
+					'command = "npx"',
+					'',
+					'[mcp_servers.context7.env]',
+					'env = { API_KEY = "x" }',
+				].join('\n'),
+				'utf8',
+			);
+
+			const models = listMcpFormModels(configPath);
+
+			assert.strictEqual(models.length, 1);
+			assert.strictEqual(models[0].id, 'context7');
+		});
+	});
+
 	test('saveMcpServer quotes server headers when needed', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, 'config.toml');
@@ -122,6 +144,32 @@ suite('MCP manager service', () => {
 			const contents = fs.readFileSync(configPath, 'utf8');
 			assert.ok(!contents.includes('[mcp_servers.a]'));
 			assert.ok(contents.includes('[mcp_servers.b]'));
+		});
+	});
+
+	test('deleteMcpServer removes matching env block with the target server', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			fs.writeFileSync(
+				configPath,
+				[
+					'[mcp_servers.context7]',
+					'command = "npx"',
+					'',
+					'[mcp_servers.context7.env]',
+					'env = { API_KEY = "x" }',
+					'',
+					'[mcp_servers.other]',
+					'command = "node"',
+				].join('\n'),
+				'utf8',
+			);
+
+			assert.strictEqual(deleteMcpServer(configPath, 'context7'), true);
+			const contents = fs.readFileSync(configPath, 'utf8');
+			assert.ok(!contents.includes('[mcp_servers.context7]'));
+			assert.ok(!contents.includes('[mcp_servers.context7.env]'));
+			assert.ok(contents.includes('[mcp_servers.other]'));
 		});
 	});
 
