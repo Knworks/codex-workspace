@@ -111,12 +111,12 @@
       },
       {
         "command": "codex-workspace.openPromptsFolder",
-        "title": "%command.openCodexFolder%",
+        "title": "%command.openFolder%",
         "icon": "$(folder-opened)"
       },
       {
         "command": "codex-workspace.openSkillsFolder",
-        "title": "%command.openCodexFolder%",
+        "title": "%command.openFolder%",
         "icon": "$(folder-opened)"
       },
       {
@@ -126,7 +126,7 @@
       },
       {
         "command": "codex-workspace.openAgentsFolder",
-        "title": "%command.openAgentsFolder%",
+        "title": "%command.openFolder%",
         "icon": "$(folder-opened)"
       },
       {

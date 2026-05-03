@@ -10,6 +10,7 @@
   "view.agents.name": "Sub Agents",
   "command.helloWorld": "Hello World",
   "command.openFile": "Open File",
+  "command.openFolder": "Open Folder",
   "command.openCodexFolder": "Open .codex Folder",
   "command.openAgentsFolder": "Open Agents Folder",
   "command.openHistoryView": "Open Codex Manager",

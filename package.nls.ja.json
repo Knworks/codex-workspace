@@ -10,6 +10,7 @@
   "view.agents.name": "Sub Agents",
   "command.helloWorld": "Hello World",
   "command.openFile": "ファイルを開く",
+  "command.openFolder": "フォルダを開く",
   "command.openCodexFolder": ".codex を開く",
   "command.openAgentsFolder": "agents フォルダを開く",
   "command.openHistoryView": "Codex Managerを開く",
