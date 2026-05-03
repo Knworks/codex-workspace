@@ -70,6 +70,31 @@ type HistoryPanelState = {
 	includeReasoningMessage: boolean;
 };
 
+type AgentsChainDisplaySection = 'current' | 'ignored' | 'problems' | 'details';
+
+type AgentsChainDisplayEntry = {
+	id: string;
+	section: AgentsChainDisplaySection;
+	title: string;
+	subtitle: string;
+	statusLabel: string;
+	summary: string;
+	path: string;
+	explanation: string;
+	contentPreview?: string;
+	defaultVisible: boolean;
+};
+
+type AgentsChainDisplayPayload = {
+	entries: AgentsChainDisplayEntry[];
+	summary: {
+		currentCount: number;
+		ignoredCount: number;
+		problemCount: number;
+		hiddenCount: number;
+	};
+};
+
 function normalizeQuery(query: string): string {
 	return query.trim();
 }
@@ -237,8 +262,101 @@ function buildRefreshButtonHtml(tab: CoreViewTab): string {
 	return `<button class="icon-button refresh-button" type="button" data-refresh-tab="${tab}" title="${escapeHtml(messages.commandRefresh)}" aria-label="${escapeHtml(messages.commandRefresh)}"><span class="codicon codicon-refresh" aria-hidden="true"></span></button>`;
 }
 
-function buildAgentsChainPayload(): AgentsChainNode[] {
-	return buildAgentsLoadingChain();
+function toChainSubtitle(node: AgentsChainNode): string {
+	return `${node.kind} / ${node.type}`;
+}
+
+function explainCurrentNode(node: AgentsChainNode): string {
+	return `${node.kind} レイヤーで現在使用中の ${node.fileName} です。`;
+}
+
+function explainSkippedNode(node: AgentsChainNode): string {
+	const preferred = node.reason.match(/^(.+?) has higher priority\./)?.[1];
+	if (preferred) {
+		return `${preferred} が優先されるため、このファイルは使用されません。`;
+	}
+	return '優先順位の高い候補があるため、このファイルは使用されません。';
+}
+
+function explainProblemNode(node: AgentsChainNode): string {
+	return `ファイルは存在しますが、読み取りに失敗しました。${node.reason}`;
+}
+
+function explainMissingNode(node: AgentsChainNode): string {
+	if (node.type === 'Fallback') {
+		return 'fallback 候補として設定されていますが、ファイルが存在しません。';
+	}
+	return '候補として探索されましたが、ファイルが存在しません。';
+}
+
+function toDisplayEntry(node: AgentsChainNode, index: number): AgentsChainDisplayEntry {
+	if (node.status === 'Active') {
+		return {
+			id: `chain-${index}`,
+			section: 'current',
+			title: node.fileName,
+			subtitle: toChainSubtitle(node),
+			statusLabel: '使用中',
+			summary: explainCurrentNode(node),
+			path: node.absolutePath,
+			explanation: explainCurrentNode(node),
+			contentPreview: node.contentPreview,
+			defaultVisible: true,
+		};
+	}
+	if (node.status === 'Skipped') {
+		return {
+			id: `chain-${index}`,
+			section: 'ignored',
+			title: node.fileName,
+			subtitle: toChainSubtitle(node),
+			statusLabel: '未使用',
+			summary: explainSkippedNode(node),
+			path: node.absolutePath,
+			explanation: explainSkippedNode(node),
+			contentPreview: node.contentPreview,
+			defaultVisible: true,
+		};
+	}
+	if (node.status === 'Error') {
+		return {
+			id: `chain-${index}`,
+			section: 'problems',
+			title: node.fileName,
+			subtitle: toChainSubtitle(node),
+			statusLabel: '問題あり',
+			summary: explainProblemNode(node),
+			path: node.absolutePath,
+			explanation: explainProblemNode(node),
+			contentPreview: node.contentPreview,
+			defaultVisible: true,
+		};
+	}
+	return {
+		id: `chain-${index}`,
+		section: 'details',
+		title: node.fileName,
+		subtitle: toChainSubtitle(node),
+		statusLabel: '候補なし',
+		summary: explainMissingNode(node),
+		path: node.absolutePath,
+		explanation: explainMissingNode(node),
+		contentPreview: node.contentPreview,
+		defaultVisible: false,
+	};
+}
+
+function buildAgentsChainPayload(): AgentsChainDisplayPayload {
+	const entries = buildAgentsLoadingChain().map(toDisplayEntry);
+	return {
+		entries,
+		summary: {
+			currentCount: entries.filter((entry) => entry.section === 'current').length,
+			ignoredCount: entries.filter((entry) => entry.section === 'ignored').length,
+			problemCount: entries.filter((entry) => entry.section === 'problems').length,
+			hiddenCount: entries.filter((entry) => !entry.defaultVisible).length,
+		},
+	};
 }
 
 function buildTrustedDirectoriesHtml(): string {
@@ -257,8 +375,8 @@ function buildTrustedDirectoriesHtml(): string {
 	<div class="trusted-list">${trustedHtml || `<p class="muted">${messages.historyNoResult}</p>`}</div>`;
 }
 
-function serializeAgentsChain(nodes: AgentsChainNode[]): string {
-	return JSON.stringify(nodes);
+function serializeAgentsChain(payload: AgentsChainDisplayPayload): string {
+	return JSON.stringify(payload);
 }
 
 function buildHistoryWebviewHtml(
@@ -278,6 +396,16 @@ function buildHistoryWebviewHtml(
 		user: messages.historyUserLabel,
 		assistant: messages.historyAssistantLabel,
 		agentPreviewEmpty: messages.historyNoPreview,
+		chainCurrentSection: '現在有効',
+		chainIgnoredSection: '無視された候補',
+		chainProblemsSection: '要確認',
+		chainDetailsSection: '詳細候補',
+		chainToggleDetails: '詳細候補を表示',
+		chainSummaryCurrent: '使用中',
+		chainSummaryIgnored: '未使用',
+		chainSummaryProblems: '問題あり',
+		chainSummaryHidden: '非表示候補',
+		chainPreviewEmpty: '左側の項目を選ぶと詳細が表示されます。',
 	});
 	const agentsChain = buildAgentsChainPayload();
 	const csp = [
@@ -539,15 +667,45 @@ function buildHistoryWebviewHtml(
 		}
 		.diag-tab { display: none; overflow: auto; height: 100%; }
 		.diag-tab.active { display: block; }
+		.chain-summary {
+			margin-right: auto;
+			font-size: 12px;
+			color: var(--vscode-descriptionForeground);
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			align-items: center;
+		}
+		.chain-toggle {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			font-size: 12px;
+			color: var(--vscode-descriptionForeground);
+		}
+		.chain-toggle input {
+			width: auto;
+			margin: 0;
+		}
 		.chain-list {
 			display: flex;
 			flex-direction: column;
+			gap: 10px;
+		}
+		.chain-section {
+			display: grid;
 			gap: 6px;
+		}
+		.chain-section-title {
+			margin: 0;
+			font-size: 12px;
+			font-weight: 600;
+			color: var(--vscode-descriptionForeground);
 		}
 		.chain-card {
 			width: 100%;
 			display: grid;
-			grid-template-columns: auto 1fr auto;
+			grid-template-columns: 1fr auto;
 			gap: 8px;
 			align-items: start;
 		}
@@ -567,11 +725,25 @@ function buildHistoryWebviewHtml(
 			padding: 1px 6px;
 			white-space: nowrap;
 		}
+		.chain-status.current {
+			background: color-mix(in srgb, var(--vscode-testing-iconPassed) 15%, transparent);
+		}
+		.chain-status.problems {
+			background: color-mix(in srgb, var(--vscode-inputValidation-errorBorder) 12%, transparent);
+		}
+		.chain-status.details {
+			opacity: 0.7;
+		}
 		.chain-meta {
 			display: flex;
 			gap: 6px;
 			flex-wrap: wrap;
 			margin-top: 3px;
+		}
+		.chain-summary-text {
+			margin: 3px 0 0;
+			font-size: 12px;
+			line-height: 1.45;
 		}
 		.chain-detail {
 			border: 1px solid var(--vscode-panel-border);
@@ -579,6 +751,16 @@ function buildHistoryWebviewHtml(
 			padding: 12px;
 			display: grid;
 			gap: 10px;
+		}
+		.chain-detail-grid {
+			display: grid;
+			grid-template-columns: 110px 1fr;
+			gap: 8px 12px;
+			align-items: start;
+		}
+		.chain-detail-label {
+			font-size: 12px;
+			color: var(--vscode-descriptionForeground);
 		}
 		.chain-detail pre {
 			background: var(--vscode-textCodeBlock-background);
@@ -643,7 +825,11 @@ function buildHistoryWebviewHtml(
 			</section>
 		</section>
 		<section id="chainTab" class="diag-tab">
-			<div class="tab-toolbar">${buildRefreshButtonHtml('chain')}</div>
+			<div class="tab-toolbar">
+				<div id="chainSummary" class="chain-summary"></div>
+				<label class="chain-toggle"><input id="chainDetailsToggle" type="checkbox" />${'詳細候補を表示'}</label>
+				${buildRefreshButtonHtml('chain')}
+			</div>
 			<section class="bottom-pane">
 				<aside id="chainList" class="left-pane"></aside>
 				<main id="chainPreview" class="right-pane"></main>
@@ -656,17 +842,19 @@ function buildHistoryWebviewHtml(
 	<script nonce="${nonce}">
 		const vscode = acquireVsCodeApi();
 		const labels = ${labels};
-		let chainNodes = ${serializeAgentsChain(agentsChain)};
-		let selectedChainIndex = chainNodes.findIndex((node) => node.status === 'Active');
-		if (selectedChainIndex < 0) {
-			selectedChainIndex = 0;
-		}
+		let chainPayload = ${serializeAgentsChain(agentsChain)};
+		let showDetailedChainCandidates = false;
+		let selectedChainId = chainPayload.entries.find((entry) => entry.section === 'current')?.id
+			|| chainPayload.entries.find((entry) => entry.defaultVisible)?.id
+			|| chainPayload.entries[0]?.id;
 		const searchInput = document.getElementById('searchInput');
 		const clearButton = document.getElementById('clearButton');
 		const treeArea = document.getElementById('treeArea');
 		const previewArea = document.getElementById('previewArea');
 		const chainList = document.getElementById('chainList');
 		const chainPreview = document.getElementById('chainPreview');
+		const chainSummary = document.getElementById('chainSummary');
+		const chainDetailsToggle = document.getElementById('chainDetailsToggle');
 		for (const button of document.querySelectorAll('[data-tab]')) {
 			button.addEventListener('click', () => {
 				document.querySelectorAll('[data-tab]').forEach((item) => item.classList.remove('active'));
@@ -736,54 +924,100 @@ function buildHistoryWebviewHtml(
 				.join('');
 		};
 
+		const chainSections = [
+			['current', labels.chainCurrentSection],
+			['ignored', labels.chainIgnoredSection],
+			['problems', labels.chainProblemsSection],
+			['details', labels.chainDetailsSection],
+		];
+
+		const getVisibleChainEntries = () =>
+			(chainPayload.entries || []).filter((entry) => entry.defaultVisible || showDetailedChainCandidates);
+
+		const ensureSelectedChainId = (entries) => {
+			if (!entries.some((entry) => entry.id === selectedChainId)) {
+				selectedChainId = entries[0]?.id;
+			}
+		};
+
+		const renderChainSummary = () => {
+			if (!chainSummary) {
+				return;
+			}
+			const summary = chainPayload.summary || {
+				currentCount: 0,
+				ignoredCount: 0,
+				problemCount: 0,
+				hiddenCount: 0,
+			};
+			chainSummary.innerHTML =
+				'<span>' + labels.chainSummaryCurrent + ': ' + summary.currentCount + '</span>' +
+				'<span>' + labels.chainSummaryIgnored + ': ' + summary.ignoredCount + '</span>' +
+				'<span>' + labels.chainSummaryProblems + ': ' + summary.problemCount + '</span>' +
+				(summary.hiddenCount > 0
+					? '<span>' + labels.chainSummaryHidden + ': ' + summary.hiddenCount + '</span>'
+					: '');
+		};
+
 		const renderChain = () => {
 			if (!chainList || !chainPreview) {
 				return;
 			}
-			if (chainNodes.length === 0) {
+			const visibleEntries = getVisibleChainEntries();
+			renderChainSummary();
+			if (visibleEntries.length === 0) {
 				chainList.innerHTML = '<div class="preview-empty">' + labels.noResult + '</div>';
-				chainPreview.innerHTML = '<div class="preview-empty">' + labels.agentPreviewEmpty + '</div>';
+				chainPreview.innerHTML = '<div class="preview-empty">' + labels.chainPreviewEmpty + '</div>';
 				return;
 			}
-			if (selectedChainIndex < 0 || selectedChainIndex >= chainNodes.length) {
-				selectedChainIndex = 0;
-			}
+			ensureSelectedChainId(visibleEntries);
 			chainList.innerHTML = '<div class="chain-list"></div>';
 			const container = chainList.querySelector('.chain-list');
-			chainNodes.forEach((node, index) => {
-				const card = document.createElement('button');
-				card.type = 'button';
-				card.className =
-					'turn-card chain-card ' +
-					String(node.status || '').toLocaleLowerCase() +
-					(index === selectedChainIndex ? ' active' : '');
-				card.addEventListener('click', () => {
-					selectedChainIndex = index;
-					renderChain();
+			chainSections.forEach(([sectionId, sectionLabel]) => {
+				const sectionEntries = visibleEntries.filter((entry) => entry.section === sectionId);
+				if (sectionEntries.length === 0) {
+					return;
+				}
+				const section = document.createElement('section');
+				section.className = 'chain-section';
+				section.innerHTML = '<h3 class="chain-section-title">' + escapeHtml(sectionLabel) + '</h3>';
+				sectionEntries.forEach((entry) => {
+					const card = document.createElement('button');
+					card.type = 'button';
+					card.className =
+						'turn-card chain-card ' +
+						String(entry.section || '').toLocaleLowerCase() +
+						(entry.id === selectedChainId ? ' active' : '');
+					card.addEventListener('click', () => {
+						selectedChainId = entry.id;
+						renderChain();
+					});
+					card.innerHTML =
+						'<span>' +
+						'<span class="turn-title">' + escapeHtml(entry.title) + '</span>' +
+						'<span class="chain-meta muted"><span>' + escapeHtml(entry.subtitle) + '</span></span>' +
+						'<p class="chain-summary-text">' + escapeHtml(entry.summary) + '</p>' +
+						'</span>' +
+						'<span class="chain-status ' + escapeHtml(entry.section) + '">' + escapeHtml(entry.statusLabel) + '</span>';
+					section.appendChild(card);
 				});
-				card.innerHTML =
-					'<span class="codicon codicon-server message-role-icon" aria-hidden="true"></span>' +
-					'<span>' +
-					'<span class="turn-title">' + escapeHtml(node.fileName) + '</span>' +
-					'<span class="chain-meta muted">' +
-					'<span>' + escapeHtml(node.kind) + '</span>' +
-					'<span>' + escapeHtml(node.type) + '</span>' +
-					'</span>' +
-					'</span>' +
-					'<span class="chain-status">' + escapeHtml(node.status) + '</span>';
-				container?.appendChild(card);
+				container?.appendChild(section);
 			});
-			const selected = chainNodes[selectedChainIndex];
+			const selected = visibleEntries.find((entry) => entry.id === selectedChainId) || visibleEntries[0];
 			chainPreview.innerHTML =
 				'<section class="chain-detail">' +
 				'<div class="frame-header">' +
 				'<div>' +
-				'<h2 class="section-title">' + escapeHtml(selected.fileName) + '</h2>' +
-				'<p class="message-meta">' + escapeHtml(selected.kind) + ' / ' + escapeHtml(selected.type) + ' / ' + escapeHtml(selected.status) + '</p>' +
+				'<h2 class="section-title">' + escapeHtml(selected.title) + '</h2>' +
+				'<p class="message-meta">' + escapeHtml(selected.subtitle) + ' / ' + escapeHtml(selected.statusLabel) + '</p>' +
 				'</div>' +
 				'</div>' +
-				'<div class="muted">' + escapeHtml(selected.absolutePath) + '</div>' +
-				'<div>' + escapeHtml(selected.reason) + '</div>' +
+				'<div class="chain-detail-grid">' +
+				'<div class="chain-detail-label">状態</div><div>' + escapeHtml(selected.statusLabel) + '</div>' +
+				'<div class="chain-detail-label">分類</div><div>' + escapeHtml(selected.subtitle) + '</div>' +
+				'<div class="chain-detail-label">パス</div><div class="muted">' + escapeHtml(selected.path) + '</div>' +
+				'<div class="chain-detail-label">説明</div><div>' + escapeHtml(selected.explanation) + '</div>' +
+				'</div>' +
 				(selected.contentPreview ? '<pre>' + escapeHtml(selected.contentPreview) + '</pre>' : '') +
 				'</section>';
 		};
@@ -941,16 +1175,22 @@ function buildHistoryWebviewHtml(
 			searchInput.value = '';
 			vscode.postMessage({ type: 'clearSearch' });
 		});
+		chainDetailsToggle?.addEventListener('change', () => {
+			showDetailedChainCandidates = Boolean(chainDetailsToggle.checked);
+			renderChain();
+		});
 
 		window.addEventListener('message', (event) => {
 			const message = event.data;
 			if (message?.type === 'tabContent') {
 				if (message.tab === 'chain') {
-					chainNodes = message.nodes || [];
-					selectedChainIndex = chainNodes.findIndex((node) => node.status === 'Active');
-					if (selectedChainIndex < 0) {
-						selectedChainIndex = 0;
-					}
+					chainPayload = message.payload || {
+						entries: [],
+						summary: { currentCount: 0, ignoredCount: 0, problemCount: 0, hiddenCount: 0 },
+					};
+					selectedChainId = chainPayload.entries.find((entry) => entry.section === 'current')?.id
+						|| chainPayload.entries.find((entry) => entry.defaultVisible)?.id
+						|| chainPayload.entries[0]?.id;
 					renderChain();
 				}
 				if (message.tab === 'trusted') {
@@ -1125,7 +1365,7 @@ export class HistoryPanelManager implements vscode.Disposable {
 			void this.panel.webview.postMessage({
 				type: 'tabContent',
 				tab,
-				nodes: buildAgentsChainPayload(),
+				payload: buildAgentsChainPayload(),
 			});
 			return;
 		}
