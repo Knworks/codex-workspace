@@ -267,26 +267,26 @@ function toChainSubtitle(node: AgentsChainNode): string {
 }
 
 function explainCurrentNode(node: AgentsChainNode): string {
-	return `${node.kind} レイヤーで現在使用中の ${node.fileName} です。`;
+	return messages.chainExplainCurrent(node.kind, node.fileName);
 }
 
 function explainSkippedNode(node: AgentsChainNode): string {
 	const preferred = node.reason.match(/^(.+?) has higher priority\./)?.[1];
 	if (preferred) {
-		return `${preferred} が優先されるため、このファイルは使用されません。`;
+		return messages.chainExplainIgnoredPreferred(preferred);
 	}
-	return '優先順位の高い候補があるため、このファイルは使用されません。';
+	return messages.chainExplainIgnoredGeneric;
 }
 
 function explainProblemNode(node: AgentsChainNode): string {
-	return `ファイルは存在しますが、読み取りに失敗しました。${node.reason}`;
+	return messages.chainExplainProblem(node.reason);
 }
 
 function explainMissingNode(node: AgentsChainNode): string {
 	if (node.type === 'Fallback') {
-		return 'fallback 候補として設定されていますが、ファイルが存在しません。';
+		return messages.chainExplainMissingFallback;
 	}
-	return '候補として探索されましたが、ファイルが存在しません。';
+	return messages.chainExplainMissingGeneric;
 }
 
 function toDisplayEntry(node: AgentsChainNode, index: number): AgentsChainDisplayEntry {
@@ -296,7 +296,7 @@ function toDisplayEntry(node: AgentsChainNode, index: number): AgentsChainDispla
 			section: 'current',
 			title: node.fileName,
 			subtitle: toChainSubtitle(node),
-			statusLabel: '使用中',
+			statusLabel: messages.chainStatusCurrent,
 			summary: explainCurrentNode(node),
 			path: node.absolutePath,
 			explanation: explainCurrentNode(node),
@@ -310,7 +310,7 @@ function toDisplayEntry(node: AgentsChainNode, index: number): AgentsChainDispla
 			section: 'ignored',
 			title: node.fileName,
 			subtitle: toChainSubtitle(node),
-			statusLabel: '未使用',
+			statusLabel: messages.chainStatusIgnored,
 			summary: explainSkippedNode(node),
 			path: node.absolutePath,
 			explanation: explainSkippedNode(node),
@@ -324,7 +324,7 @@ function toDisplayEntry(node: AgentsChainNode, index: number): AgentsChainDispla
 			section: 'problems',
 			title: node.fileName,
 			subtitle: toChainSubtitle(node),
-			statusLabel: '問題あり',
+			statusLabel: messages.chainStatusProblem,
 			summary: explainProblemNode(node),
 			path: node.absolutePath,
 			explanation: explainProblemNode(node),
@@ -337,7 +337,7 @@ function toDisplayEntry(node: AgentsChainNode, index: number): AgentsChainDispla
 		section: 'details',
 		title: node.fileName,
 		subtitle: toChainSubtitle(node),
-		statusLabel: '候補なし',
+		statusLabel: messages.chainStatusMissing,
 		summary: explainMissingNode(node),
 		path: node.absolutePath,
 		explanation: explainMissingNode(node),
@@ -396,16 +396,20 @@ function buildHistoryWebviewHtml(
 		user: messages.historyUserLabel,
 		assistant: messages.historyAssistantLabel,
 		agentPreviewEmpty: messages.historyNoPreview,
-		chainCurrentSection: '現在有効',
-		chainIgnoredSection: '無視された候補',
-		chainProblemsSection: '要確認',
-		chainDetailsSection: '詳細候補',
-		chainToggleDetails: '詳細候補を表示',
-		chainSummaryCurrent: '使用中',
-		chainSummaryIgnored: '未使用',
-		chainSummaryProblems: '問題あり',
-		chainSummaryHidden: '非表示候補',
-		chainPreviewEmpty: '左側の項目を選ぶと詳細が表示されます。',
+		chainCurrentSection: messages.chainCurrentSection,
+		chainIgnoredSection: messages.chainIgnoredSection,
+		chainProblemsSection: messages.chainProblemsSection,
+		chainDetailsSection: messages.chainDetailsSection,
+		chainToggleDetails: messages.chainToggleDetails,
+		chainSummaryCurrent: messages.chainSummaryCurrent,
+		chainSummaryIgnored: messages.chainSummaryIgnored,
+		chainSummaryProblems: messages.chainSummaryProblems,
+		chainSummaryHidden: messages.chainSummaryHidden,
+		chainPreviewEmpty: messages.chainPreviewEmpty,
+		chainDetailStatus: messages.chainDetailStatus,
+		chainDetailClassification: messages.chainDetailClassification,
+		chainDetailPath: messages.chainDetailPath,
+		chainDetailExplanation: messages.chainDetailExplanation,
 	});
 	const agentsChain = buildAgentsChainPayload();
 	const csp = [
@@ -827,7 +831,7 @@ function buildHistoryWebviewHtml(
 		<section id="chainTab" class="diag-tab">
 			<div class="tab-toolbar">
 				<div id="chainSummary" class="chain-summary"></div>
-				<label class="chain-toggle"><input id="chainDetailsToggle" type="checkbox" />${'詳細候補を表示'}</label>
+				<label class="chain-toggle"><input id="chainDetailsToggle" type="checkbox" />${messages.chainToggleDetails}</label>
 				${buildRefreshButtonHtml('chain')}
 			</div>
 			<section class="bottom-pane">
@@ -1013,10 +1017,10 @@ function buildHistoryWebviewHtml(
 				'</div>' +
 				'</div>' +
 				'<div class="chain-detail-grid">' +
-				'<div class="chain-detail-label">状態</div><div>' + escapeHtml(selected.statusLabel) + '</div>' +
-				'<div class="chain-detail-label">分類</div><div>' + escapeHtml(selected.subtitle) + '</div>' +
-				'<div class="chain-detail-label">パス</div><div class="muted">' + escapeHtml(selected.path) + '</div>' +
-				'<div class="chain-detail-label">説明</div><div>' + escapeHtml(selected.explanation) + '</div>' +
+				'<div class="chain-detail-label">' + escapeHtml(labels.chainDetailStatus) + '</div><div>' + escapeHtml(selected.statusLabel) + '</div>' +
+				'<div class="chain-detail-label">' + escapeHtml(labels.chainDetailClassification) + '</div><div>' + escapeHtml(selected.subtitle) + '</div>' +
+				'<div class="chain-detail-label">' + escapeHtml(labels.chainDetailPath) + '</div><div class="muted">' + escapeHtml(selected.path) + '</div>' +
+				'<div class="chain-detail-label">' + escapeHtml(labels.chainDetailExplanation) + '</div><div>' + escapeHtml(selected.explanation) + '</div>' +
 				'</div>' +
 				(selected.contentPreview ? '<pre>' + escapeHtml(selected.contentPreview) + '</pre>' : '') +
 				'</section>';

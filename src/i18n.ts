@@ -172,6 +172,109 @@ export const messages = {
 		'message.coreViewAgentsChainTab',
 		'AGENTS Loading Chain',
 	),
+	chainCurrentSection: localize(
+		'message.chainCurrentSection',
+		'Current',
+	),
+	chainIgnoredSection: localize(
+		'message.chainIgnoredSection',
+		'Ignored',
+	),
+	chainProblemsSection: localize(
+		'message.chainProblemsSection',
+		'Needs attention',
+	),
+	chainDetailsSection: localize(
+		'message.chainDetailsSection',
+		'Detailed candidates',
+	),
+	chainToggleDetails: localize(
+		'message.chainToggleDetails',
+		'Show detailed candidates',
+	),
+	chainSummaryCurrent: localize(
+		'message.chainSummaryCurrent',
+		'Using',
+	),
+	chainSummaryIgnored: localize(
+		'message.chainSummaryIgnored',
+		'Ignored',
+	),
+	chainSummaryProblems: localize(
+		'message.chainSummaryProblems',
+		'Problems',
+	),
+	chainSummaryHidden: localize(
+		'message.chainSummaryHidden',
+		'Hidden candidates',
+	),
+	chainPreviewEmpty: localize(
+		'message.chainPreviewEmpty',
+		'Select an item on the left to view details.',
+	),
+	chainStatusCurrent: localize(
+		'message.chainStatusCurrent',
+		'Using',
+	),
+	chainStatusIgnored: localize(
+		'message.chainStatusIgnored',
+		'Ignored',
+	),
+	chainStatusProblem: localize(
+		'message.chainStatusProblem',
+		'Problem',
+	),
+	chainStatusMissing: localize(
+		'message.chainStatusMissing',
+		'Missing',
+	),
+	chainDetailStatus: localize(
+		'message.chainDetailStatus',
+		'Status',
+	),
+	chainDetailClassification: localize(
+		'message.chainDetailClassification',
+		'Classification',
+	),
+	chainDetailPath: localize(
+		'message.chainDetailPath',
+		'Path',
+	),
+	chainDetailExplanation: localize(
+		'message.chainDetailExplanation',
+		'Explanation',
+	),
+	chainExplainCurrent: (layer: string, fileName: string) =>
+		localize(
+			'message.chainExplainCurrent',
+			'{0} layer is currently using {1}.',
+			layer,
+			fileName,
+		),
+	chainExplainIgnoredPreferred: (preferred: string) =>
+		localize(
+			'message.chainExplainIgnoredPreferred',
+			'{0} has higher priority, so this file is not used.',
+			preferred,
+		),
+	chainExplainIgnoredGeneric: localize(
+		'message.chainExplainIgnoredGeneric',
+		'A higher-priority candidate exists, so this file is not used.',
+	),
+	chainExplainProblem: (reason: string) =>
+		localize(
+			'message.chainExplainProblem',
+			'The file exists but could not be read. {0}',
+			reason,
+		),
+	chainExplainMissingFallback: localize(
+		'message.chainExplainMissingFallback',
+		'This fallback candidate is configured but the file does not exist.',
+	),
+	chainExplainMissingGeneric: localize(
+		'message.chainExplainMissingGeneric',
+		'This candidate was checked, but the file does not exist.',
+	),
 	coreViewTrustedDirectoriesTab: localize(
 		'message.coreViewTrustedDirectoriesTab',
 		'Trusted Directory',

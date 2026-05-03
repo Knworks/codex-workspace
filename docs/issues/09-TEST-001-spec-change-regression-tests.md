@@ -13,12 +13,14 @@ status: Reviewing
 ## 📌 要件
 
 - 変更仕様のテスト観点を網羅する。
+- AGENTS Loading Chain の診断ビュー再設計とローカライズを回帰対象に含める。
 - PROMPTS Explore と Template Explore は現行仕様を維持する。
 - ビルド、セルフチェック、単体テストを完了する。
 
 ## 🛠️ スコープ / 作業内容
 
 - 不足している単体テストと回帰テストを追加する。
+- AGENTS Loading Chain の表示変換、詳細候補トグル、ローカライズ文字列利用を確認する。
 - PROMPTS / Template に新機能が混入していないことを確認する。
 - `npm run compile` と `npm test` を実行する。
 - セルフチェックで差分を確認する。
@@ -38,6 +40,9 @@ status: Reviewing
 ## 🧪 テスト観点
 
 - 変更仕様全体の未検証箇所。
+- AGENTS Loading Chain の `使用中` / `未使用` / `問題あり` / `候補なし` 表示。
+- `候補なし` の既定非表示と詳細候補トグル。
+- 日本語と英語での表示差し替え。
 - 既存仕様維持。
 - ビルドとテスト実行結果。
 - 検証方法: `npm run compile`、`npm test`。
