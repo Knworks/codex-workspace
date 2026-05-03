@@ -430,11 +430,8 @@ suite('File explorer provider', () => {
 		);
 
 		const normalRoot = byLabel(rootChildren, 'notes');
-		const normalRootIcon = normalRoot.iconPath as { light: vscode.Uri; dark: vscode.Uri };
-		assert.strictEqual(
-			normalRootIcon.light.fsPath,
-			vscode.Uri.file(contextStub.asAbsolutePath(path.join('images', 'folder32.png'))).fsPath,
-		);
+		assert.ok(normalRoot.iconPath instanceof vscode.ThemeIcon);
+		assert.strictEqual((normalRoot.iconPath as vscode.ThemeIcon).id, 'folder-library');
 
 		const enabledChildren = provider.getChildren(enabledRoot as CodexTreeItem) as vscode.TreeItem[];
 		const skillFile = byLabel(enabledChildren, 'SKILL.md');

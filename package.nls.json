@@ -122,6 +122,7 @@
   "message.templateNone": "Empty file",
   "message.templatePickPlaceholder": "Select a template.",
   "message.skillLocationPickPlaceholder": "Select a Skill location.",
+  "message.skillFileFolderRequired": "Select a folder in Skills before adding a file.",
   "message.userSkillsDeleteWarning": "Deleting User Skills may affect other projects.",
   "message.agent.inputName": "Enter an agent name.",
   "message.agent.inputDescription": "Enter an agent description.",

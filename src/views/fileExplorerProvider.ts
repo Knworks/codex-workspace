@@ -306,6 +306,14 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 	}
 
 	private isSkillRootFolder(folderPath: string): boolean {
+		if (
+			this.getRootOptions().some(
+				(location) => path.dirname(folderPath) === location.rootPath,
+			)
+		) {
+			return true;
+		}
+
 		return this.listEntries(folderPath).some(
 			(entry) => entry.isFile && entry.name === 'SKILL.md',
 		);

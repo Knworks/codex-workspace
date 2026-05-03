@@ -384,6 +384,10 @@ export function resolveAddViewSelection(
 	return item ?? selection;
 }
 
+export function requiresFolderSelectionForFileAdd(item: CodexTreeItem): boolean {
+	return item.kind === 'skills' && item.nodeType !== 'folder';
+}
+
 function isFileViewKind(kind: string): kind is FileViewKind {
 	return FILE_VIEW_KINDS.includes(kind as FileViewKind);
 }
@@ -470,7 +474,12 @@ async function addFileWithSelection(
 	provider: FileExplorerProvider,
 	views: Record<FileViewKind, vscode.TreeView<CodexTreeItem>>,
 ): Promise<void> {
-	const targetDir = await resolveTargetDirectoryForAdd(selection, provider);
+	if (requiresFolderSelectionForFileAdd(selection)) {
+		vscode.window.showInformationMessage(messages.file.skillFileFolderRequired);
+		return;
+	}
+
+	const targetDir = resolveTargetDirectory(selection, provider);
 	if (!targetDir) {
 		return;
 	}

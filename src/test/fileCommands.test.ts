@@ -3,6 +3,7 @@ import path from 'path';
 import {
 	isCaseOnlyRename,
 	isSamePath,
+	requiresFolderSelectionForFileAdd,
 	resolveAddViewSelection,
 	shouldDeleteRenameTarget,
 } from '../commands/fileCommands';
@@ -72,4 +73,40 @@ test('resolveAddViewSelection prefers item over selection', () => {
 	);
 	assert.strictEqual(resolveAddViewSelection(true, item, selection), item);
 });
+
+	test('requiresFolderSelectionForFileAdd requires a folder only for skills files', () => {
+		const root = new CodexTreeItem(
+			'root',
+			'skills',
+			'skills',
+			0,
+			path.join('root', 'skills'),
+		);
+		const file = new CodexTreeItem(
+			'file',
+			'skills',
+			'guide.md',
+			0,
+			path.join('root', 'skills', 'sample', 'guide.md'),
+		);
+		const folder = new CodexTreeItem(
+			'folder',
+			'skills',
+			'sample',
+			0,
+			path.join('root', 'skills', 'sample'),
+		);
+		const promptFolder = new CodexTreeItem(
+			'folder',
+			'prompts',
+			'docs',
+			0,
+			path.join('root', 'prompts', 'docs'),
+		);
+
+		assert.strictEqual(requiresFolderSelectionForFileAdd(root), true);
+		assert.strictEqual(requiresFolderSelectionForFileAdd(file), true);
+		assert.strictEqual(requiresFolderSelectionForFileAdd(folder), false);
+		assert.strictEqual(requiresFolderSelectionForFileAdd(promptFolder), false);
+	});
 });

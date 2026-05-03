@@ -80,6 +80,7 @@ suite('Localization keys', () => {
 			'message.templateNone',
 			'message.templatePickPlaceholder',
 			'message.skillLocationPickPlaceholder',
+			'message.skillFileFolderRequired',
 			'message.userSkillsDeleteWarning',
 			'message.agent.inputName',
 			'message.agent.inputDescription',

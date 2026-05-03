@@ -374,6 +374,10 @@ export const messages = {
 			'message.skillLocationPickPlaceholder',
 			'Select a Skill location.',
 		),
+		skillFileFolderRequired: localize(
+			'message.skillFileFolderRequired',
+			'Select a folder in Skills before adding a file.',
+		),
 		userSkillsDeleteWarning: localize(
 			'message.userSkillsDeleteWarning',
 			'Deleting User Skills may affect other projects.',
