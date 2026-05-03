@@ -685,11 +685,54 @@ function buildHistoryWebviewHtml(
 			align-items: center;
 			gap: 6px;
 			font-size: 12px;
-			color: var(--vscode-descriptionForeground);
+			color: var(--vscode-foreground);
+			cursor: pointer;
+			user-select: none;
 		}
 		.chain-toggle input {
-			width: auto;
-			margin: 0;
+			position: absolute;
+			opacity: 0;
+			width: 1px;
+			height: 1px;
+			pointer-events: none;
+		}
+		.chain-toggle-switch {
+			position: relative;
+			width: 34px;
+			height: 18px;
+			border-radius: 999px;
+			background: var(--vscode-checkbox-background, var(--vscode-input-background));
+			border: 1px solid var(--vscode-checkbox-border, var(--vscode-panel-border));
+			flex: 0 0 auto;
+			box-sizing: border-box;
+			transition: background 0.15s ease, border-color 0.15s ease;
+		}
+		.chain-toggle-switch::after {
+			content: '';
+			position: absolute;
+			top: 50%;
+			left: 1px;
+			width: 14px;
+			height: 14px;
+			border-radius: 50%;
+			background: var(--vscode-button-secondaryForeground);
+			transform: translateY(-50%);
+			transition: transform 0.15s ease;
+		}
+		.chain-toggle input:checked + .chain-toggle-switch {
+			background: var(--vscode-button-background);
+			border-color: var(--vscode-button-background);
+		}
+		.chain-toggle input:checked + .chain-toggle-switch::after {
+			transform: translate(16px, -50%);
+			background: var(--vscode-button-foreground);
+		}
+		.chain-toggle input:focus-visible + .chain-toggle-switch {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 2px;
+		}
+		.chain-toggle-label {
+			color: var(--vscode-descriptionForeground);
 		}
 		.chain-list {
 			display: flex;
@@ -824,7 +867,7 @@ function buildHistoryWebviewHtml(
 </head>
 <body>
 	<div class="root">
-		<nav class="tabs" aria-label="Codex Core View tabs">
+		<nav class="tabs" aria-label="Codex Manager tabs">
 			<button class="tab active" data-tab="history" type="button"><span class="codicon codicon-history" aria-hidden="true"></span>${messages.coreViewConversationHistoryTab}</button>
 			<button class="tab" data-tab="chain" type="button"><span class="codicon codicon-server" aria-hidden="true"></span>${messages.coreViewAgentsChainTab}</button>
 			<button class="tab" data-tab="trusted" type="button"><span class="codicon codicon-shield" aria-hidden="true"></span>${messages.coreViewTrustedDirectoriesTab}</button>
@@ -845,7 +888,11 @@ function buildHistoryWebviewHtml(
 		<section id="chainTab" class="diag-tab">
 			<div class="tab-toolbar">
 				<div id="chainSummary" class="chain-summary"></div>
-				<label class="chain-toggle"><input id="chainDetailsToggle" type="checkbox" />${messages.chainToggleDetails}</label>
+				<label class="chain-toggle">
+					<span class="chain-toggle-label">${messages.chainToggleDetails}</span>
+					<input id="chainDetailsToggle" type="checkbox" />
+					<span class="chain-toggle-switch" aria-hidden="true"></span>
+				</label>
 				${buildRefreshButtonHtml('chain')}
 			</div>
 			<section class="bottom-pane">

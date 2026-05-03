@@ -111,7 +111,7 @@ export const messages = {
 	),
 	coreViewPanelTitle: localize(
 		'message.coreViewPanelTitle',
-		'Codex Core',
+		'Codex Manager',
 	),
 	coreViewConversationHistoryTab: localize(
 		'message.coreViewConversationHistoryTab',
