@@ -124,16 +124,16 @@ export function registerAgentCommands(
 
 async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
 	const { codexDir, configPath } = resolveCodexPaths();
+	const agentsDir = await pickAgentLocationRoot(agentProvider);
+	if (!agentsDir) {
+		return;
+	}
 	const agentName = await promptAgentName();
 	if (!agentName) {
 		return;
 	}
 	const description = await promptAgentDescription();
 	if (description === undefined) {
-		return;
-	}
-	const agentsDir = await pickAgentLocationRoot(agentProvider);
-	if (!agentsDir) {
 		return;
 	}
 	const templateContent = await pickTemplateContents();

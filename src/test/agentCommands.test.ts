@@ -102,7 +102,7 @@ suite('Agent commands', () => {
 					originalPick;
 			}
 
-			assert.deepStrictEqual(sequence, ['name', 'description', 'location', 'template']);
+			assert.deepStrictEqual(sequence, ['location', 'name', 'description', 'template']);
 			const createdPath = path.join(agentsDir, 'reviewer.toml');
 			assert.ok(fs.existsSync(createdPath));
 			assert.strictEqual(fs.readFileSync(createdPath, 'utf8'), '');
