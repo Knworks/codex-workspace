@@ -5,6 +5,7 @@ import {
 	isSamePath,
 	requiresFolderSelectionForFileAdd,
 	resolveAddViewSelection,
+	shouldPickSkillLocationForAdd,
 	shouldDeleteRenameTarget,
 } from '../commands/fileCommands';
 import { CodexTreeItem } from '../models/treeItems';
@@ -106,7 +107,43 @@ test('resolveAddViewSelection prefers item over selection', () => {
 
 		assert.strictEqual(requiresFolderSelectionForFileAdd(root), true);
 		assert.strictEqual(requiresFolderSelectionForFileAdd(file), true);
-		assert.strictEqual(requiresFolderSelectionForFileAdd(folder), false);
-		assert.strictEqual(requiresFolderSelectionForFileAdd(promptFolder), false);
+	assert.strictEqual(requiresFolderSelectionForFileAdd(folder), false);
+	assert.strictEqual(requiresFolderSelectionForFileAdd(promptFolder), false);
+	});
+
+	test('shouldPickSkillLocationForAdd only prompts at skills root', () => {
+		const root = new CodexTreeItem(
+			'root',
+			'skills',
+			'skills',
+			0,
+			path.join('root', 'skills'),
+		);
+		const folder = new CodexTreeItem(
+			'folder',
+			'skills',
+			'sample',
+			0,
+			path.join('root', 'skills', 'sample'),
+		);
+		const file = new CodexTreeItem(
+			'file',
+			'skills',
+			'guide.md',
+			0,
+			path.join('root', 'skills', 'sample', 'guide.md'),
+		);
+		const promptRoot = new CodexTreeItem(
+			'root',
+			'prompts',
+			'prompts',
+			0,
+			path.join('root', 'prompts'),
+		);
+
+		assert.strictEqual(shouldPickSkillLocationForAdd(root), true);
+		assert.strictEqual(shouldPickSkillLocationForAdd(folder), false);
+		assert.strictEqual(shouldPickSkillLocationForAdd(file), false);
+		assert.strictEqual(shouldPickSkillLocationForAdd(promptRoot), false);
 	});
 });

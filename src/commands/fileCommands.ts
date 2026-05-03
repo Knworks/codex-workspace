@@ -388,6 +388,10 @@ export function requiresFolderSelectionForFileAdd(item: CodexTreeItem): boolean 
 	return item.kind === 'skills' && item.nodeType !== 'folder';
 }
 
+export function shouldPickSkillLocationForAdd(item: CodexTreeItem): boolean {
+	return item.kind === 'skills' && item.nodeType === 'root';
+}
+
 function isFileViewKind(kind: string): kind is FileViewKind {
 	return FILE_VIEW_KINDS.includes(kind as FileViewKind);
 }
@@ -428,7 +432,7 @@ async function resolveTargetDirectoryForAdd(
 	provider: FileExplorerProvider,
 ): Promise<string | null> {
 	const targetDir = resolveTargetDirectory(item, provider);
-	if (item.kind !== 'skills' || !targetDir) {
+	if (!shouldPickSkillLocationForAdd(item) || !targetDir) {
 		return targetDir;
 	}
 
