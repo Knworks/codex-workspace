@@ -99,14 +99,14 @@ function getMcpFieldDescriptions(language: string): Record<string, string> {
 function buildForm(model: McpFormModel | undefined, previousId?: string): string {
 	const current = model ?? emptyModel();
 	const descriptions = getMcpFieldDescriptions(vscode.env.language ?? 'en');
-	return `<form id="form" data-previous-id="${escapeHtml(previousId ?? current.id)}" data-enabled="${current.enabled ? 'true' : 'false'}">
+	return `<div class="detail-form-shell"><form id="form" data-previous-id="${escapeHtml(previousId ?? current.id)}" data-enabled="${current.enabled ? 'true' : 'false'}">
 		<label>${buildFieldLabel(messages.mcpManagerServerName, descriptions.id)}<input name="id" value="${escapeHtml(current.id)}" /></label>
 		<label>${buildFieldLabel('Transport', descriptions.transport)}<select name="transport">
 			<option value="stdio" ${current.transport === 'stdio' ? 'selected' : ''}>stdio</option>
 			<option value="http" ${current.transport === 'http' ? 'selected' : ''}>http</option>
 		</select></label>
 		<label>${buildFieldLabel('Command', descriptions.command)}<input name="command" value="${escapeHtml(current.command)}" /></label>
-		<label>${buildFieldLabel('Args', descriptions.args)}<textarea name="args">${escapeHtml(current.args.join('\n'))}</textarea></label>
+		<label>${buildFieldLabel('Args', descriptions.args)}<textarea class="textarea-args" name="args">${escapeHtml(current.args.join('\n'))}</textarea></label>
 		<label>${buildFieldLabel('URL', descriptions.url)}<input name="url" value="${escapeHtml(current.url)}" /></label>
 		<label class="required-field">${buildFieldLabel('Required', descriptions.required)}<span class="switch"><input name="required" type="checkbox" ${current.required ? 'checked' : ''} /><span></span></span></label>
 		<label>${buildFieldLabel('Startup Timeout', descriptions.startupTimeoutSec)}<input name="startupTimeoutSec" value="${current.startupTimeoutSec ?? ''}" /></label>
@@ -117,7 +117,7 @@ function buildForm(model: McpFormModel | undefined, previousId?: string): string
 			<button class="icon-button" type="submit" title="${escapeHtml(messages.mcpManagerSave)}" aria-label="${escapeHtml(messages.mcpManagerSave)}"><span class="codicon codicon-save" aria-hidden="true"></span></button>
 			<button id="cancel" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerCancel)}" aria-label="${escapeHtml(messages.mcpManagerCancel)}"><span class="codicon codicon-discard" aria-hidden="true"></span></button>
 		</div>
-	</form>`;
+	</form></div>`;
 }
 
 function buildHtml(
@@ -156,25 +156,27 @@ function buildHtml(
 		.root { display: grid; grid-template-rows: auto 1fr; height: 100vh; min-width: 0; }
 		.panes { display: grid; grid-template-columns: 40% 60%; min-height: 0; }
 		.left { border-right: 1px solid var(--vscode-panel-border); display: grid; grid-template-rows: auto 1fr; min-width: 0; min-height: 0; }
-		.right { padding: 12px; overflow: auto; min-width: 0; }
+		.right { padding: 10px 0; overflow: auto; min-width: 0; box-sizing: border-box; }
 		.search-area { padding: 10px 12px; border-bottom: 1px solid var(--vscode-panel-border); display: flex; gap: 8px; align-items: center; }
 		.search-area input { flex: 1; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); border-radius: 8px; padding: 6px 8px; }
 		.search-area input:focus, input:focus, textarea:focus, select:focus { outline: none; border-color: var(--vscode-focusBorder, #0e639c); box-shadow: 0 0 0 1px var(--vscode-focusBorder, #0e639c); }
 		.actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
 		.list-actions { padding: 10px 12px; border-bottom: 1px solid var(--vscode-panel-border); }
-		.server-list { padding: 10px 8px; overflow: auto; }
+		.server-list { padding: 10px 12px; overflow: auto; }
 		.server { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; width: 100%; margin-bottom: 6px; padding: 8px; background: var(--vscode-editorWidget-background); color: var(--vscode-foreground); border: 1px solid var(--vscode-panel-border); border-radius: 6px; text-align: left; cursor: pointer; }
 		.server.disabled { opacity: 0.55; }
 		.server.active { border-color: var(--vscode-focusBorder); background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
 		.server-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.server-icon { color: var(--vscode-descriptionForeground); }
-		form { display: grid; gap: 10px; max-width: 760px; }
-		label { display: grid; gap: 4px; }
+		.detail-form-shell { width: 100%; padding: 0 0 0 12px; box-sizing: border-box; }
+		form { display: grid; gap: 10px; width: 100%; max-width: none; box-sizing: border-box; }
+		label { display: grid; gap: 4px; width: 100%; box-sizing: border-box; }
 		.field-label { display: inline-flex; align-items: center; gap: 6px; }
 		.info-icon { color: var(--vscode-descriptionForeground); }
 		.required-field { justify-items: start; }
-		input, textarea, select { box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); border-radius: 6px; padding: 6px 8px; }
+		input, textarea, select { width: 100%; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); border-radius: 6px; padding: 6px 8px; }
 		textarea { min-height: 70px; }
+		.textarea-args { min-height: 120px; }
 		.icon-button { width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--vscode-panel-border); border-radius: 4px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); cursor: pointer; }
 		.switch input { display: none; }
 		.switch span { display: inline-block; width: 34px; height: 18px; border-radius: 999px; background: #d85b74; position: relative; vertical-align: middle; }
@@ -231,14 +233,14 @@ function buildHtml(
 				enabled: true,
 			};
 			detailPane.innerHTML =
-				'<form id="form" data-previous-id="' + escapeHtml(current.id) + '" data-enabled="' + (current.enabled === false ? 'false' : 'true') + '">' +
+				'<div class="detail-form-shell"><form id="form" data-previous-id="' + escapeHtml(current.id) + '" data-enabled="' + (current.enabled === false ? 'false' : 'true') + '">' +
 				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerServerName)}, descriptions.id) + '<input name="id" value="' + escapeHtml(current.id) + '" /></label>' +
 				'<label>' + fieldLabel('Transport', descriptions.transport) + '<select name="transport">' +
 				'<option value="stdio" ' + (current.transport === 'stdio' ? 'selected' : '') + '>stdio</option>' +
 				'<option value="http" ' + (current.transport === 'http' ? 'selected' : '') + '>http</option>' +
 				'</select></label>' +
 				'<label>' + fieldLabel('Command', descriptions.command) + '<input name="command" value="' + escapeHtml(current.command) + '" /></label>' +
-				'<label>' + fieldLabel('Args', descriptions.args) + '<textarea name="args">' + escapeHtml((current.args || []).join('\\n')) + '</textarea></label>' +
+				'<label>' + fieldLabel('Args', descriptions.args) + '<textarea class="textarea-args" name="args">' + escapeHtml((current.args || []).join('\\n')) + '</textarea></label>' +
 				'<label>' + fieldLabel('URL', descriptions.url) + '<input name="url" value="' + escapeHtml(current.url) + '" /></label>' +
 				'<label class="required-field">' + fieldLabel('Required', descriptions.required) + '<span class="switch"><input name="required" type="checkbox" ' + (current.required ? 'checked' : '') + ' /><span></span></span></label>' +
 				'<label>' + fieldLabel('Startup Timeout', descriptions.startupTimeoutSec) + '<input name="startupTimeoutSec" value="' + escapeHtml(current.startupTimeoutSec ?? '') + '" /></label>' +
@@ -249,7 +251,7 @@ function buildHtml(
 				'<button class="icon-button" type="submit" title="${escapeHtml(messages.mcpManagerSave)}" aria-label="${escapeHtml(messages.mcpManagerSave)}"><span class="codicon codicon-save" aria-hidden="true"></span></button>' +
 				'<button id="cancel" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerCancel)}" aria-label="${escapeHtml(messages.mcpManagerCancel)}"><span class="codicon codicon-discard" aria-hidden="true"></span></button>' +
 				'</div>' +
-				'</form>';
+				'</form></div>';
 			bindForm();
 		};
 		const getForm = () => document.getElementById('form');
