@@ -12,6 +12,7 @@ import {
 	getSkillLocations,
 	SkillLocation,
 } from '../services/skillLocations';
+import { readSkillEnabledByPath } from '../services/skillConfigService';
 
 const FILE_ICON_MAP: Record<string, string> = {
 	'.md': 'markdown32.png',
@@ -45,6 +46,7 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 	private readonly context: vscode.ExtensionContext;
 	private readonly rootPathOverride?: string;
 	private readonly listEntries: (targetPath: string) => FileEntry[];
+	private readonly readSkillEnabledMap: (configPath: string) => Map<string, boolean>;
 
 	constructor(
 		kind: FileViewKind,
@@ -52,12 +54,14 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		statusProvider?: WorkspaceStatusProvider,
 		rootPathOverride?: string,
 		listEntries?: (targetPath: string) => FileEntry[],
+		readSkillEnabledMap?: (configPath: string) => Map<string, boolean>,
 	) {
 		super(statusProvider);
 		this.kind = kind;
 		this.context = context;
 		this.rootPathOverride = rootPathOverride;
 		this.listEntries = listEntries ?? listFileEntries;
+		this.readSkillEnabledMap = readSkillEnabledMap ?? readSkillEnabledByPath;
 	}
 
 	getRootPath(): string {
@@ -154,12 +158,17 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 	}
 
 	private readSkillRoots(): CodexTreeItem[] {
+		const enabledByPath = this.getSkillEnabledMap();
 		return this.getRootOptions().flatMap((location) =>
-			this.readDirectory(location.rootPath, location),
+			this.readDirectory(location.rootPath, location, enabledByPath),
 		);
 	}
 
-	private readDirectory(targetPath: string, location?: SkillLocation): CodexTreeItem[] {
+	private readDirectory(
+		targetPath: string,
+		location?: SkillLocation,
+		enabledByPath?: Map<string, boolean>,
+	): CodexTreeItem[] {
 		const entries = this.listEntries(targetPath)
 			.filter((entry) => !this.isHiddenName(entry.name))
 			.sort((left, right) => {
@@ -173,6 +182,8 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 			});
 		const resolvedLocation =
 			location ?? this.getLocationForPath(targetPath);
+		const resolvedEnabledByPath =
+			enabledByPath ?? (this.kind === 'skills' ? this.getSkillEnabledMap() : undefined);
 		return entries.map((entry) => {
 			if (entry.isDirectory) {
 				const folderItem = new CodexTreeItem(
@@ -184,7 +195,10 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 				);
 				folderItem.id = entry.fullPath;
 				folderItem.contextValue = 'codex-folder';
-				folderItem.iconPath = this.getFolderIcon();
+				folderItem.iconPath = this.getFolderIcon(
+					entry.fullPath,
+					resolvedEnabledByPath,
+				);
 				this.applyLocationMetadata(folderItem, resolvedLocation, entry.fullPath);
 				return folderItem;
 			}
@@ -203,7 +217,11 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 				title: 'Open file',
 				arguments: [fileItem],
 			};
-			fileItem.iconPath = this.getFileIcon(entry.name);
+			fileItem.iconPath = this.getFileIcon(
+				entry.name,
+				entry.fullPath,
+				resolvedEnabledByPath,
+			);
 			this.applyLocationMetadata(fileItem, resolvedLocation, entry.fullPath);
 			return fileItem;
 		});
@@ -225,23 +243,67 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		return name.startsWith('.');
 	}
 
-	private getFolderIcon():
+	private getFolderIcon(
+		folderPath?: string,
+		enabledByPath?: Map<string, boolean>,
+	):
 		| vscode.ThemeIcon
 		| { light: vscode.Uri; dark: vscode.Uri }
 		| undefined {
+		if (this.kind === 'skills' && folderPath && enabledByPath) {
+			const skillPath = path.join(folderPath, 'SKILL.md');
+			if (this.isSkillRootFolder(folderPath)) {
+				const enabled = enabledByPath.get(path.resolve(skillPath)) ?? true;
+				return enabled
+					? new vscode.ThemeIcon('folder-library')
+					: new vscode.ThemeIcon(
+							'circle-slash',
+							new vscode.ThemeColor('disabledForeground'),
+						);
+			}
+		}
+
 		const iconPath = this.context.asAbsolutePath(path.join('images', 'folder32.png'));
 		const iconUri = vscode.Uri.file(iconPath);
 		return { light: iconUri, dark: iconUri };
 	}
 
-	private getFileIcon(fileName: string):
+	private getFileIcon(
+		fileName: string,
+		filePath?: string,
+		enabledByPath?: Map<string, boolean>,
+	):
 		| vscode.ThemeIcon
 		| { light: vscode.Uri; dark: vscode.Uri }
 		| undefined {
+		if (this.kind === 'skills' && fileName === 'SKILL.md' && filePath && enabledByPath) {
+			const enabled = enabledByPath.get(path.resolve(filePath)) ?? true;
+			return enabled
+				? new vscode.ThemeIcon('agent')
+				: new vscode.ThemeIcon(
+						'circle-slash',
+						new vscode.ThemeColor('disabledForeground'),
+					);
+		}
+
 		const extension = path.extname(fileName).toLowerCase();
 		const iconFileName = FILE_ICON_MAP[extension] ?? 'unknown32.png';
 		const iconPath = this.context.asAbsolutePath(path.join('images', iconFileName));
 		const iconUri = vscode.Uri.file(iconPath);
 		return { light: iconUri, dark: iconUri };
+	}
+
+	private getSkillEnabledMap(): Map<string, boolean> | undefined {
+		if (this.kind !== 'skills') {
+			return undefined;
+		}
+
+		return this.readSkillEnabledMap(resolveCodexPaths().configPath);
+	}
+
+	private isSkillRootFolder(folderPath: string): boolean {
+		return this.listEntries(folderPath).some(
+			(entry) => entry.isFile && entry.name === 'SKILL.md',
+		);
 	}
 }
