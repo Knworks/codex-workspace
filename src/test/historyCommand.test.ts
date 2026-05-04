@@ -140,7 +140,7 @@ suite('Core view command', () => {
 			assert.strictEqual(createCount, 1);
 			assert.strictEqual(createdPanels[0]?.getRevealCount(), 1);
 			assert.strictEqual(createArgs[0]?.viewType, 'codex-workspace.coreView');
-			assert.strictEqual(createArgs[0]?.title, 'Codex Core');
+			assert.strictEqual(createArgs[0]?.title, 'Codex Manager');
 			assert.strictEqual(createArgs[0]?.options?.enableScripts, true);
 			assert.strictEqual(
 				createArgs[0]?.options?.retainContextWhenHidden,

@@ -86,7 +86,7 @@ suite('Core diagnostics service', () => {
 	test('trusted directories support single-quoted project headers', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, 'config.toml');
-			const projectPath = '\\\\?\\E:\\Projects\\codex-workspace';
+			const projectPath = '\\\\?\\Z:\\codex-workspace-test\\missing-project';
 			fs.writeFileSync(
 				configPath,
 				[

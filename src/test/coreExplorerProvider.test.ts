@@ -22,8 +22,14 @@ suite('Core explorer provider', () => {
 	test('returns AGENTS.override.md when it exists', () => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-core-'));
 		const originalHome = process.env.HOME;
+		const originalUserProfile = process.env.USERPROFILE;
+		const originalHomeDrive = process.env.HOMEDRIVE;
+		const originalHomePath = process.env.HOMEPATH;
 		try {
 			process.env.HOME = tempDir;
+			process.env.USERPROFILE = tempDir;
+			process.env.HOMEDRIVE = '';
+			process.env.HOMEPATH = tempDir;
 			const codexDir = path.join(tempDir, '.codex');
 			fs.mkdirSync(codexDir, { recursive: true });
 			fs.writeFileSync(path.join(codexDir, 'AGENTS.override.md'), 'override', 'utf8');
@@ -36,6 +42,9 @@ suite('Core explorer provider', () => {
 			);
 		} finally {
 			process.env.HOME = originalHome;
+			process.env.USERPROFILE = originalUserProfile;
+			process.env.HOMEDRIVE = originalHomeDrive;
+			process.env.HOMEPATH = originalHomePath;
 			fs.rmSync(tempDir, { recursive: true, force: true });
 		}
 	});
