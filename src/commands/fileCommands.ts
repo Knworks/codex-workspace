@@ -437,10 +437,11 @@ async function resolveTargetDirectoryForAdd(
 	}
 
 	const locations = provider.getRootOptions();
+	const creatableLocations = locations.filter((location) => location.createPath);
 	const currentLocation = provider.getLocationForPath(targetDir);
 	const sortedLocations = [
-		...locations.filter((location) => location.kind === currentLocation?.kind),
-		...locations.filter((location) => location.kind !== currentLocation?.kind),
+		...creatableLocations.filter((location) => location.kind === currentLocation?.kind),
+		...creatableLocations.filter((location) => location.kind !== currentLocation?.kind),
 	];
 	const selected = await vscode.window.showQuickPick(
 		sortedLocations.map((location) => ({

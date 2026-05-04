@@ -46,6 +46,7 @@ Skills ExploreおよびSkill Manager Viewは、以下の保存場所を対象と
 | `project` | Project Skills | `project/.agents/skills` を優先し、存在しない場合は `project/.codex/skills` を読む | 1 |
 | `workspace` | Workspace Skills | `.codex/skills` | 2 |
 | `user` | User Skills | `$HOME/.agents/skills` | 3 |
+| `system` | System Skills | `$HOME/.codex/skills/.system` | 4 |
 
 - 一覧表示は、保存場所の優先度順に表示する。
 - 同一保存場所内では、名称昇順で表示する。
@@ -68,6 +69,7 @@ Skills ExploreおよびSkill Manager Viewは、以下の保存場所を対象と
   - Project Skills
   - Workspace Skills
   - User Skills
+- `System Skills` は読み込み専用の表示対象であり、作成先選択肢には含めない。
 - 選択中のSkillがある場合は、そのSkillの保存場所を初期候補にする。
 - Project Skills を選んだ場合の新規作成先は、読込元が `project/.codex/skills` であっても `project/.agents/skills` とする。
 - 作成先保存場所が存在しない場合は、自動作成する。
@@ -82,6 +84,7 @@ Skills ExploreおよびSkill Manager Viewは、以下の保存場所を対象と
   - Project Skills
   - Workspace Skills
   - User Skills
+- `System Skills` は読み込み専用の表示対象であり、作成先選択肢には含めない。
 - 選択中のSkillがある場合は、そのSkillの保存場所を初期候補にする。
 - Project Skills を選んだ場合の新規作成先は、読込元が `project/.codex/skills` であっても `project/.agents/skills` とする。
 - 作成先保存場所が存在しない場合は、自動作成する。

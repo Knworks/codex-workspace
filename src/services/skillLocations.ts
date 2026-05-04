@@ -4,7 +4,7 @@ import path from 'path';
 import * as vscode from 'vscode';
 import { resolveCodexPaths } from './workspaceStatus';
 
-export type SkillLocationKind = 'project' | 'workspace' | 'user';
+export type SkillLocationKind = 'project' | 'workspace' | 'user' | 'system';
 
 export type SkillLocation = {
 	kind: SkillLocationKind;
@@ -55,6 +55,12 @@ export function getSkillLocations(
 			rootPath: path.join(homeDir, '.agents', 'skills'),
 			createPath: path.join(homeDir, '.agents', 'skills'),
 			priority: 3,
+		},
+		{
+			kind: 'system',
+			label: 'System Skills',
+			rootPath: path.join(resolveCodexPaths(homeDir).codexDir, 'skills', '.system'),
+			priority: 4,
 		},
 	);
 	return locations;

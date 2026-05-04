@@ -16,7 +16,7 @@ suite('Skill locations', () => {
 
 		assert.deepStrictEqual(
 			locations.map((location) => location.kind),
-			['project', 'workspace', 'user'],
+			['project', 'workspace', 'user', 'system'],
 		);
 		assert.strictEqual(
 			locations[0].rootPath,
@@ -33,6 +33,10 @@ suite('Skill locations', () => {
 		assert.strictEqual(
 			locations[2].rootPath,
 			path.join(homeDir, '.agents', 'skills'),
+		);
+		assert.strictEqual(
+			locations[3].rootPath,
+			path.join(homeDir, '.codex', 'skills', '.system'),
 		);
 	});
 
