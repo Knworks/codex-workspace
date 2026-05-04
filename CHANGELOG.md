@@ -2,6 +2,22 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
+## 1.1.0
+
+Changes
+
+- Added `Codex Manager` with conversation history, AGENTS loading diagnostics, trusted directories, feature flags, and hooks tabs.
+- Added dedicated manager views for Skills, Sub Agents, and MCP Server editing.
+- Updated project-level Skills and Sub Agents handling to follow current Codex folder conventions while keeping legacy locations readable.
+- Added `Organize config.toml` with one-file backup support for managed config sections.
+- Refined explorer and manager UI with Codicon-based status icons, refreshed labels, and improved WebView layouts.
+
+Fixes
+
+- Fixed multiple `config.toml` update flows so managed sections stay grouped more consistently during normal edits.
+- Fixed localization gaps across Codex Manager and MCP Manager runtime UI strings.
+- Fixed several manager and diagnostics behaviors around MCP env entries, trusted directories, and AGENTS loading details.
+
 ## 1.0.5
 
 Preview
