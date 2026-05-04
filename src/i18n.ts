@@ -186,12 +186,102 @@ export const messages = {
 		'message.mcpManagerServerName',
 		'Server name',
 	),
+	mcpManagerTransportLabel: localize(
+		'message.mcpManagerTransportLabel',
+		'Transport',
+	),
+	mcpManagerCommandLabel: localize(
+		'message.mcpManagerCommandLabel',
+		'Command',
+	),
+	mcpManagerArgsLabel: localize('message.mcpManagerArgsLabel', 'Args'),
+	mcpManagerUrlLabel: localize('message.mcpManagerUrlLabel', 'URL'),
+	mcpManagerEnvLabel: localize('message.mcpManagerEnvLabel', 'Env'),
+	mcpManagerRequiredLabel: localize(
+		'message.mcpManagerRequiredLabel',
+		'Required',
+	),
+	mcpManagerStartupTimeoutLabel: localize(
+		'message.mcpManagerStartupTimeoutLabel',
+		'Startup Timeout',
+	),
+	mcpManagerToolTimeoutLabel: localize(
+		'message.mcpManagerToolTimeoutLabel',
+		'Tool Timeout',
+	),
+	mcpManagerEnabledToolsLabel: localize(
+		'message.mcpManagerEnabledToolsLabel',
+		'Enabled Tools',
+	),
+	mcpManagerDisabledToolsLabel: localize(
+		'message.mcpManagerDisabledToolsLabel',
+		'Disabled Tools',
+	),
+	mcpManagerAddEnv: localize('message.mcpManagerAddEnv', 'Add env'),
+	mcpManagerRemoveEnv: localize(
+		'message.mcpManagerRemoveEnv',
+		'Remove env',
+	),
+	mcpManagerEnvKeyPlaceholder: localize(
+		'message.mcpManagerEnvKeyPlaceholder',
+		'KEY',
+	),
+	mcpManagerEnvValuePlaceholder: localize(
+		'message.mcpManagerEnvValuePlaceholder',
+		'value',
+	),
+	mcpManagerToggle: localize('message.mcpManagerToggle', 'Toggle'),
+	mcpManagerDescriptionServerName: localize(
+		'message.mcpManagerDescriptionServerName',
+		'Unique server name under [mcp_servers.<name>].',
+	),
+	mcpManagerDescriptionTransport: localize(
+		'message.mcpManagerDescriptionTransport',
+		'Connection type. Use stdio for command based servers, http for URL based servers.',
+	),
+	mcpManagerDescriptionCommand: localize(
+		'message.mcpManagerDescriptionCommand',
+		'Command to launch a stdio MCP server. Leave empty for http servers.',
+	),
+	mcpManagerDescriptionArgs: localize(
+		'message.mcpManagerDescriptionArgs',
+		'Command arguments for stdio servers. Enter one item per line.',
+	),
+	mcpManagerDescriptionUrl: localize(
+		'message.mcpManagerDescriptionUrl',
+		'HTTP MCP server URL. Leave empty for stdio servers.',
+	),
+	mcpManagerDescriptionEnv: localize(
+		'message.mcpManagerDescriptionEnv',
+		'Environment variables passed to the MCP server. Enter key and value pairs.',
+	),
+	mcpManagerDescriptionRequired: localize(
+		'message.mcpManagerDescriptionRequired',
+		'Whether Codex should treat this MCP server as required.',
+	),
+	mcpManagerDescriptionStartupTimeout: localize(
+		'message.mcpManagerDescriptionStartupTimeout',
+		'Startup timeout in seconds. Use a non-negative number.',
+	),
+	mcpManagerDescriptionToolTimeout: localize(
+		'message.mcpManagerDescriptionToolTimeout',
+		'Tool execution timeout in seconds. Use a non-negative number.',
+	),
+	mcpManagerDescriptionEnabledTools: localize(
+		'message.mcpManagerDescriptionEnabledTools',
+		'Allow only these tools. Enter one tool name per line. Do not combine with Disabled Tools.',
+	),
+	mcpManagerDescriptionDisabledTools: localize(
+		'message.mcpManagerDescriptionDisabledTools',
+		'Disable these tools. Enter one tool name per line. Do not combine with Enabled Tools.',
+	),
 	mcpManagerDeleteConfirm: (serverId: string) =>
 		localize(
 			'message.mcpManagerDeleteConfirm',
 			'Delete MCP server [mcp_servers.{0}]?',
 			serverId,
 		),
+	mcpToggleAction: localize('message.mcpToggleAction', 'Toggle MCP'),
 	mcpValidationServerNameRequired: localize(
 		'message.mcpValidationServerNameRequired',
 		'Server name is required.',
@@ -275,6 +365,10 @@ export const messages = {
 	chainWorkspaceRootLabel: localize(
 		'message.chainWorkspaceRootLabel',
 		'Workspace root',
+	),
+	coreViewTabsAriaLabel: localize(
+		'message.coreViewTabsAriaLabel',
+		'Codex Manager tabs',
 	),
 	chainNoWorkspace: localize(
 		'message.chainNoWorkspace',
@@ -521,6 +615,7 @@ export const messages = {
 		'message.helloWorld',
 		'Hello World from Codex Workspace!',
 	),
+	dialogOk: localize('message.dialogOk', 'OK'),
 	file: {
 		inputFileName: localize('message.inputFileName', 'Enter a file name.'),
 		inputFolderName: localize(

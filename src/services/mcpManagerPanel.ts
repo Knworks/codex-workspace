@@ -57,7 +57,7 @@ function buildList(models: McpFormModel[], selectedId: string | undefined, query
 	return models.map((model) => `<button type="button" class="server ${model.id === selectedId ? 'active' : ''}${model.enabled ? '' : ' disabled'}" data-select="${escapeHtml(model.id)}" data-filter-text="${escapeHtml(model.id.toLocaleLowerCase())}">
 		<span class="codicon codicon-mcp server-icon" aria-hidden="true"></span>
 		<span class="server-name">${escapeHtml(model.id)}</span>
-		<label class="switch" title="Toggle">
+		<label class="switch" title="${escapeHtml(messages.mcpManagerToggle)}">
 			<input type="checkbox" data-toggle="${escapeHtml(model.id)}" ${model.enabled ? 'checked' : ''} />
 			<span></span>
 		</label>
@@ -97,62 +97,46 @@ function localizeValidationErrors(errors: string[]): string[] {
 	});
 }
 
-function getMcpFieldDescriptions(language: string): Record<string, string> {
-	const isJapanese = language.toLocaleLowerCase().startsWith('ja');
-	if (isJapanese) {
-		return {
-			id: '[mcp_servers.<name>] の一意なサーバー名です。',
-			transport: '接続方式です。コマンド起動は stdio、URL 接続は http を選択してください。',
-			command: 'stdio MCP サーバーを起動するコマンドです。http の場合は空にしてください。',
-			args: 'stdio サーバーに渡す引数です。1項目を1行で記載してください。',
-			url: 'http MCP サーバーの URL です。stdio の場合は空にしてください。',
-			env: 'MCP サーバーへ渡す環境変数です。キーと値をペアで指定してください。',
-			required: 'Codex がこの MCP サーバーを必須として扱うかを指定します。',
-			startupTimeoutSec: '起動タイムアウト秒数です。0以上の数値を指定してください。',
-			toolTimeoutSec: 'ツール実行タイムアウト秒数です。0以上の数値を指定してください。',
-			enabledTools: '許可するツール名です。1項目を1行で記載してください。Disabled Tools とは同時指定できません。',
-			disabledTools: '無効化するツール名です。1項目を1行で記載してください。Enabled Tools とは同時指定できません。',
-		};
-	}
+function getMcpFieldDescriptions(): Record<string, string> {
 	return {
-		id: 'Unique server name under [mcp_servers.<name>].',
-		transport: 'Connection type. Use stdio for command based servers, http for URL based servers.',
-		command: 'Command to launch a stdio MCP server. Leave empty for http servers.',
-		args: 'Command arguments for stdio servers. Enter one item per line.',
-		url: 'HTTP MCP server URL. Leave empty for stdio servers.',
-		env: 'Environment variables passed to the MCP server. Enter key and value pairs.',
-		required: 'Whether Codex should treat this MCP server as required.',
-		startupTimeoutSec: 'Startup timeout in seconds. Use a non-negative number.',
-		toolTimeoutSec: 'Tool execution timeout in seconds. Use a non-negative number.',
-		enabledTools: 'Allow only these tools. Enter one tool name per line. Do not combine with Disabled Tools.',
-		disabledTools: 'Disable these tools. Enter one tool name per line. Do not combine with Enabled Tools.',
+		id: messages.mcpManagerDescriptionServerName,
+		transport: messages.mcpManagerDescriptionTransport,
+		command: messages.mcpManagerDescriptionCommand,
+		args: messages.mcpManagerDescriptionArgs,
+		url: messages.mcpManagerDescriptionUrl,
+		env: messages.mcpManagerDescriptionEnv,
+		required: messages.mcpManagerDescriptionRequired,
+		startupTimeoutSec: messages.mcpManagerDescriptionStartupTimeout,
+		toolTimeoutSec: messages.mcpManagerDescriptionToolTimeout,
+		enabledTools: messages.mcpManagerDescriptionEnabledTools,
+		disabledTools: messages.mcpManagerDescriptionDisabledTools,
 	};
 }
 
 function buildForm(model: McpFormModel | undefined, previousId?: string): string {
 	const current = model ?? emptyModel();
-	const descriptions = getMcpFieldDescriptions(vscode.env.language ?? 'en');
+	const descriptions = getMcpFieldDescriptions();
 	return `<div class="detail-form-shell"><form id="form" data-previous-id="${escapeHtml(previousId ?? current.id)}" data-enabled="${current.enabled ? 'true' : 'false'}">
 		<label>${buildFieldLabel(messages.mcpManagerServerName, descriptions.id)}<input name="id" value="${escapeHtml(current.id)}" /></label>
-		<label>${buildFieldLabel('Transport', descriptions.transport)}<select name="transport">
+		<label>${buildFieldLabel(messages.mcpManagerTransportLabel, descriptions.transport)}<select name="transport">
 			<option value="stdio" ${current.transport === 'stdio' ? 'selected' : ''}>stdio</option>
 			<option value="http" ${current.transport === 'http' ? 'selected' : ''}>http</option>
 		</select></label>
-		<label>${buildFieldLabel('Command', descriptions.command)}<input name="command" value="${escapeHtml(current.command)}" /></label>
-		<label>${buildFieldLabel('Args', descriptions.args)}<textarea class="textarea-args" name="args">${escapeHtml(current.args.join('\n'))}</textarea></label>
-		<label>${buildFieldLabel('URL', descriptions.url)}<input name="url" value="${escapeHtml(current.url)}" /></label>
+		<label>${buildFieldLabel(messages.mcpManagerCommandLabel, descriptions.command)}<input name="command" value="${escapeHtml(current.command)}" /></label>
+		<label>${buildFieldLabel(messages.mcpManagerArgsLabel, descriptions.args)}<textarea class="textarea-args" name="args">${escapeHtml(current.args.join('\n'))}</textarea></label>
+		<label>${buildFieldLabel(messages.mcpManagerUrlLabel, descriptions.url)}<input name="url" value="${escapeHtml(current.url)}" /></label>
 		<div class="env-field">
 			<span class="field-label-row">
-				${buildFieldLabel('Env', descriptions.env)}
-				<button id="addEnvRow" class="icon-button" type="button" title="Add env" aria-label="Add env"><span class="codicon codicon-add" aria-hidden="true"></span></button>
+				${buildFieldLabel(messages.mcpManagerEnvLabel, descriptions.env)}
+				<button id="addEnvRow" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerAddEnv)}" aria-label="${escapeHtml(messages.mcpManagerAddEnv)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>
 			</span>
 			<div id="envRows" class="env-rows">${buildEnvRows(current.env)}</div>
 		</div>
-		<label class="required-field">${buildFieldLabel('Required', descriptions.required)}<span class="required-switch"><input name="required" type="checkbox" ${current.required ? 'checked' : ''} /><span></span></span></label>
-		<label>${buildFieldLabel('Startup Timeout', descriptions.startupTimeoutSec)}<input name="startupTimeoutSec" value="${current.startupTimeoutSec ?? ''}" /></label>
-		<label>${buildFieldLabel('Tool Timeout', descriptions.toolTimeoutSec)}<input name="toolTimeoutSec" value="${current.toolTimeoutSec ?? ''}" /></label>
-		<label>${buildFieldLabel('Enabled Tools', descriptions.enabledTools)}<textarea name="enabledTools">${escapeHtml(current.enabledTools.join('\n'))}</textarea></label>
-		<label>${buildFieldLabel('Disabled Tools', descriptions.disabledTools)}<textarea name="disabledTools">${escapeHtml(current.disabledTools.join('\n'))}</textarea></label>
+		<label class="required-field">${buildFieldLabel(messages.mcpManagerRequiredLabel, descriptions.required)}<span class="required-switch"><input name="required" type="checkbox" ${current.required ? 'checked' : ''} /><span></span></span></label>
+		<label>${buildFieldLabel(messages.mcpManagerStartupTimeoutLabel, descriptions.startupTimeoutSec)}<input name="startupTimeoutSec" value="${current.startupTimeoutSec ?? ''}" /></label>
+		<label>${buildFieldLabel(messages.mcpManagerToolTimeoutLabel, descriptions.toolTimeoutSec)}<input name="toolTimeoutSec" value="${current.toolTimeoutSec ?? ''}" /></label>
+		<label>${buildFieldLabel(messages.mcpManagerEnabledToolsLabel, descriptions.enabledTools)}<textarea name="enabledTools">${escapeHtml(current.enabledTools.join('\n'))}</textarea></label>
+		<label>${buildFieldLabel(messages.mcpManagerDisabledToolsLabel, descriptions.disabledTools)}<textarea name="disabledTools">${escapeHtml(current.disabledTools.join('\n'))}</textarea></label>
 	</form></div>`;
 }
 
@@ -161,9 +145,9 @@ function buildEnvRows(entries: McpFormModel['env']): string {
 	return resolvedEntries
 		.map(
 			(entry) => `<div class="env-row">
-				<input name="envKey" value="${escapeHtml(entry.key)}" placeholder="KEY" />
-				<input name="envValue" value="${escapeHtml(entry.value)}" placeholder="value" />
-				<button class="icon-button env-remove" type="button" title="Remove env" aria-label="Remove env"><span class="codicon codicon-close" aria-hidden="true"></span></button>
+				<input name="envKey" value="${escapeHtml(entry.key)}" placeholder="${escapeHtml(messages.mcpManagerEnvKeyPlaceholder)}" />
+				<input name="envValue" value="${escapeHtml(entry.value)}" placeholder="${escapeHtml(messages.mcpManagerEnvValuePlaceholder)}" />
+				<button class="icon-button env-remove" type="button" title="${escapeHtml(messages.mcpManagerRemoveEnv)}" aria-label="${escapeHtml(messages.mcpManagerRemoveEnv)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>
 			</div>`,
 		)
 		.join('');
@@ -181,7 +165,7 @@ function buildHtml(
 	const codiconCssHref = getCodiconCssHref(webview);
 	const serializedModels = JSON.stringify(models);
 	const fieldDescriptions = JSON.stringify(
-		getMcpFieldDescriptions(vscode.env.language ?? 'en'),
+		getMcpFieldDescriptions(),
 	);
 	const csp = [
 		"default-src 'none'",
@@ -293,9 +277,9 @@ function buildHtml(
 			const resolvedEntries = entries && entries.length > 0 ? entries : [{ key: '', value: '' }];
 			return resolvedEntries.map((entry) =>
 				'<div class="env-row">' +
-				'<input name="envKey" value="' + escapeHtml(entry.key || '') + '" placeholder="KEY" />' +
-				'<input name="envValue" value="' + escapeHtml(entry.value || '') + '" placeholder="value" />' +
-				'<button class="icon-button env-remove" type="button" title="Remove env" aria-label="Remove env"><span class="codicon codicon-close" aria-hidden="true"></span></button>' +
+				'<input name="envKey" value="' + escapeHtml(entry.key || '') + '" placeholder="${escapeHtml(messages.mcpManagerEnvKeyPlaceholder)}" />' +
+				'<input name="envValue" value="' + escapeHtml(entry.value || '') + '" placeholder="${escapeHtml(messages.mcpManagerEnvValuePlaceholder)}" />' +
+				'<button class="icon-button env-remove" type="button" title="${escapeHtml(messages.mcpManagerRemoveEnv)}" aria-label="${escapeHtml(messages.mcpManagerRemoveEnv)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>' +
 				'</div>'
 			).join('');
 		};
@@ -314,25 +298,25 @@ function buildHtml(
 			detailPane.innerHTML =
 				'<div class="detail-form-shell"><form id="form" data-previous-id="' + escapeHtml(current.id) + '" data-enabled="' + (current.enabled === false ? 'false' : 'true') + '">' +
 				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerServerName)}, descriptions.id) + '<input name="id" value="' + escapeHtml(current.id) + '" /></label>' +
-				'<label>' + fieldLabel('Transport', descriptions.transport) + '<select name="transport">' +
+				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerTransportLabel)}, descriptions.transport) + '<select name="transport">' +
 				'<option value="stdio" ' + (current.transport === 'stdio' ? 'selected' : '') + '>stdio</option>' +
 				'<option value="http" ' + (current.transport === 'http' ? 'selected' : '') + '>http</option>' +
 				'</select></label>' +
-				'<label>' + fieldLabel('Command', descriptions.command) + '<input name="command" value="' + escapeHtml(current.command) + '" /></label>' +
-				'<label>' + fieldLabel('Args', descriptions.args) + '<textarea class="textarea-args" name="args">' + escapeHtml((current.args || []).join('\\n')) + '</textarea></label>' +
-				'<label>' + fieldLabel('URL', descriptions.url) + '<input name="url" value="' + escapeHtml(current.url) + '" /></label>' +
+				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerCommandLabel)}, descriptions.command) + '<input name="command" value="' + escapeHtml(current.command) + '" /></label>' +
+				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerArgsLabel)}, descriptions.args) + '<textarea class="textarea-args" name="args">' + escapeHtml((current.args || []).join('\\n')) + '</textarea></label>' +
+				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerUrlLabel)}, descriptions.url) + '<input name="url" value="' + escapeHtml(current.url) + '" /></label>' +
 				'<div class="env-field">' +
 				'<span class="field-label-row">' +
-				fieldLabel('Env', descriptions.env) +
-				'<button id="addEnvRow" class="icon-button" type="button" title="Add env" aria-label="Add env"><span class="codicon codicon-add" aria-hidden="true"></span></button>' +
+				fieldLabel(${JSON.stringify(messages.mcpManagerEnvLabel)}, descriptions.env) +
+				'<button id="addEnvRow" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerAddEnv)}" aria-label="${escapeHtml(messages.mcpManagerAddEnv)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>' +
 				'</span>' +
 				'<div id="envRows" class="env-rows">' + buildEnvRowsHtml(current.env || []) + '</div>' +
 				'</div>' +
-				'<label class="required-field">' + fieldLabel('Required', descriptions.required) + '<span class="required-switch"><input name="required" type="checkbox" ' + (current.required ? 'checked' : '') + ' /><span></span></span></label>' +
-				'<label>' + fieldLabel('Startup Timeout', descriptions.startupTimeoutSec) + '<input name="startupTimeoutSec" value="' + escapeHtml(current.startupTimeoutSec ?? '') + '" /></label>' +
-				'<label>' + fieldLabel('Tool Timeout', descriptions.toolTimeoutSec) + '<input name="toolTimeoutSec" value="' + escapeHtml(current.toolTimeoutSec ?? '') + '" /></label>' +
-				'<label>' + fieldLabel('Enabled Tools', descriptions.enabledTools) + '<textarea name="enabledTools">' + escapeHtml((current.enabledTools || []).join('\\n')) + '</textarea></label>' +
-				'<label>' + fieldLabel('Disabled Tools', descriptions.disabledTools) + '<textarea name="disabledTools">' + escapeHtml((current.disabledTools || []).join('\\n')) + '</textarea></label>' +
+				'<label class="required-field">' + fieldLabel(${JSON.stringify(messages.mcpManagerRequiredLabel)}, descriptions.required) + '<span class="required-switch"><input name="required" type="checkbox" ' + (current.required ? 'checked' : '') + ' /><span></span></span></label>' +
+				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerStartupTimeoutLabel)}, descriptions.startupTimeoutSec) + '<input name="startupTimeoutSec" value="' + escapeHtml(current.startupTimeoutSec ?? '') + '" /></label>' +
+				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerToolTimeoutLabel)}, descriptions.toolTimeoutSec) + '<input name="toolTimeoutSec" value="' + escapeHtml(current.toolTimeoutSec ?? '') + '" /></label>' +
+				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerEnabledToolsLabel)}, descriptions.enabledTools) + '<textarea name="enabledTools">' + escapeHtml((current.enabledTools || []).join('\\n')) + '</textarea></label>' +
+				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerDisabledToolsLabel)}, descriptions.disabledTools) + '<textarea name="disabledTools">' + escapeHtml((current.disabledTools || []).join('\\n')) + '</textarea></label>' +
 				'</form></div>';
 			bindForm();
 		};
@@ -341,9 +325,9 @@ function buildHtml(
 			const row = document.createElement('div');
 			row.className = 'env-row';
 			row.innerHTML =
-				'<input name="envKey" value="' + escapeHtml(key) + '" placeholder="KEY" />' +
-				'<input name="envValue" value="' + escapeHtml(value) + '" placeholder="value" />' +
-				'<button class="icon-button env-remove" type="button" title="Remove env" aria-label="Remove env"><span class="codicon codicon-close" aria-hidden="true"></span></button>';
+				'<input name="envKey" value="' + escapeHtml(key) + '" placeholder="${escapeHtml(messages.mcpManagerEnvKeyPlaceholder)}" />' +
+				'<input name="envValue" value="' + escapeHtml(value) + '" placeholder="${escapeHtml(messages.mcpManagerEnvValuePlaceholder)}" />' +
+				'<button class="icon-button env-remove" type="button" title="${escapeHtml(messages.mcpManagerRemoveEnv)}" aria-label="${escapeHtml(messages.mcpManagerRemoveEnv)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>';
 			return row;
 		};
 		const collectEnvEntries = () => {
@@ -560,9 +544,9 @@ export class McpManagerPanelManager implements vscode.Disposable {
 			const choice = await vscode.window.showWarningMessage(
 				messages.mcpManagerDeleteConfirm(message.id),
 				{ modal: true },
-				'OK',
+				messages.dialogOk,
 			);
-			if (choice === 'OK') {
+			if (choice === messages.dialogOk) {
 				deleteMcpServer(configPath, message.id);
 				this.onDidChangeMcp();
 				this.refresh();

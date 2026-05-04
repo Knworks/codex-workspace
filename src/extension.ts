@@ -334,9 +334,9 @@ export function activate(context: vscode.ExtensionContext) {
 		const choice = await vscode.window.showWarningMessage(
 			message,
 			{ modal: true },
-			'OK',
+			messages.dialogOk,
 		);
-		return choice === 'OK';
+		return choice === messages.dialogOk;
 	};
 
 	const syncCoreDisposable = vscode.commands.registerCommand(

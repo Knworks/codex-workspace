@@ -234,9 +234,9 @@ async function deleteAgent(
 	const choice = await vscode.window.showWarningMessage(
 		`${messages.agent.deleteConfirm(path.basename(agentFilePath))}${warning}`,
 		{ modal: true },
-		'OK',
+		messages.dialogOk,
 	);
-	if (choice !== 'OK') {
+	if (choice !== messages.dialogOk) {
 		return;
 	}
 	fs.rmSync(agentFilePath, { force: true });

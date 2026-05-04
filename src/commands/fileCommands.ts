@@ -598,8 +598,12 @@ async function pickTemplateContents(): Promise<string | null> {
 
 async function confirmDialog(message: string, targetPath: string): Promise<boolean> {
 	const detail = `${message}\n${targetPath}`;
-	const choice = await vscode.window.showWarningMessage(detail, { modal: true }, 'OK');
-	return choice === 'OK';
+	const choice = await vscode.window.showWarningMessage(
+		detail,
+		{ modal: true },
+		messages.dialogOk,
+	);
+	return choice === messages.dialogOk;
 }
 
 async function confirmUseNumberedName(
@@ -616,9 +620,9 @@ ${targetPath}`;
 	const choice = await vscode.window.showWarningMessage(
 		detail,
 		{ modal: true },
-		'OK',
+		messages.dialogOk,
 	);
-	return choice === 'OK';
+	return choice === messages.dialogOk;
 }
 
 

@@ -1250,7 +1250,7 @@ function buildHistoryWebviewHtml(
 </head>
 <body>
 	<div class="root">
-		<nav class="tabs" aria-label="Codex Manager tabs">
+		<nav class="tabs" aria-label="${escapeHtml(messages.coreViewTabsAriaLabel)}">
 			<button class="tab active" data-tab="history" type="button"><span class="codicon codicon-history" aria-hidden="true"></span>${messages.coreViewConversationHistoryTab}</button>
 			<button class="tab" data-tab="chain" type="button"><span class="codicon codicon-server" aria-hidden="true"></span>${messages.coreViewAgentsChainTab}</button>
 			<button class="tab" data-tab="trusted" type="button"><span class="codicon codicon-shield" aria-hidden="true"></span>${messages.coreViewTrustedDirectoriesTab}</button>
@@ -1914,9 +1914,9 @@ export class HistoryPanelManager implements vscode.Disposable {
 		const choice = await vscode.window.showWarningMessage(
 			messages.trustedDirectoryDeleteConfirm(targetPath),
 			{ modal: true },
-			'OK',
+			messages.dialogOk,
 		);
-		if (choice !== 'OK') {
+		if (choice !== messages.dialogOk) {
 			return;
 		}
 		removeTrustedDirectory(resolveCodexPaths().configPath, targetPath);

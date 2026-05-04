@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { CodexTreeDataProvider } from './codexTreeProvider';
 import { CodexTreeItem } from '../models/treeItems';
+import { messages } from '../i18n';
 import { readMcpServers } from '../services/mcpService';
 import { resolveCodexPaths } from '../services/workspaceStatus';
 
@@ -22,7 +23,7 @@ export class McpExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 			item.contextValue = 'codex-mcp-server';
 			item.command = {
 				command: 'codex-workspace.mcp.toggle',
-				title: 'Toggle MCP',
+				title: messages.mcpToggleAction,
 				arguments: [server.id],
 			};
 			item.iconPath = server.enabled
