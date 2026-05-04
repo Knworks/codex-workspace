@@ -1522,6 +1522,13 @@ function buildHistoryWebviewHtml(
 		};
 
 		const renderTree = () => {
+			const previousScrollTop = treeArea.scrollTop;
+			const openDayKeys = new Set(
+				Array.from(treeArea.querySelectorAll('details[data-day-key]'))
+					.filter((element) => element.open)
+					.map((element) => element.dataset.dayKey)
+					.filter((dayKey) => Boolean(dayKey)),
+			);
 			if (state.days.length === 0) {
 				treeArea.innerHTML = '<div class="preview-empty">' + labels.noResult + '</div>';
 				return;
@@ -1529,7 +1536,8 @@ function buildHistoryWebviewHtml(
 			treeArea.innerHTML = '';
 			for (const day of state.days) {
 				const dayDetails = document.createElement('details');
-				dayDetails.open = true;
+				dayDetails.dataset.dayKey = day.dateKey;
+				dayDetails.open = openDayKeys.size === 0 || openDayKeys.has(day.dateKey);
 				const daySummary = document.createElement('summary');
 				daySummary.textContent = day.dateKey;
 				dayDetails.appendChild(daySummary);
@@ -1560,6 +1568,7 @@ function buildHistoryWebviewHtml(
 				dayDetails.appendChild(turnsContainer);
 				treeArea.appendChild(dayDetails);
 			}
+			treeArea.scrollTop = previousScrollTop;
 		};
 
 		const renderPreview = () => {
