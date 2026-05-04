@@ -289,6 +289,11 @@ function buildRefreshButtonHtml(tab: CoreViewTab): string {
 	return `<button class="icon-button refresh-button" type="button" data-refresh-tab="${tab}" title="${escapeHtml(messages.commandRefresh)}" aria-label="${escapeHtml(messages.commandRefresh)}"><span class="codicon codicon-refresh" aria-hidden="true"></span></button>`;
 }
 
+function buildWorkspaceContextHtml(workspaceRoot: string | undefined, emptyLabel: string): string {
+	const value = workspaceRoot ?? emptyLabel;
+	return `<span class="codicon codicon-workspace-trusted" aria-hidden="true"></span><span>${escapeHtml(messages.chainWorkspaceRootLabel)}: ${escapeHtml(value)}</span>`;
+}
+
 function toChainSubtitle(node: AgentsChainNode): string {
 	return `${node.kind} / ${node.type}`;
 }
@@ -546,11 +551,11 @@ function buildHooksHtml(): string {
 		.join('');
 	return `<div class="trusted-toolbar">
 		<div class="chain-toolbar-main">
+			<div class="chain-context">${buildWorkspaceContextHtml(diagnostics.workspaceRoot, messages.chainNoWorkspace)}</div>
 			<div class="chain-summary">
 				<span>${escapeHtml(messages.hooksFeatureStatus(diagnostics.hooksEnabled ? messages.hooksActive : messages.hooksInactive))}</span>
 				<span>${escapeHtml(messages.hooksProjectTrustLabel)}: ${escapeHtml(diagnostics.projectTrusted ? messages.hooksActive : messages.hooksInactive)}</span>
 			</div>
-			<div class="chain-context">${escapeHtml(messages.chainWorkspaceRootLabel)}: ${escapeHtml(diagnostics.workspaceRoot ?? messages.chainNoWorkspace)}</div>
 		</div>
 		${hookFeatureAction}
 		${buildRefreshButtonHtml('hooks')}
@@ -1013,6 +1018,9 @@ function buildHistoryWebviewHtml(
 			margin-right: auto;
 		}
 		.chain-context {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
 			color: var(--vscode-descriptionForeground);
 			font-size: 12px;
 			word-break: break-all;
@@ -1445,9 +1453,13 @@ function buildHistoryWebviewHtml(
 				problemCount: 0,
 				hiddenCount: 0,
 			};
-			chainContext.textContent = chainPayload.workspaceRoot
-				? labels.chainWorkspaceRootLabel + ': ' + chainPayload.workspaceRoot
-				: labels.chainNoWorkspace;
+			chainContext.innerHTML = chainPayload.workspaceRoot
+				? '<span class="codicon codicon-workspace-trusted" aria-hidden="true"></span><span>' +
+					escapeHtml(labels.chainWorkspaceRootLabel + ': ' + chainPayload.workspaceRoot) +
+					'</span>'
+				: '<span class="codicon codicon-workspace-trusted" aria-hidden="true"></span><span>' +
+					escapeHtml(labels.chainWorkspaceRootLabel + ': ' + labels.chainNoWorkspace) +
+					'</span>';
 			chainSummary.innerHTML =
 				'<span>' + labels.chainSummaryCurrent + ': ' + summary.currentCount + '</span>' +
 				'<span>' + labels.chainSummaryIgnored + ': ' + summary.ignoredCount + '</span>' +
