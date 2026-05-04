@@ -168,6 +168,46 @@ export const messages = {
 			'Delete MCP server [mcp_servers.{0}]?',
 			serverId,
 		),
+	mcpValidationServerNameRequired: localize(
+		'message.mcpValidationServerNameRequired',
+		'Server name is required.',
+	),
+	mcpValidationServerNameDuplicate: localize(
+		'message.mcpValidationServerNameDuplicate',
+		'An MCP server with the same name already exists.',
+	),
+	mcpValidationTransportRequired: localize(
+		'message.mcpValidationTransportRequired',
+		'Transport must be stdio or http.',
+	),
+	mcpValidationCommandRequired: localize(
+		'message.mcpValidationCommandRequired',
+		'Command is required for stdio transport.',
+	),
+	mcpValidationUrlRequired: localize(
+		'message.mcpValidationUrlRequired',
+		'URL is required for http transport.',
+	),
+	mcpValidationTimeoutInvalid: localize(
+		'message.mcpValidationTimeoutInvalid',
+		'Timeout must be a non-negative number.',
+	),
+	mcpValidationToolsMutuallyExclusive: localize(
+		'message.mcpValidationToolsMutuallyExclusive',
+		'enabled_tools and disabled_tools cannot be set at the same time.',
+	),
+	mcpValidationEnvKeyRequired: localize(
+		'message.mcpValidationEnvKeyRequired',
+		'Env rows with a value must also have a key.',
+	),
+	mcpValidationEnvKeyInvalid: localize(
+		'message.mcpValidationEnvKeyInvalid',
+		'Env keys must start with a letter or underscore and use only letters, numbers, and underscores.',
+	),
+	mcpValidationEnvKeyDuplicate: localize(
+		'message.mcpValidationEnvKeyDuplicate',
+		'Env keys must be unique.',
+	),
 	coreViewAgentsChainTab: localize(
 		'message.coreViewAgentsChainTab',
 		'AGENTS Loading Chain',

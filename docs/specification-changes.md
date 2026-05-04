@@ -475,6 +475,7 @@ MCP Exploreは、現行仕様を維持する。
 | Command | TextBox | ※ | `stdio`の場合のみ表示 |
 | Args | TextArea |  | `stdio`の場合のみ表示。1行1引数 |
 | URL | TextBox | ※ | `http`の場合のみ表示 |
+| Env | Key-Value List |  | `[mcp_servers.<id>.env]`。1行1ペアで追加・削除できる |
 | Required | Toggle |  | `required` |
 | Startup Timeout | NumberBox |  | `startup_timeout_sec` |
 | Tool Timeout | NumberBox |  | `tool_timeout_sec` |
@@ -483,7 +484,6 @@ MCP Exploreは、現行仕様を維持する。
 
 初期リリースでは、以下の項目は編集対象外とする。
 
-- `env`
 - `http_headers`
 - `env_http_headers`
 - `bearer_token_env_var`
@@ -500,6 +500,7 @@ stdio選択時に表示する項目は以下とする。
 - Transport
 - Command
 - Args
+- Env
 - Required
 - Startup Timeout
 - Tool Timeout
@@ -513,6 +514,7 @@ http選択時に表示する項目は以下とする。
 - サーバー名
 - Transport
 - URL
+- Env
 - Required
 - Startup Timeout
 - Tool Timeout
@@ -526,6 +528,7 @@ http選択時に表示する項目は以下とする。
 - 右側ペインの編集フォームは、保存ボタン押下時に`config.toml`へ反映する。
 - 保存時に入力値を検証する。
 - 検証に成功した場合、対象の`[mcp_servers.<id>]`ブロックを更新する。
+- `env`はKey-Valueペアから`[mcp_servers.<id>.env]`ブロックへ変換して保存する。
 - 保存後、未保存状態を解除する。
 - 保存後、MCP ExploreとMCP Manager Viewを更新する。
 - 保存後、設定変更の反映にCodexの再起動が必要である旨を通知する。
@@ -557,6 +560,7 @@ http選択時に表示する項目は以下とする。
 | Transport | `stdio` / `http`が未選択の場合 |
 | Command | `stdio`で空の場合 |
 | URL | `http`で空の場合 |
+| Env | 値があるのにキーが空、キーが英字または`_`で始まらない、英数字と`_`以外を含む、同一キーが重複する場合 |
 | Timeout | 数値ではない、または負数の場合 |
 | Tools | `enabled_tools`と`disabled_tools`の両方に入力がある場合 |
 
@@ -935,7 +939,7 @@ This only removes the trust entry from config.toml and does not delete the actua
 
 ## ⚠️ 保留事項
 
-- `env` / `http_headers` / `env_http_headers`のKeyValue編集UIをMCP Manager Viewに追加するかは将来対応とする。
+- `http_headers` / `env_http_headers`のKeyValue編集UIをMCP Manager Viewに追加するかは将来対応とする。
 - `bearer_token_env_var`をMCP Manager Viewの編集対象に含めるかは将来対応とする。
 - OAuth関連項目をMCP Manager Viewで扱うかは将来対応とする。
 - MCPサーバー接続テスト機能を追加するかは将来対応とする。

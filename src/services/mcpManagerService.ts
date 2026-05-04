@@ -2,12 +2,18 @@ import fs from 'fs';
 
 export type McpTransport = 'stdio' | 'http';
 
+export type McpEnvEntry = {
+	key: string;
+	value: string;
+};
+
 export type McpFormModel = {
 	id: string;
 	transport: McpTransport;
 	command: string;
 	args: string[];
 	url: string;
+	env: McpEnvEntry[];
 	required?: boolean;
 	startupTimeoutSec?: number;
 	toolTimeoutSec?: number;
@@ -30,15 +36,22 @@ type McpBlock = {
 
 const MCP_HEADER_PATTERN =
 	/^\s*\[mcp_servers\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.-]+))\]\s*$/;
+const MCP_ENV_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 export function listMcpFormModels(configPath: string): McpFormModel[] {
 	if (!fs.existsSync(configPath)) {
 		return [];
 	}
 	const contents = fs.readFileSync(configPath, 'utf8');
-	return parseMcpBlocks(contents)
+	const blocks = parseMcpBlocks(contents);
+	const envBlocks = new Map(
+		blocks
+			.filter((block) => block.id.endsWith('.env'))
+			.map((block) => [block.id.slice(0, -4), block] as const),
+	);
+	return blocks
 		.filter((block) => !block.id.endsWith('.env'))
-		.map(blockToModel);
+		.map((block) => blockToModel(block, envBlocks.get(block.id)));
 }
 
 export function validateMcpModel(
@@ -70,6 +83,27 @@ export function validateMcpModel(
 	if (model.enabledTools.length > 0 && model.disabledTools.length > 0) {
 		errors.push('toolsMutuallyExclusive');
 	}
+	const seenEnvKeys = new Set<string>();
+	for (const entry of model.env) {
+		const key = entry.key.trim();
+		const value = entry.value.trim();
+		if (!key && !value) {
+			continue;
+		}
+		if (!key) {
+			errors.push('envKeyRequired');
+			continue;
+		}
+		if (!MCP_ENV_KEY_PATTERN.test(key)) {
+			errors.push('envKeyInvalid');
+			continue;
+		}
+		if (seenEnvKeys.has(key)) {
+			errors.push('envKeyDuplicate');
+			continue;
+		}
+		seenEnvKeys.add(key);
+	}
 	return { ok: errors.length === 0, errors };
 }
 
@@ -91,14 +125,39 @@ export function saveMcpServer(
 	const target = previousId
 		? blocks.find((block) => block.id === previousId)
 		: undefined;
+	const targetEnv = previousId
+		? blocks.find((block) => block.id === `${previousId}.env`)
+		: undefined;
 	const newBlock = buildMcpBlock(model, target).split('\n');
+	const newEnvBlock = buildMcpEnvBlock(model).split('\n');
 	if (!target) {
 		const separator = contents.trim().length > 0 ? '\n\n' : '';
-		fs.writeFileSync(configPath, `${contents}${separator}${newBlock.join('\n')}\n`, 'utf8');
+		const envSection =
+			model.env.length > 0 ? `\n\n${newEnvBlock.join('\n')}` : '';
+		fs.writeFileSync(
+			configPath,
+			`${contents}${separator}${newBlock.join('\n')}${envSection}\n`,
+			'utf8',
+		);
 		return validation;
 	}
 	const lines = contents.split(/\r?\n/);
-	lines.splice(target.startLine, target.endLine - target.startLine + 1, ...newBlock);
+	const replacements = [
+		{ target, nextLines: newBlock },
+		...(targetEnv
+			? [{ target: targetEnv, nextLines: model.env.length > 0 ? newEnvBlock : [] }]
+			: []),
+	].sort((left, right) => right.target.startLine - left.target.startLine);
+	for (const replacement of replacements) {
+		lines.splice(
+			replacement.target.startLine,
+			replacement.target.endLine - replacement.target.startLine + 1,
+			...replacement.nextLines,
+		);
+	}
+	if (!targetEnv && model.env.length > 0) {
+		lines.push('', ...newEnvBlock);
+	}
 	fs.writeFileSync(configPath, normalizeLines(lines), 'utf8');
 	return validation;
 }
@@ -150,7 +209,7 @@ function parseMcpBlocks(contents: string): McpBlock[] {
 	return blocks;
 }
 
-function blockToModel(block: McpBlock): McpFormModel {
+function blockToModel(block: McpBlock, envBlock?: McpBlock): McpFormModel {
 	const values = readBlockValues(block.lines);
 	const hasUrl = typeof values.url === 'string';
 	const args = Array.isArray(values.args) ? values.args : [];
@@ -162,6 +221,7 @@ function blockToModel(block: McpBlock): McpFormModel {
 		command: typeof values.command === 'string' ? values.command : '',
 		args,
 		url: typeof values.url === 'string' ? values.url : '',
+		env: envBlock ? readEnvBlockEntries(envBlock.lines) : toEnvEntries(values.env),
 		required: typeof values.required === 'boolean' ? values.required : undefined,
 		startupTimeoutSec:
 			typeof values.startup_timeout_sec === 'number'
@@ -204,12 +264,46 @@ function parseTomlScalarOrArray(value: string): unknown {
 	if (stringMatch) {
 		return stringMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
 	}
+	const literalStringMatch = trimmed.match(/^'([^']*)'$/);
+	if (literalStringMatch) {
+		return literalStringMatch[1];
+	}
 	if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
 		return [...trimmed.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((match) =>
 			match[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'),
 		);
 	}
+	if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+		return parseTomlInlineTable(trimmed);
+	}
 	return trimmed;
+}
+
+function parseTomlInlineTable(value: string): Record<string, string> {
+	const result: Record<string, string> = {};
+	for (const match of value.matchAll(
+		/([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"((?:[^"\\]|\\.)*)"/g,
+	)) {
+		result[match[1]] = match[2]
+			.replace(/\\"/g, '"')
+			.replace(/\\\\/g, '\\');
+	}
+	return result;
+}
+
+function toEnvEntries(value: unknown): McpEnvEntry[] {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		return [];
+	}
+	return Object.entries(value as Record<string, unknown>)
+		.filter(([, entryValue]) => typeof entryValue === 'string')
+		.map(([key, entryValue]) => ({ key, value: entryValue as string }));
+}
+
+function readEnvBlockEntries(lines: string[]): McpEnvEntry[] {
+	return Object.entries(readBlockValues(lines))
+		.filter(([, entryValue]) => typeof entryValue === 'string')
+		.map(([key, value]) => ({ key, value: value as string }));
 }
 
 function buildMcpBlock(model: McpFormModel, previous?: McpBlock): string {
@@ -226,6 +320,7 @@ function buildMcpBlock(model: McpFormModel, previous?: McpBlock): string {
 		'enabled',
 		'command',
 		'args',
+		'env',
 		'url',
 		'required',
 		'startup_timeout_sec',
@@ -284,6 +379,24 @@ function formatHeaderKey(value: string): string {
 
 function formatStringArray(values: string[]): string {
 	return `[${values.map((value) => `"${escapeTomlString(value)}"`).join(', ')}]`;
+}
+
+function buildMcpEnvBlock(model: McpFormModel): string {
+	const envHeader = /^[A-Za-z0-9_.-]+$/.test(model.id)
+		? `[mcp_servers.${model.id}.env]`
+		: `[mcp_servers.${formatHeaderKey(`${model.id}.env`)}]`;
+	const lines = [envHeader];
+	for (const entry of model.env) {
+		if (!entry.key.trim()) {
+			continue;
+		}
+		lines.push(`${entry.key} = '${escapeTomlLiteralString(entry.value)}'`);
+	}
+	return lines.join('\n');
+}
+
+function escapeTomlLiteralString(value: string): string {
+	return value.replace(/'/g, "''");
 }
 
 function normalizeLines(lines: string[]): string {

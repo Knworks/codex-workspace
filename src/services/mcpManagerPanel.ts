@@ -45,6 +45,7 @@ function emptyModel(): McpFormModel {
 		command: '',
 		args: [],
 		url: '',
+		env: [],
 		enabledTools: [],
 		disabledTools: [],
 		enabled: true,
@@ -66,6 +67,35 @@ function buildFieldLabel(label: string, description: string): string {
 	return `<span class="field-label">${escapeHtml(label)}<span class="codicon codicon-info info-icon" title="${escapeHtml(description)}" aria-label="${escapeHtml(description)}"></span></span>`;
 }
 
+function localizeValidationErrors(errors: string[]): string[] {
+	return errors.map((error) => {
+		switch (error) {
+			case 'serverNameRequired':
+				return messages.mcpValidationServerNameRequired;
+			case 'serverNameDuplicate':
+				return messages.mcpValidationServerNameDuplicate;
+			case 'transportRequired':
+				return messages.mcpValidationTransportRequired;
+			case 'commandRequired':
+				return messages.mcpValidationCommandRequired;
+			case 'urlRequired':
+				return messages.mcpValidationUrlRequired;
+			case 'timeoutInvalid':
+				return messages.mcpValidationTimeoutInvalid;
+			case 'toolsMutuallyExclusive':
+				return messages.mcpValidationToolsMutuallyExclusive;
+			case 'envKeyRequired':
+				return messages.mcpValidationEnvKeyRequired;
+			case 'envKeyInvalid':
+				return messages.mcpValidationEnvKeyInvalid;
+			case 'envKeyDuplicate':
+				return messages.mcpValidationEnvKeyDuplicate;
+			default:
+				return error;
+		}
+	});
+}
+
 function getMcpFieldDescriptions(language: string): Record<string, string> {
 	const isJapanese = language.toLocaleLowerCase().startsWith('ja');
 	if (isJapanese) {
@@ -75,6 +105,7 @@ function getMcpFieldDescriptions(language: string): Record<string, string> {
 			command: 'stdio MCP サーバーを起動するコマンドです。http の場合は空にしてください。',
 			args: 'stdio サーバーに渡す引数です。1項目を1行で記載してください。',
 			url: 'http MCP サーバーの URL です。stdio の場合は空にしてください。',
+			env: 'MCP サーバーへ渡す環境変数です。キーと値をペアで指定してください。',
 			required: 'Codex がこの MCP サーバーを必須として扱うかを指定します。',
 			startupTimeoutSec: '起動タイムアウト秒数です。0以上の数値を指定してください。',
 			toolTimeoutSec: 'ツール実行タイムアウト秒数です。0以上の数値を指定してください。',
@@ -88,6 +119,7 @@ function getMcpFieldDescriptions(language: string): Record<string, string> {
 		command: 'Command to launch a stdio MCP server. Leave empty for http servers.',
 		args: 'Command arguments for stdio servers. Enter one item per line.',
 		url: 'HTTP MCP server URL. Leave empty for stdio servers.',
+		env: 'Environment variables passed to the MCP server. Enter key and value pairs.',
 		required: 'Whether Codex should treat this MCP server as required.',
 		startupTimeoutSec: 'Startup timeout in seconds. Use a non-negative number.',
 		toolTimeoutSec: 'Tool execution timeout in seconds. Use a non-negative number.',
@@ -108,6 +140,13 @@ function buildForm(model: McpFormModel | undefined, previousId?: string): string
 		<label>${buildFieldLabel('Command', descriptions.command)}<input name="command" value="${escapeHtml(current.command)}" /></label>
 		<label>${buildFieldLabel('Args', descriptions.args)}<textarea class="textarea-args" name="args">${escapeHtml(current.args.join('\n'))}</textarea></label>
 		<label>${buildFieldLabel('URL', descriptions.url)}<input name="url" value="${escapeHtml(current.url)}" /></label>
+		<div class="env-field">
+			<span class="field-label-row">
+				${buildFieldLabel('Env', descriptions.env)}
+				<button id="addEnvRow" class="icon-button" type="button" title="Add env" aria-label="Add env"><span class="codicon codicon-add" aria-hidden="true"></span></button>
+			</span>
+			<div id="envRows" class="env-rows">${buildEnvRows(current.env)}</div>
+		</div>
 		<label class="required-field">${buildFieldLabel('Required', descriptions.required)}<span class="required-switch"><input name="required" type="checkbox" ${current.required ? 'checked' : ''} /><span></span></span></label>
 		<label>${buildFieldLabel('Startup Timeout', descriptions.startupTimeoutSec)}<input name="startupTimeoutSec" value="${current.startupTimeoutSec ?? ''}" /></label>
 		<label>${buildFieldLabel('Tool Timeout', descriptions.toolTimeoutSec)}<input name="toolTimeoutSec" value="${current.toolTimeoutSec ?? ''}" /></label>
@@ -118,6 +157,19 @@ function buildForm(model: McpFormModel | undefined, previousId?: string): string
 			<button id="cancel" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerCancel)}" aria-label="${escapeHtml(messages.mcpManagerCancel)}"><span class="codicon codicon-discard" aria-hidden="true"></span></button>
 		</div>
 	</form></div>`;
+}
+
+function buildEnvRows(entries: McpFormModel['env']): string {
+	const resolvedEntries = entries.length > 0 ? entries : [{ key: '', value: '' }];
+	return resolvedEntries
+		.map(
+			(entry) => `<div class="env-row">
+				<input name="envKey" value="${escapeHtml(entry.key)}" placeholder="KEY" />
+				<input name="envValue" value="${escapeHtml(entry.value)}" placeholder="value" />
+				<button class="icon-button env-remove" type="button" title="Remove env" aria-label="Remove env"><span class="codicon codicon-close" aria-hidden="true"></span></button>
+			</div>`,
+		)
+		.join('');
 }
 
 function buildHtml(
@@ -172,8 +224,12 @@ function buildHtml(
 		form { display: grid; gap: 10px; width: 100%; max-width: none; box-sizing: border-box; }
 		label { display: grid; gap: 4px; width: 100%; box-sizing: border-box; }
 		.field-label { display: inline-flex; align-items: center; gap: 6px; }
+		.field-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 		.info-icon { color: var(--vscode-descriptionForeground); }
 		.required-field { justify-items: start; }
+		.env-field { display: grid; gap: 6px; }
+		.env-rows { display: grid; gap: 8px; }
+		.env-row { display: grid; grid-template-columns: minmax(120px, 0.9fr) minmax(0, 1.1fr) auto; gap: 8px; align-items: center; }
 		input, textarea, select { width: 100%; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); border-radius: 6px; padding: 6px 8px; }
 		textarea { min-height: 70px; }
 		.textarea-args { min-height: 120px; }
@@ -228,6 +284,16 @@ function buildHtml(
 				.replaceAll('"', '&quot;');
 		const fieldLabel = (label, description) =>
 			'<span class="field-label">' + escapeHtml(label) + '<span class="codicon codicon-info info-icon" title="' + escapeHtml(description) + '" aria-label="' + escapeHtml(description) + '"></span></span>';
+		const buildEnvRowsHtml = (entries) => {
+			const resolvedEntries = entries && entries.length > 0 ? entries : [{ key: '', value: '' }];
+			return resolvedEntries.map((entry) =>
+				'<div class="env-row">' +
+				'<input name="envKey" value="' + escapeHtml(entry.key || '') + '" placeholder="KEY" />' +
+				'<input name="envValue" value="' + escapeHtml(entry.value || '') + '" placeholder="value" />' +
+				'<button class="icon-button env-remove" type="button" title="Remove env" aria-label="Remove env"><span class="codicon codicon-close" aria-hidden="true"></span></button>' +
+				'</div>'
+			).join('');
+		};
 		const renderForm = (model) => {
 			const current = model || {
 				id: '',
@@ -235,6 +301,7 @@ function buildHtml(
 				command: '',
 				args: [],
 				url: '',
+				env: [],
 				enabledTools: [],
 				disabledTools: [],
 				enabled: true,
@@ -249,6 +316,13 @@ function buildHtml(
 				'<label>' + fieldLabel('Command', descriptions.command) + '<input name="command" value="' + escapeHtml(current.command) + '" /></label>' +
 				'<label>' + fieldLabel('Args', descriptions.args) + '<textarea class="textarea-args" name="args">' + escapeHtml((current.args || []).join('\\n')) + '</textarea></label>' +
 				'<label>' + fieldLabel('URL', descriptions.url) + '<input name="url" value="' + escapeHtml(current.url) + '" /></label>' +
+				'<div class="env-field">' +
+				'<span class="field-label-row">' +
+				fieldLabel('Env', descriptions.env) +
+				'<button id="addEnvRow" class="icon-button" type="button" title="Add env" aria-label="Add env"><span class="codicon codicon-add" aria-hidden="true"></span></button>' +
+				'</span>' +
+				'<div id="envRows" class="env-rows">' + buildEnvRowsHtml(current.env || []) + '</div>' +
+				'</div>' +
 				'<label class="required-field">' + fieldLabel('Required', descriptions.required) + '<span class="required-switch"><input name="required" type="checkbox" ' + (current.required ? 'checked' : '') + ' /><span></span></span></label>' +
 				'<label>' + fieldLabel('Startup Timeout', descriptions.startupTimeoutSec) + '<input name="startupTimeoutSec" value="' + escapeHtml(current.startupTimeoutSec ?? '') + '" /></label>' +
 				'<label>' + fieldLabel('Tool Timeout', descriptions.toolTimeoutSec) + '<input name="toolTimeoutSec" value="' + escapeHtml(current.toolTimeoutSec ?? '') + '" /></label>' +
@@ -262,9 +336,48 @@ function buildHtml(
 			bindForm();
 		};
 		const getForm = () => document.getElementById('form');
+		const createEnvRow = (key = '', value = '') => {
+			const row = document.createElement('div');
+			row.className = 'env-row';
+			row.innerHTML =
+				'<input name="envKey" value="' + escapeHtml(key) + '" placeholder="KEY" />' +
+				'<input name="envValue" value="' + escapeHtml(value) + '" placeholder="value" />' +
+				'<button class="icon-button env-remove" type="button" title="Remove env" aria-label="Remove env"><span class="codicon codicon-close" aria-hidden="true"></span></button>';
+			return row;
+		};
+		const collectEnvEntries = () => {
+			const keys = Array.from(document.querySelectorAll('input[name="envKey"]'));
+			const values = Array.from(document.querySelectorAll('input[name="envValue"]'));
+			return keys.map((keyInput, index) => ({
+				key: String(keyInput.value || '').trim(),
+				value: String(values[index]?.value || '').trim(),
+			})).filter((entry) => entry.key.length > 0 || entry.value.length > 0);
+		};
 		const bindForm = () => {
 			const form = getForm();
+			const envRows = document.getElementById('envRows');
 			document.getElementById('cancel')?.addEventListener('click', () => vscode.postMessage({ type: 'cancel' }));
+			document.getElementById('addEnvRow')?.addEventListener('click', () => {
+				envRows?.appendChild(createEnvRow());
+				dirty = true;
+			});
+			envRows?.addEventListener('click', (event) => {
+				const target = event.target instanceof Element ? event.target : null;
+				const removeButton = target?.closest?.('.env-remove');
+				if (!removeButton) {
+					return;
+				}
+				const rows = envRows.querySelectorAll('.env-row');
+				if (rows.length === 1) {
+					const row = rows[0];
+					row.querySelectorAll('input').forEach((input) => {
+						input.value = '';
+					});
+				} else {
+					removeButton.closest('.env-row')?.remove();
+				}
+				dirty = true;
+			});
 			form?.addEventListener('input', () => { dirty = true; });
 			form?.addEventListener('submit', (event) => {
 				event.preventDefault();
@@ -283,6 +396,7 @@ function buildHtml(
 						command: String(data.get('command') ?? ''),
 						args: lines('args'),
 						url: String(data.get('url') ?? ''),
+						env: collectEnvEntries(),
 						required: data.get('required') === 'on',
 						startupTimeoutSec: numberValue('startupTimeoutSec'),
 						toolTimeoutSec: numberValue('toolTimeoutSec'),
@@ -445,7 +559,7 @@ export class McpManagerPanelManager implements vscode.Disposable {
 		} else if (message.type === 'save') {
 			const result = saveMcpServer(configPath, message.model, message.previousId);
 			if (!result.ok) {
-				vscode.window.showErrorMessage(result.errors.join(', '));
+				vscode.window.showErrorMessage(localizeValidationErrors(result.errors).join('\n'));
 			} else {
 				vscode.window.showInformationMessage(messages.mcpToggleUpdated);
 				this.selectedId = message.model.id;
@@ -481,6 +595,7 @@ function emptyModelForPanel(): McpFormModel {
 		command: '',
 		args: [],
 		url: '',
+		env: [],
 		enabledTools: [],
 		disabledTools: [],
 		enabled: true,
