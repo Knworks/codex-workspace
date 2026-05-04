@@ -15,6 +15,7 @@ const MCP_MANAGER_VIEW_TYPE = 'codex-workspace.mcpManager';
 type InboundMessage =
 	| { type: 'ready' }
 	| { type: 'search'; query: string }
+	| { type: 'refresh' }
 	| { type: 'select'; id: string }
 	| { type: 'toggle'; id: string }
 	| { type: 'delete'; id: string }
@@ -253,6 +254,7 @@ function buildHtml(
 		<div class="search-area">
 			<input id="search" value="${escapeHtml(query)}" placeholder="${escapeHtml(messages.mcpManagerSearchPlaceholder)}" />
 			<button id="clearSearch" class="icon-button" type="button" title="${escapeHtml(messages.historyClear)}" aria-label="${escapeHtml(messages.historyClear)}"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
+			<button id="refreshList" class="icon-button" type="button" title="${escapeHtml(messages.commandRefresh)}" aria-label="${escapeHtml(messages.commandRefresh)}"><span class="codicon codicon-refresh" aria-hidden="true"></span></button>
 		</div>
 		<div class="panes">
 			<section class="left">
@@ -429,6 +431,9 @@ function buildHtml(
 			applyFilter();
 			searchInput.focus();
 		});
+		document.getElementById('refreshList')?.addEventListener('click', () => {
+			vscode.postMessage({ type: 'refresh' });
+		});
 		applyFilter();
 		document.getElementById('add').addEventListener('click', () => {
 			selectedId = '';
@@ -535,6 +540,9 @@ export class McpManagerPanelManager implements vscode.Disposable {
 		}
 		if (message.type === 'search') {
 			this.query = message.query;
+		} else if (message.type === 'refresh') {
+			this.refresh();
+			return;
 		} else if (message.type === 'select') {
 			this.selectedId = message.id;
 		} else if (message.type === 'add') {
