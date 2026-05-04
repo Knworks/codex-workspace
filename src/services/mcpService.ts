@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
 
 export type McpServer = {
 	id: string;
@@ -104,7 +105,7 @@ export function toggleMcpServer(configPath: string, serverId: string): boolean {
 }
 
 function writeConfig(configPath: string, lines: string[]): void {
-	const normalized = lines.join('\n');
+	const normalized = stabilizeManagedConfigToml(lines.join('\n'));
 	fs.writeFileSync(configPath, normalized, 'utf8');
 }
 

@@ -54,6 +54,36 @@ suite('Core manager config service', () => {
 		});
 	});
 
+	test('setFeatureFlag inserts before trailing section separator comments', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			fs.writeFileSync(
+				configPath,
+				[
+					'[features]',
+					'',
+					'# 複数エージェント機能',
+					'multi_agent = true',
+					'memories = true',
+					'',
+					'# ================================',
+					'#  MCP',
+					'# ================================',
+					'',
+					'[mcp_servers.context7]',
+					'command = "cmd"',
+				].join('\n'),
+				'utf8',
+			);
+
+			setFeatureFlag(configPath, 'web_search', true);
+
+			const contents = fs.readFileSync(configPath, 'utf8');
+			assert.ok(contents.includes('memories = true\nweb_search = true\n\n# ================================'));
+			assert.ok(!contents.includes('# ================================\n\nweb_search = true'));
+		});
+	});
+
 	test('listHookDiagnostics reads hooks.json and inline hooks with merge warning', () => {
 		withTempDir((root) => {
 			const homeDir = path.join(root, 'home');

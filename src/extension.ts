@@ -33,6 +33,7 @@ import {
 	syncDirectoryBidirectional,
 } from './services/syncService';
 import { reconcileAgentConfigAfterSync } from './services/agentSyncCleanupService';
+import { organizeConfigToml } from './services/configTomlOrganizerService';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -300,6 +301,34 @@ export function activate(context: vscode.ExtensionContext) {
 			}),
 	);
 
+	const organizeConfigTomlDisposable = vscode.commands.registerCommand(
+		'codex-workspace.organizeConfigToml',
+		() =>
+			runSafely(async () => {
+				if (!getCoreWorkspaceStatus().isAvailable) {
+					return;
+				}
+				const configPath = resolveCodexPaths().configPath;
+				try {
+					const result = organizeConfigToml(configPath);
+					vscode.window.showInformationMessage(
+						result.changed
+							? messages.configTomlOrganized(result.backupPath)
+							: messages.configTomlAlreadyOrganized(result.backupPath),
+					);
+					coreProvider.refresh();
+					mcpProvider.refresh();
+					skillsProvider.refresh();
+					agentsProvider.refresh();
+				} catch (error) {
+					console.error(error);
+					vscode.window.showErrorMessage(
+						messages.configTomlOrganizeBackupFailed,
+					);
+				}
+			}),
+	);
+
 	const confirmSync = async (targetDir: string): Promise<boolean> => {
 		const message = messages.syncConfirm(targetDir);
 		const choice = await vscode.window.showWarningMessage(
@@ -508,6 +537,7 @@ export function activate(context: vscode.ExtensionContext) {
 		openSkillManagerDisposable,
 		openAgentManagerDisposable,
 		openMcpManagerDisposable,
+		organizeConfigTomlDisposable,
 		openPromptsFolderDisposable,
 		openSkillsFolderDisposable,
 		openTemplatesFolderDisposable,

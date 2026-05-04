@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
 
 export type McpTransport = 'stdio' | 'http';
 
@@ -136,7 +137,9 @@ export function saveMcpServer(
 			model.env.length > 0 ? `\n\n${newEnvBlock.join('\n')}` : '';
 		fs.writeFileSync(
 			configPath,
-			`${contents}${separator}${newBlock.join('\n')}${envSection}\n`,
+			stabilizeManagedConfigToml(
+				`${contents}${separator}${newBlock.join('\n')}${envSection}\n`,
+			),
 			'utf8',
 		);
 		return validation;
@@ -158,7 +161,11 @@ export function saveMcpServer(
 	if (!targetEnv && model.env.length > 0) {
 		lines.push('', ...newEnvBlock);
 	}
-	fs.writeFileSync(configPath, normalizeLines(lines), 'utf8');
+	fs.writeFileSync(
+		configPath,
+		stabilizeManagedConfigToml(normalizeLines(lines)),
+		'utf8',
+	);
 	return validation;
 }
 
@@ -174,7 +181,11 @@ export function deleteMcpServer(configPath: string, serverId: string): boolean {
 	for (const target of [...targets].sort((left, right) => right.startLine - left.startLine)) {
 		lines.splice(target.startLine, target.endLine - target.startLine + 1);
 	}
-	fs.writeFileSync(configPath, normalizeLines(lines), 'utf8');
+	fs.writeFileSync(
+		configPath,
+		stabilizeManagedConfigToml(normalizeLines(lines)),
+		'utf8',
+	);
 	return true;
 }
 

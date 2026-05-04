@@ -4,6 +4,7 @@ import path from 'path';
 import * as vscode from 'vscode';
 import { messages } from '../i18n';
 import { listTrustedDirectories } from './coreDiagnosticsService';
+import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
 import { resolveCodexPaths } from './workspaceStatus';
 
 export type FeatureFlagRecord = {
@@ -208,17 +209,29 @@ export function setFeatureFlag(
 		if (FEATURES_HEADER_PATTERN.test(line)) {
 			featuresHeaderIndex = index;
 			insertIndex = lines.length;
+			let lastFeatureLineIndex = index;
 			for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
 				if (/^\s*\[/.test(lines[cursor])) {
-					insertIndex = cursor;
+					insertIndex =
+						lastFeatureLineIndex > index ? lastFeatureLineIndex + 1 : cursor;
 					break;
 				}
 				const match = lines[cursor].match(BOOLEAN_FEATURE_PATTERN);
+				if (match) {
+					lastFeatureLineIndex = cursor;
+				}
 				if (match?.[1] === featureKey) {
 					lines[cursor] = `${featureKey} = ${enabled ? 'true' : 'false'}${match[3] ?? ''}`;
-					fs.writeFileSync(configPath, lines.join('\n'), 'utf8');
+					fs.writeFileSync(
+						configPath,
+						stabilizeManagedConfigToml(lines.join('\n')),
+						'utf8',
+					);
 					return;
 				}
+			}
+			if (insertIndex === lines.length && lastFeatureLineIndex > index) {
+				insertIndex = lastFeatureLineIndex + 1;
 			}
 			break;
 		}
@@ -226,12 +239,20 @@ export function setFeatureFlag(
 
 	if (featuresHeaderIndex === undefined) {
 		const nextContents = `${contents.trimEnd()}${contents.trim().length > 0 ? '\n\n' : ''}[features]\n${featureKey} = ${enabled ? 'true' : 'false'}\n`;
-		fs.writeFileSync(configPath, nextContents, 'utf8');
+		fs.writeFileSync(
+			configPath,
+			stabilizeManagedConfigToml(nextContents),
+			'utf8',
+		);
 		return;
 	}
 
 	lines.splice(insertIndex, 0, `${featureKey} = ${enabled ? 'true' : 'false'}`);
-	fs.writeFileSync(configPath, lines.join('\n'), 'utf8');
+	fs.writeFileSync(
+		configPath,
+		stabilizeManagedConfigToml(lines.join('\n')),
+		'utf8',
+	);
 }
 
 export function listHookDiagnostics(

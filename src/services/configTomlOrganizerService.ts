@@ -1,0 +1,233 @@
+import fs from 'fs';
+import path from 'path';
+
+const WORKSPACE_META_DIR = '.codex-workspace';
+const CONFIG_BACKUP_FILE = 'config.toml.bk';
+
+type ManagedClusterKind =
+	| 'features'
+	| 'skills.config'
+	| 'agents'
+	| 'mcp'
+	| 'projects';
+
+type TopLevelBlock = {
+	startLine: number;
+	endLine: number;
+	text: string;
+	clusterKind?: ManagedClusterKind;
+	mcpParentId?: string;
+	mcpEnvParentId?: string;
+};
+
+export type OrganizeConfigTomlResult = {
+	backupPath: string;
+	changed: boolean;
+};
+
+export function organizeConfigToml(configPath: string): OrganizeConfigTomlResult {
+	if (!fs.existsSync(configPath)) {
+		throw new Error(`config.toml not found: ${configPath}`);
+	}
+	const contents = fs.readFileSync(configPath, 'utf8');
+	const backupPath = getConfigTomlBackupPath(configPath);
+	fs.mkdirSync(path.dirname(backupPath), { recursive: true });
+	fs.writeFileSync(backupPath, contents, 'utf8');
+
+	const organized = organizeConfigTomlContents(contents);
+	if (organized !== contents) {
+		fs.writeFileSync(configPath, organized, 'utf8');
+	}
+
+	return {
+		backupPath,
+		changed: organized !== contents,
+	};
+}
+
+export function stabilizeManagedConfigToml(contents: string): string {
+	const organized = organizeConfigTomlContents(contents);
+	if (organized.length === 0 || organized.endsWith('\n')) {
+		return organized;
+	}
+	return `${organized}\n`;
+}
+
+export function getConfigTomlBackupPath(configPath: string): string {
+	return path.join(path.dirname(configPath), WORKSPACE_META_DIR, CONFIG_BACKUP_FILE);
+}
+
+export function organizeConfigTomlContents(contents: string): string {
+	if (contents.length === 0) {
+		return contents;
+	}
+
+	const { lines, blocks } = parseTopLevelBlocks(contents);
+	if (blocks.length === 0) {
+		return contents;
+	}
+
+	const managedBlocks = blocks.filter((block) => block.clusterKind);
+	if (managedBlocks.length === 0) {
+		return contents;
+	}
+
+	const clusterFirstIndex = new Map<ManagedClusterKind, number>();
+	for (let index = 0; index < blocks.length; index += 1) {
+		const clusterKind = blocks[index].clusterKind;
+		if (clusterKind && !clusterFirstIndex.has(clusterKind)) {
+			clusterFirstIndex.set(clusterKind, index);
+		}
+	}
+
+	const clusterContents = new Map<ManagedClusterKind, string>();
+	for (const clusterKind of clusterFirstIndex.keys()) {
+		const clusterBlocks = blocks.filter((block) => block.clusterKind === clusterKind);
+		clusterContents.set(
+			clusterKind,
+			clusterKind === 'mcp'
+				? buildMcpClusterText(clusterBlocks)
+				: joinBlocksWithSingleBlankLine(clusterBlocks),
+		);
+	}
+
+	const preamble =
+		blocks[0].startLine > 0
+			? `${lines.slice(0, blocks[0].startLine).join('\n')}\n`
+			: '';
+	const emittedClusters = new Set<ManagedClusterKind>();
+	let rebuilt = preamble;
+
+	for (let index = 0; index < blocks.length; index += 1) {
+		for (const [clusterKind, firstIndex] of clusterFirstIndex) {
+			if (!emittedClusters.has(clusterKind) && firstIndex === index) {
+				rebuilt += clusterContents.get(clusterKind) ?? '';
+				emittedClusters.add(clusterKind);
+			}
+		}
+
+		if (blocks[index].clusterKind) {
+			continue;
+		}
+		rebuilt += blocks[index].text;
+	}
+
+	return rebuilt;
+}
+
+function buildMcpClusterText(blocks: TopLevelBlock[]): string {
+	const envByParentId = new Map<string, TopLevelBlock>();
+	for (const block of blocks) {
+		if (block.mcpEnvParentId) {
+			envByParentId.set(block.mcpEnvParentId, block);
+		}
+	}
+
+	const emitted = new Set<TopLevelBlock>();
+	let result = '';
+	for (const block of blocks) {
+		if (emitted.has(block)) {
+			continue;
+		}
+		if (block.mcpParentId) {
+			result += normalizeBlockText(block.text);
+			emitted.add(block);
+			const envBlock = envByParentId.get(block.mcpParentId);
+			if (envBlock && !emitted.has(envBlock)) {
+				result += `\n${normalizeBlockText(envBlock.text)}`;
+				emitted.add(envBlock);
+			}
+			result += '\n\n';
+			continue;
+		}
+		result += `${normalizeBlockText(block.text)}\n\n`;
+		emitted.add(block);
+	}
+
+	return result.replace(/\n{3,}$/u, '\n\n');
+}
+
+function joinBlocksWithSingleBlankLine(blocks: TopLevelBlock[]): string {
+	return `${blocks.map((block) => normalizeBlockText(block.text)).join('\n\n')}\n\n`;
+}
+
+function normalizeBlockText(text: string): string {
+	return text.replace(/\n+$/u, '');
+}
+
+function parseTopLevelBlocks(contents: string): {
+	lines: string[];
+	blocks: TopLevelBlock[];
+} {
+	const lines = contents.split(/\r?\n/);
+	const headerIndexes: number[] = [];
+	for (let index = 0; index < lines.length; index += 1) {
+		if (isTopLevelHeader(lines[index])) {
+			headerIndexes.push(index);
+		}
+	}
+
+	const blocks: TopLevelBlock[] = [];
+	for (let index = 0; index < headerIndexes.length; index += 1) {
+		const startLine = headerIndexes[index];
+		const endLine =
+			index + 1 < headerIndexes.length
+				? headerIndexes[index + 1] - 1
+				: lines.length - 1;
+		const headerLine = lines[startLine];
+		blocks.push({
+			startLine,
+			endLine,
+			text: `${lines.slice(startLine, endLine + 1).join('\n')}\n`,
+			...classifyBlock(headerLine),
+		});
+	}
+
+	return { lines, blocks };
+}
+
+function isTopLevelHeader(line: string): boolean {
+	return /^\s*\[[^\]]+\]\s*$/.test(line) || /^\s*\[\[[^\]]+\]\]\s*$/.test(line);
+}
+
+function classifyBlock(headerLine: string): Partial<TopLevelBlock> {
+	if (/^\s*\[features\]\s*$/.test(headerLine)) {
+		return { clusterKind: 'features' };
+	}
+	if (/^\s*\[\[skills\.config\]\]\s*$/.test(headerLine)) {
+		return { clusterKind: 'skills.config' };
+	}
+	const agentMatch = headerLine.match(
+		/^\s*\[agents\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_-]+))\]\s*$/,
+	);
+	if (agentMatch) {
+		return { clusterKind: 'agents' };
+	}
+	const projectMatch = headerLine.match(
+		/^\s*\[projects\.(?:"((?:[^"\\]|\\.)*)"|'((?:[^']|'')*)')\]\s*$/,
+	);
+	if (projectMatch) {
+		return { clusterKind: 'projects' };
+	}
+	const mcpMatch = headerLine.match(
+		/^\s*\[mcp_servers\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.-]+))\]\s*$/,
+	);
+	if (mcpMatch) {
+		const blockId = unescapeTomlString(mcpMatch[1] ?? mcpMatch[2] ?? '');
+		if (blockId.endsWith('.env')) {
+			return {
+				clusterKind: 'mcp',
+				mcpEnvParentId: blockId.slice(0, -4),
+			};
+		}
+		return {
+			clusterKind: 'mcp',
+			mcpParentId: blockId,
+		};
+	}
+	return {};
+}
+
+function unescapeTomlString(value: string): string {
+	return value.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+}

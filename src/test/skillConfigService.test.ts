@@ -80,6 +80,37 @@ suite('Skill config service', () => {
 		});
 	});
 
+	test('setSkillEnabled keeps skills blocks grouped before later project blocks', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			const existingSkillPath = path.join(root, 'skills', 'alpha', 'SKILL.md');
+			const nextSkillPath = path.join(root, 'skills', 'beta', 'SKILL.md');
+			fs.writeFileSync(
+				configPath,
+				[
+					'[[skills.config]]',
+					`path = '${existingSkillPath}'`,
+					'enabled = true',
+					'',
+					'[projects."C:\\\\workspace"]',
+					'trust_level = "trusted"',
+					'',
+				].join('\n'),
+				'utf8',
+			);
+
+			setSkillEnabled(configPath, nextSkillPath, false);
+
+			const contents = fs.readFileSync(configPath, 'utf8');
+			const existingIndex = contents.indexOf(existingSkillPath);
+			const nextIndex = contents.indexOf(nextSkillPath);
+			const projectIndex = contents.indexOf('[projects."C:\\\\workspace"]');
+			assert.ok(existingIndex >= 0);
+			assert.ok(nextIndex > existingIndex);
+			assert.ok(projectIndex > nextIndex);
+		});
+	});
+
 	test('setSkillEnabled updates existing enabled value and preserves comments', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, 'config.toml');

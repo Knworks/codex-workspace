@@ -33,6 +33,7 @@
 | `codex-templates`   | テンプレートファイル/フォルダを格納するフォルダ（`.codex/codex-templates`）。           | 固定パス／ルートフォルダ名は固定／リネーム不可                        |
 | `agents`      | エージェント定義ファイルを格納するフォルダ（`.codex/agents`）。                     | 固定パス／`*.toml` を対象／ルートフォルダ名は固定／リネーム不可          |
 | `.codex-workspace` | 拡張機能が生成するメタファイルの管理フォルダ（`.codex/.codex-workspace`）。          | 拡張機能管理領域                                       |
+| `config.toml.bk` | `config.toml` 整理コマンド実行前の退避ファイル。 | 保存先は `.codex/.codex-workspace/config.toml.bk`、常に1世代のみ |
 | `agents-disabled.json` | 無効化したエージェントの退避情報を保持するファイル。                       | 保存先は `.codex/.codex-workspace/agents-disabled.json` |
 | `codex-sync.json` | 同期の削除判定に使うメタ情報を保持するファイル。                           | 保存先は `.codex/.codex-workspace/codex-sync.json`      |
 | MCP           | Model Context Protocol のサーバー設定群。                        | `[mcp_servers.<id>]` テーブルとして `config.toml` に定義 |
@@ -88,6 +89,8 @@
 * ユーザーは `Codex Manager` の Hooks タブで、Hooks 機能状態、Project Hooks 状態、hook source ごとの entry 一覧、warning を確認できる。
 * ユーザーは `Codex Manager` の Hooks タブから、存在する `hooks.json` / `config.toml` を開ける。
 * ユーザーは `Codex Manager` の Hooks タブから、存在しない `hooks.json` / `config.toml` を作成して開ける。
+* ユーザーはコマンドパレットから `config.toml` 整理コマンドを実行し、管理対象セクションの分断を解消できる。
+* ユーザーは `config.toml` 整理コマンド実行時、書き換え前の内容を `.codex/.codex-workspace/config.toml.bk` に退避できる。
 * ユーザーは左ペインの日付フォルダ（`yyyy/mm/dd`）とタスクカードを使い、履歴を新しい順に閲覧できる。
 * ユーザーはセッションカードを選択し、右ペインでユーザーメッセージ全文と AI メッセージ/思考過程を時系列で確認できる。
 * ユーザーはユーザーメッセージ全文を対象に検索し、部分一致で一覧を絞り込み、カード表示で一致箇所をハイライト表示できる。
@@ -393,6 +396,7 @@
   * Feature Flags
   * Hooks
 * 各タブには個別 Refresh を提供し、現在開いているタブのみ再読み込みする。
+* コマンドパレットから `Codex Workspace: Organize config.toml` を実行できる。
 
 #### 5.13.1 会話履歴タブ
 
@@ -489,6 +493,30 @@
 * `hooks.json` が存在しない場合は最小構成ファイルを作成して開く。
 * `config.toml` が存在しない場合は空ファイルを作成して開く。
 * 初期リリースでは、Hooks タブ上で hook entry の追加、削除、構造化編集は提供しない。
+
+#### 5.13.6 `Organize config.toml` コマンド
+
+* 明示コマンド `Codex Workspace: Organize config.toml` を提供する。
+* 対象は `~/.codex/config.toml` とする。
+* コマンド実行時のみ、書き換え直前の内容を `.codex/.codex-workspace/config.toml.bk` へバックアップする。
+* バックアップは常に 1 世代のみ保持し、既存 `config.toml.bk` は上書きする。
+* `config.toml` が存在しない場合はコマンドを実行しない。
+* バックアップ作成に失敗した場合は整理処理を中止し、`config.toml` は書き換えない。
+* 整理対象は次の管理対象セクションのみとする。
+  * `[features]`
+  * `[[skills.config]]`
+  * `[agents.<name>]`
+  * `[mcp_servers.<id>]`
+  * `[mcp_servers.<id>.env]`
+  * `[projects."<path>"]`
+* 整理ルールは次のとおりとする。
+  * ファイル全体の大まかなセクション順は変更しない
+  * 同種セクションが分断されている場合は、その種類が最初に現れた位置へ集約する
+  * 集約後の同種セクション内順は元の出現順を維持する
+  * `[mcp_servers.<id>.env]` は必ず親 `[mcp_servers.<id>]` の直後へ配置する
+  * 管理対象外のセクションは並び替えない
+  * ブロック本文は変更しない
+  * コメントは可能な限り既存位置関係を維持する
 
 ---
 

@@ -89,6 +89,7 @@ suite('Core view command', () => {
 
 			const commands = await vscode.commands.getCommands(true);
 			assert.ok(commands.includes('codex-workspace.openHistoryView'));
+			assert.ok(commands.includes('codex-workspace.organizeConfigToml'));
 
 			const originalCreateWebviewPanel = vscode.window.createWebviewPanel;
 			let createCount = 0;

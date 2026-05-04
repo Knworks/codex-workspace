@@ -16,6 +16,7 @@ import {
 	saveDisabledAgentBlock,
 	takeDisabledAgentBlock,
 } from './disabledAgentsStore';
+import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
 import { resolveCodexPaths } from './workspaceStatus';
 
 export type AgentManagerRecord = {
@@ -78,7 +79,11 @@ export function disableAgentByName(codexDir: string, configPath: string, agentNa
 		agentName,
 		extracted.block,
 	);
-	fs.writeFileSync(configPath, extracted.contents, 'utf8');
+	fs.writeFileSync(
+		configPath,
+		stabilizeManagedConfigToml(extracted.contents),
+		'utf8',
+	);
 }
 
 export function enableAgentByName(
@@ -95,13 +100,19 @@ export function enableAgentByName(
 		const nextContents = alreadyExists
 			? replaceAgentConfigRawBlock(contents, agentName, stashedBlock)
 			: appendAgentConfigRawBlock(contents, stashedBlock);
-		fs.writeFileSync(configPath, nextContents, 'utf8');
+		fs.writeFileSync(
+			configPath,
+			stabilizeManagedConfigToml(nextContents),
+			'utf8',
+		);
 		return { overwritten: alreadyExists };
 	}
 	if (!alreadyExists) {
 		fs.writeFileSync(
 			configPath,
-			appendAgentConfigBlock(contents, agentName, '').contents,
+			stabilizeManagedConfigToml(
+				appendAgentConfigBlock(contents, agentName, '').contents,
+			),
 			'utf8',
 		);
 	}

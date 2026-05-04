@@ -92,6 +92,22 @@ export const messages = {
 		'message.mcpToggleUpdated',
 		'Settings updated. Please restart Codex to apply changes.',
 	),
+	configTomlOrganized: (backupPath: string) =>
+		localize(
+			'message.configTomlOrganized',
+			'config.toml was organized. Backup saved to {0}.',
+			backupPath,
+		),
+	configTomlAlreadyOrganized: (backupPath: string) =>
+		localize(
+			'message.configTomlAlreadyOrganized',
+			'config.toml was already organized. Backup saved to {0}.',
+			backupPath,
+		),
+	configTomlOrganizeBackupFailed: localize(
+		'message.configTomlOrganizeBackupFailed',
+		'Could not create a config.toml backup, so the organize operation was cancelled.',
+	),
 	commandRefresh: localize('command.refresh', 'Refresh'),
 	syncConfirm: (targetPath: string) =>
 		localize(

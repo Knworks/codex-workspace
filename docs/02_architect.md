@@ -31,6 +31,7 @@ codex-workspace/
 │   │   ├── historyPanel.ts    # 履歴 WebView UI とメッセージング
 │   │   ├── coreDiagnosticsService.ts # AGENTS Loading Chain / trusted directory 診断
 │   │   ├── coreManagerConfigService.ts # feature flags / hooks 診断と設定更新
+│   │   ├── configTomlOrganizerService.ts # config.toml 整理とバックアップ
 │   │   ├── settings.ts        # 設定値読み取り（同期先/履歴設定）
 │   │   ├── agentService.ts    # Agent 追加/編集/削除と有効化/無効化
 │   │   └── syncStateService.ts # 同期メタの読取/移行（.codex-workspace）
@@ -187,6 +188,22 @@ codex-workspace/
   - ソート：タブごとの仕様に従う
   - バリデーション：`config.toml` 解析失敗時は設定更新系操作を無効化する
 
+- **Organize config.toml**
+  - 入力：コマンドパレットからの明示実行、`~/.codex/config.toml`
+  - 処理：
+    - 書き換え前に `.codex/.codex-workspace/config.toml.bk` を 1 世代だけ更新する
+    - 管理対象セクションを抽出する
+    - ファイル全体の大まかな順序は維持しつつ、同種セクションをその種類の最初の出現位置へ集約する
+    - `[mcp_servers.<id>.env]` は親 `[mcp_servers.<id>]` の直後へ再配置する
+  - 出力：整理済み `config.toml`、更新済みバックアップ
+  - 検索条件：なし
+  - ソート：
+    - クラスタ位置は各セクション種別の最初の出現位置
+    - クラスタ内順は元の出現順
+  - バリデーション：
+    - バックアップ作成に失敗した場合は整理を中止する
+    - 管理対象外のセクションは並び替えない
+
 - **AGENTS Loading Chain**
   - 入力：ワークスペースルート、`config.toml` の `project_doc_fallback_filenames`、グローバル / project 配下の AGENTS 系ファイル
   - 処理：
@@ -263,6 +280,8 @@ codex-workspace/
 | SyncSettings | templatesFolder | string | Templates の同期先フォルダ | 空の場合は無効 |
 | SyncSettings | agentFolder | string | Agents の同期先フォルダ | 空の場合は無効 |
 | SyncStateStore | path | string | 同期メタ保存先 | `.codex/.codex-workspace/codex-sync.json` |
+| ConfigTomlOrganizeResult | backupPath | string | 整理前バックアップの保存先 | `.codex/.codex-workspace/config.toml.bk` |
+| ConfigTomlOrganizeResult | changed | boolean | `config.toml` に実変更があったか | 必須 |
 | HistoryAiTimelineItem | kind | `'assistant' \| 'reasoning'` | AIタイムライン項目種別 | 固定値 |
 | HistoryAiTimelineItem | message | string | 表示メッセージ | 空文字不可 |
 | HistoryAiTimelineItem | localTime | string | ローカル時刻（`[H:mm:ss]`） | 必須 |
@@ -335,6 +354,7 @@ codex-workspace/
 - **Codex Manager（WebView in Editor）**
   - タブ：会話履歴 / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks
   - 各タブに個別 Refresh を表示
+  - コマンドパレットから `Codex Workspace: Organize config.toml` を実行できる
   - Hooks タブ
     - 上部 summary：Hooks 機能、Project Hooks 機能、基準ワークスペース
     - 左ペイン：hook source 一覧
@@ -420,6 +440,7 @@ flowchart TB
   - Trusted Directory の一覧、追加、削除
   - Feature Flags の一覧生成、ローカライズ、トグル更新
   - Hooks source 一覧、source 切替、warning、missing source 作成導線
+  - `config.toml` 整理時のクラスタ集約、`mcp_servers.<id>.env` 親直後配置、バックアップ作成
 - **統合テスト**
   - 各 Explorer の Tree 表示（ルート直下表示、利用不可表示）
   - 追加/削除/リネーム操作の UI フロー（未選択時のメッセージ含む）
@@ -432,6 +453,7 @@ flowchart TB
   - カード選択で会話プレビューが更新される
   - 検索実行とクリアで一覧絞り込み状態が切り替わる
   - Feature Flags と Hooks タブの表示更新が `Codex Manager` 上で反映される
+  - `Codex Workspace: Organize config.toml` 実行で、管理対象セクションが先頭出現位置ごとに集約され、`.codex/.codex-workspace/config.toml.bk` が更新される
 - **ローカライズ確認**
   - `ja` と `en` のラベル/メッセージの切替
 

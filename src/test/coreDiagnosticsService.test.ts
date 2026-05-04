@@ -83,6 +83,37 @@ suite('Core diagnostics service', () => {
 		});
 	});
 
+	test('addTrustedDirectory keeps project blocks grouped before later skills blocks', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			const existingProject = path.join(root, 'project-a');
+			const nextProject = path.join(root, 'project-b');
+			fs.writeFileSync(
+				configPath,
+				[
+					`[projects."${existingProject.replace(/\\/g, '\\\\')}"]`,
+					'trust_level = "trusted"',
+					'',
+					'[[skills.config]]',
+					`path = '${path.join(root, 'skills', 'alpha', 'SKILL.md')}'`,
+					'enabled = true',
+					'',
+				].join('\n'),
+				'utf8',
+			);
+
+			addTrustedDirectory(configPath, nextProject);
+
+			const contents = fs.readFileSync(configPath, 'utf8');
+			const firstProjectIndex = contents.indexOf(existingProject.replace(/\\/g, '\\\\'));
+			const secondProjectIndex = contents.indexOf(nextProject.replace(/\\/g, '\\\\'));
+			const skillsIndex = contents.indexOf('[[skills.config]]');
+			assert.ok(firstProjectIndex >= 0);
+			assert.ok(secondProjectIndex > firstProjectIndex);
+			assert.ok(skillsIndex > secondProjectIndex);
+		});
+	});
+
 	test('trusted directories support single-quoted project headers', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, 'config.toml');

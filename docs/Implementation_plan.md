@@ -154,7 +154,7 @@
 
 - タイトル: Core View 診断タブと信頼ディレクトリ
 - フェーズ: 堅牢化・回帰防止
-- 要件: AGENTS Loading Chain / 信頼するディレクトリ / Feature Flags / Hooks / タブ Refresh
+- 要件: AGENTS Loading Chain / 信頼するディレクトリ / Feature Flags / Hooks / `config.toml` 整理 / タブ Refresh
 - DependsOn: CORE-001
 - 規模: 0.5〜1日
 - 作業内容
@@ -163,6 +163,7 @@
   - `[projects."<path>"] trust_level = "trusted"` の一覧、追加、削除を実装する
   - Feature Flags の一覧モデル、ローカライズ、更新処理を追加する
   - Hooks source / entry 診断、warning、source file Open / 作成導線を追加する
+  - `config.toml` 整理コマンド、バックアップ、管理対象セクション集約を実装する
   - タブごとの Refresh を実装する
 
 - AC
@@ -171,19 +172,22 @@
   - [ ] [機能] trusted な `[projects."<path>"]` のみを一覧表示できる
   - [ ] [機能] Feature Flags タブで主要 flag の状態確認と更新ができる
   - [ ] [機能] Hooks タブで source ごとの entry と warning を確認できる
+  - [ ] [機能] `Codex Workspace: Organize config.toml` で管理対象セクションを先頭出現位置ごとに集約できる
+  - [ ] [状態/エラー] 整理コマンド実行時は `.codex/.codex-workspace/config.toml.bk` を更新し、バックアップ失敗時は書き換えを中止する
   - [ ] [状態/エラー] `config.toml` 不正時は信頼ディレクトリの追加削除を無効化し、エラー内容を表示する
-  - [ ] [テスト] Loading Chain 判定、信頼ディレクトリ追加削除、Feature Flags、Hooks、タブ Refresh をテストする
+  - [ ] [テスト] Loading Chain 判定、信頼ディレクトリ追加削除、Feature Flags、Hooks、`config.toml` 整理、タブ Refresh をテストする
 
 ### IssueID: TEST-001
 
 - タイトル: 仕様変更回帰テストと品質確認
 - フェーズ: 堅牢化・回帰防止
-- 要件: テスト観点全般、Feature Flags / Hooks 回帰、PROMPTS / Template 現行維持
+- 要件: テスト観点全般、Feature Flags / Hooks / `config.toml` 整理回帰、PROMPTS / Template 現行維持
 - DependsOn: SKILL-002, AGENT-002, MCP-002, CORE-002
 - 規模: 0.5〜1日
 - 作業内容
   - 変更仕様の不足テストを追加する
   - Feature Flags と Hooks の回帰テストを追加する
+  - `config.toml` 整理とバックアップの回帰テストを追加する
   - PROMPTS Explore と Template Explore に新機能が混入していないことを確認する
   - `npm run compile` と `npm test` を通す
   - セルフチェック結果を整理する

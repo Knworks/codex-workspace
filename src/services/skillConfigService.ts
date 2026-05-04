@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { SkillLocation, getSkillLocations } from './skillLocations';
+import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
 
 export type SkillRecord = {
 	id: string;
@@ -122,7 +123,11 @@ export function setSkillEnabled(
 			`path = '${escapeTomlSingleQuotedString(skillPath)}'`,
 			`enabled = ${enabled ? 'true' : 'false'}`,
 		].join('\n');
-		fs.writeFileSync(configPath, `${contents}${separator}${nextBlock}\n`, 'utf8');
+		fs.writeFileSync(
+			configPath,
+			stabilizeManagedConfigToml(`${contents}${separator}${nextBlock}\n`),
+			'utf8',
+		);
 		return;
 	}
 
@@ -132,13 +137,21 @@ export function setSkillEnabled(
 		if (match) {
 			lines[existing.enabledLineIndex] =
 				`${match[1]}${enabled ? 'true' : 'false'}${match[3] ?? ''}`;
-			fs.writeFileSync(configPath, lines.join('\n'), 'utf8');
+			fs.writeFileSync(
+				configPath,
+				stabilizeManagedConfigToml(lines.join('\n')),
+				'utf8',
+			);
 			return;
 		}
 	}
 
 	lines.splice(existing.endLineIndex + 1, 0, `enabled = ${enabled ? 'true' : 'false'}`);
-	fs.writeFileSync(configPath, lines.join('\n'), 'utf8');
+	fs.writeFileSync(
+		configPath,
+		stabilizeManagedConfigToml(lines.join('\n')),
+		'utf8',
+	);
 }
 
 function escapeTomlSingleQuotedString(value: string): string {

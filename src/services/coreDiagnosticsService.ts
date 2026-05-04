@@ -4,6 +4,7 @@ import path from 'path';
 import * as vscode from 'vscode';
 import { parse } from 'toml';
 import { resolveCodexPaths } from './workspaceStatus';
+import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
 
 export type AgentsChainStatus = 'Active' | 'Skipped' | 'Missing' | 'Error';
 export type AgentsChainKind = 'Global' | 'Project';
@@ -73,7 +74,9 @@ export function addTrustedDirectory(configPath: string, projectPath: string): vo
 		const separator = contents.trim().length > 0 ? '\n\n' : '';
 		fs.writeFileSync(
 			configPath,
-			`${contents}${separator}[projects."${escapeTomlString(projectPath)}"]\ntrust_level = "trusted"\n`,
+			stabilizeManagedConfigToml(
+				`${contents}${separator}[projects."${escapeTomlString(projectPath)}"]\ntrust_level = "trusted"\n`,
+			),
 			'utf8',
 		);
 		return;
@@ -84,7 +87,11 @@ export function addTrustedDirectory(configPath: string, projectPath: string): vo
 	} else {
 		lines.splice(existing.endLine + 1, 0, 'trust_level = "trusted"');
 	}
-	fs.writeFileSync(configPath, normalizeLines(lines), 'utf8');
+	fs.writeFileSync(
+		configPath,
+		stabilizeManagedConfigToml(normalizeLines(lines)),
+		'utf8',
+	);
 }
 
 export function removeTrustedDirectory(configPath: string, projectPath: string): boolean {
@@ -95,7 +102,11 @@ export function removeTrustedDirectory(configPath: string, projectPath: string):
 	}
 	const lines = contents.split(/\r?\n/);
 	lines.splice(target.startLine, target.endLine - target.startLine + 1);
-	fs.writeFileSync(configPath, normalizeLines(lines), 'utf8');
+	fs.writeFileSync(
+		configPath,
+		stabilizeManagedConfigToml(normalizeLines(lines)),
+		'utf8',
+	);
 	return true;
 }
 

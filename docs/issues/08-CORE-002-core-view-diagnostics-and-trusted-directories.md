@@ -21,6 +21,7 @@ status: Reviewing
 - Hooks タブでは、Hooks機能状態、Project Hooks状態、source一覧、選択source配下のentry一覧、warning を表示する。
 - Hooks タブの文言は日本語と英語でローカライズする。
 - Hooks タブでは、存在する source の Open、存在しない `hooks.json` / `config.toml` の作成と Open を提供する。
+- `Codex Workspace: Organize config.toml` コマンドでは、管理対象セクションを整理し、書き換え前に `.codex/.codex-workspace/config.toml.bk` を更新する。
 - タブごとの Refresh は現在タブのみ再読み込みする。
 
 ## 🛠️ スコープ / 作業内容
@@ -36,6 +37,7 @@ status: Reviewing
 - Hooks source / entry 診断サービスを追加する。
 - Core View に Hooks タブを追加し、左ペイン source 選択、右ペイン entry 表示を実装する。
 - Hooks warning、source file Open、missing source 作成を実装する。
+- `config.toml` 整理コマンド、バックアップ、同種セクション集約を実装する。
 - `config.toml` 不正時の表示と操作制限を実装する。
 - 関連テストを追加する。
 
@@ -51,8 +53,10 @@ status: Reviewing
 - [x] [機能] Hooks タブで hooks 機能状態、Project Hooks状態、source一覧、選択source配下のentry一覧を表示できる。
 - [x] [UI/UX] Hooks タブでは source ごとに entry を切り替えて確認でき、source がない場合は作成導線を表示できる。
 - [x] [多言語] Hooks タブの主要文言と warning が日本語と英語でローカライズされている。
+- [x] [機能] `Codex Workspace: Organize config.toml` で管理対象セクションを先頭出現位置ごとに集約できる。
+- [x] [状態/エラー] 整理コマンド実行時は `.codex/.codex-workspace/config.toml.bk` を更新し、バックアップ失敗時は `config.toml` を書き換えない。
 - [x] [状態/エラー] `config.toml` 不正時は信頼ディレクトリの追加削除を無効化し、エラー内容を表示する。
-- [x] [テスト] Loading Chain 判定、信頼ディレクトリ追加削除、Feature Flags、Hooks、タブ Refresh をテストする。
+- [x] [テスト] Loading Chain 判定、信頼ディレクトリ追加削除、Feature Flags、Hooks、`config.toml` 整理、タブ Refresh をテストする。
 
 ## 🔗 依存関係
 
@@ -68,4 +72,5 @@ status: Reviewing
 - feature flag 一覧、既定値、現在値、トグル更新。
 - hooks source の active/inactive 判定、entry 件数、source 選択切替。
 - hooks warning の表示と source file 作成 / Open。
+- `config.toml` 整理時のクラスタ集約、`mcp_servers.<id>.env` 親直後配置、バックアップ更新。
 - 検証方法: `npm run compile`、関連テスト、`npm test`。

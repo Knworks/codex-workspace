@@ -10,6 +10,7 @@ import {
 	listDisabledAgentIds,
 	takeDisabledAgentBlock,
 } from './disabledAgentsStore';
+import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
 import { removeSyncStateEntry } from './syncService';
 
 export type AgentSyncReconcileResult = {
@@ -62,7 +63,11 @@ export function reconcileAgentConfigAfterSync(
 	}
 
 	if (removedAgentIds.length > 0 || addedAgentIds.length > 0) {
-		fs.writeFileSync(configPath, configContents, 'utf8');
+		fs.writeFileSync(
+			configPath,
+			stabilizeManagedConfigToml(configContents),
+			'utf8',
+		);
 	}
 
 	const staleDisabledIds = listDisabledAgentIds(storePath).filter(

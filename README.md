@@ -132,6 +132,7 @@ Manage templates under `~/.codex/codex-templates`. Supports template selection w
 | `Codex Workspace: Open Skill Manager` | Opens the `Skill Manager` Webview |
 | `Codex Workspace: Open AGENTS Manager` | Opens the `AGENTS Manager` Webview |
 | `Codex Workspace: Open MCP Manager` | Opens the `MCP Manager` Webview |
+| `Codex Workspace: Organize config.toml` | Groups managed `config.toml` sections and creates `~/.codex/.codex-workspace/config.toml.bk` before rewriting |
 | `Codex Workspace: Open .codex Folder` | Opens the `.codex` folder in the OS file explorer |
 
 ## Settings

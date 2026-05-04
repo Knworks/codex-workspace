@@ -34,7 +34,8 @@
     "onCommand:codex-workspace.openHistoryView",
     "onCommand:codex-workspace.openSkillManager",
     "onCommand:codex-workspace.openAgentManager",
-    "onCommand:codex-workspace.openMcpManager"
+    "onCommand:codex-workspace.openMcpManager",
+    "onCommand:codex-workspace.organizeConfigToml"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -108,6 +109,11 @@
         "command": "codex-workspace.openMcpManager",
         "title": "%command.openMcpManager%",
         "icon": "$(server-process)"
+      },
+      {
+        "command": "codex-workspace.organizeConfigToml",
+        "title": "%command.organizeConfigToml%",
+        "icon": "$(list-tree)"
       },
       {
         "command": "codex-workspace.openPromptsFolder",

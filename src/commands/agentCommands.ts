@@ -24,6 +24,7 @@ import {
 	saveDisabledAgentBlock,
 	takeDisabledAgentBlock,
 } from '../services/disabledAgentsStore';
+import { stabilizeManagedConfigToml } from '../services/configTomlOrganizerService';
 import { AgentExplorerProvider } from '../views/agentExplorerProvider';
 import { removeSyncStateEntry } from '../services/syncService';
 
@@ -158,7 +159,11 @@ async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
 		return;
 	}
 
-	fs.writeFileSync(configPath, appendResult.contents, 'utf8');
+	fs.writeFileSync(
+		configPath,
+		stabilizeManagedConfigToml(appendResult.contents),
+		'utf8',
+	);
 	agentProvider.refresh();
 }
 
@@ -206,7 +211,11 @@ async function editAgent(
 		nextName,
 		nextDescription,
 	);
-	fs.writeFileSync(configPath, updatedConfig, 'utf8');
+	fs.writeFileSync(
+		configPath,
+		stabilizeManagedConfigToml(updatedConfig),
+		'utf8',
+	);
 	agentProvider.refresh();
 }
 
@@ -235,7 +244,11 @@ async function deleteAgent(
 	const configContents = fs.readFileSync(configPath, 'utf8');
 	const extracted = extractAgentConfigBlock(configContents, agentId);
 	if (extracted.removed) {
-		fs.writeFileSync(configPath, extracted.contents, 'utf8');
+		fs.writeFileSync(
+			configPath,
+			stabilizeManagedConfigToml(extracted.contents),
+			'utf8',
+		);
 	}
 
 	// Delete stale disabled backup to avoid resurrecting deleted agents.
@@ -282,7 +295,11 @@ async function enableAgent(
 	const nextContents = stashedBlock
 		? appendAgentConfigRawBlock(configContents, stashedBlock)
 		: appendAgentConfigBlock(configContents, agentId, '').contents;
-	fs.writeFileSync(configPath, nextContents, 'utf8');
+	fs.writeFileSync(
+		configPath,
+		stabilizeManagedConfigToml(nextContents),
+		'utf8',
+	);
 	vscode.window.showInformationMessage(messages.agent.toggleUpdated);
 	agentProvider.refresh();
 }
@@ -301,7 +318,11 @@ async function disableAgent(
 		return;
 	}
 
-	fs.writeFileSync(configPath, extracted.contents, 'utf8');
+	fs.writeFileSync(
+		configPath,
+		stabilizeManagedConfigToml(extracted.contents),
+		'utf8',
+	);
 	saveDisabledAgentBlock(storePath, agentId, extracted.block);
 	vscode.window.showInformationMessage(messages.agent.toggleUpdated);
 	agentProvider.refresh();

@@ -132,6 +132,7 @@ Explore のアイコンで有効/無効の状態を識別できます。
 | `Codex Workspace: Open Skill Manager` | `Skill Manager` の Webview を開きます |
 | `Codex Workspace: Open AGENTS Manager` | `AGENTS Manager` の Webview を開きます |
 | `Codex Workspace: Open MCP Manager` | `MCP Manager` の Webview を開きます |
+| `Codex Workspace: Organize config.toml` | 管理対象の `config.toml` セクションを整理し、書き換え前に `~/.codex/.codex-workspace/config.toml.bk` を作成します |
 | `Codex Workspace: Open .codex Folder` | `.codex` フォルダを OS のファイルエクスプローラで開きます |
 
 ## Settings

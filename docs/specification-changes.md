@@ -37,6 +37,8 @@
 - ユーザーはHooksタブで、Hooks機能の有効状態、Project Hooksの有効状態、hook sourceごとのentry一覧を確認できる。
 - ユーザーはHooksタブから、存在する`hooks.json`または`config.toml`を開ける。
 - ユーザーはHooksタブから、存在しない`hooks.json`または`config.toml`を作成して開ける。
+- ユーザーはコマンドから`config.toml`の管理対象セクションを整理できる。
+- ユーザーは`config.toml`整理コマンド実行時、書き換え前の内容を`.codex/.codex-workspace/config.toml.bk`に1世代だけ退避できる。
 
 ## 🧩 機能要件
 
@@ -931,6 +933,29 @@ This only removes the trust entry from config.toml and does not delete the actua
 - `config.toml`が存在しない場合は、空の`config.toml`を作成して開く操作を提供する。
 - source作成後は、Hooksタブを再読み込みする。
 - 初期リリースでは、Hooksタブ上でhook entryの追加、削除、構造化編集は提供しない。
+
+#### 🧹 `Organize config.toml` コマンド
+
+- コマンドパレットから `Codex Workspace: Organize config.toml` を実行できるようにする。
+- 対象は `~/.codex/config.toml` とする。
+- コマンド実行時のみ、書き換え直前の内容を `.codex/.codex-workspace/config.toml.bk` にバックアップする。
+- バックアップは常に 1 世代のみ保持し、既存 `config.toml.bk` は上書きする。
+- バックアップ作成に失敗した場合は整理処理を中止し、`config.toml` は書き換えない。
+- 整理対象は以下の管理対象セクションのみとする。
+  - `[features]`
+  - `[[skills.config]]`
+  - `[agents.<name>]`
+  - `[mcp_servers.<id>]`
+  - `[mcp_servers.<id>.env]`
+  - `[projects."<path>"]`
+- 整理ルールは以下とする。
+  - ファイル全体の大まかなセクション順は変更しない
+  - 同種セクションが分断されている場合は、その種類が最初に現れた位置へ集約する
+  - 集約後の同種セクション内順は元の出現順を維持する
+  - `[mcp_servers.<id>.env]` は必ず親 `[mcp_servers.<id>]` の直後へ配置する
+  - 管理対象外のセクションは並び替えない
+  - ブロック本文は変更しない
+  - コメントは可能な限り既存位置関係を維持する
 
 ## 🛡️ 非機能要件
 
