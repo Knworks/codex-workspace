@@ -153,7 +153,7 @@
   * プロンプトフォルダ：`folder32.png`
   * エージェント（有効）：`agent_on.png`
   * エージェント（無効）：`agent_off.png`
-  * MCP サーバー：`mcp32.png`
+  * MCP サーバー：`ThemeIcon('mcp')`
 * MCP の ON/OFF はスイッチ風 UI として視認できること（アイコン表現を含む）。
 
 ### 5.5 ファイル/フォルダ操作（prompts / skills / codex-templates）

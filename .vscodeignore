@@ -6,10 +6,6 @@ src/**
 .github/**
 docs/**
 .cocoindex_code/**
-images/agetnt_off.png
-images/status_run32.png
-images/status_run_grey32.png
-images/mcp32.png
 .gitignore
 .yarnrc
 esbuild.js
