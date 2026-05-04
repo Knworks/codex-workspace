@@ -445,7 +445,7 @@ async function resolveTargetDirectoryForAdd(
 	const selected = await vscode.window.showQuickPick(
 		sortedLocations.map((location) => ({
 			label: location.label,
-			description: location.rootPath,
+			description: location.createPath ?? location.rootPath,
 			location,
 		})),
 		{ placeHolder: messages.file.skillLocationPickPlaceholder },
