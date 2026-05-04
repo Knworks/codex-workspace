@@ -152,10 +152,6 @@ function buildForm(model: McpFormModel | undefined, previousId?: string): string
 		<label>${buildFieldLabel('Tool Timeout', descriptions.toolTimeoutSec)}<input name="toolTimeoutSec" value="${current.toolTimeoutSec ?? ''}" /></label>
 		<label>${buildFieldLabel('Enabled Tools', descriptions.enabledTools)}<textarea name="enabledTools">${escapeHtml(current.enabledTools.join('\n'))}</textarea></label>
 		<label>${buildFieldLabel('Disabled Tools', descriptions.disabledTools)}<textarea name="disabledTools">${escapeHtml(current.disabledTools.join('\n'))}</textarea></label>
-		<div class="actions">
-			<button class="icon-button" type="submit" title="${escapeHtml(messages.mcpManagerSave)}" aria-label="${escapeHtml(messages.mcpManagerSave)}"><span class="codicon codicon-save" aria-hidden="true"></span></button>
-			<button id="cancel" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerCancel)}" aria-label="${escapeHtml(messages.mcpManagerCancel)}"><span class="codicon codicon-discard" aria-hidden="true"></span></button>
-		</div>
 	</form></div>`;
 }
 
@@ -212,8 +208,9 @@ function buildHtml(
 		.search-area { padding: 10px 12px; border-bottom: 1px solid var(--vscode-panel-border); display: flex; gap: 8px; align-items: center; }
 		.search-area input { flex: 1; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); border-radius: 8px; padding: 6px 8px; }
 		.search-area input:focus, input:focus, textarea:focus, select:focus { outline: none; border-color: var(--vscode-focusBorder, #0e639c); box-shadow: 0 0 0 1px var(--vscode-focusBorder, #0e639c); }
-		.actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
-		.list-actions { padding: 10px 12px; border-bottom: 1px solid var(--vscode-panel-border); }
+		.actions { display: flex; gap: 8px; align-items: center; }
+		.list-actions { padding: 10px 12px; border-bottom: 1px solid var(--vscode-panel-border); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+		.list-actions-left, .list-actions-right { display: flex; gap: 8px; align-items: center; }
 		.server-list { padding: 10px 12px; overflow: auto; }
 		.server { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; width: 100%; margin-bottom: 6px; padding: 8px; background: var(--vscode-editorWidget-background); color: var(--vscode-foreground); border: 1px solid var(--vscode-panel-border); border-radius: 6px; text-align: left; cursor: pointer; }
 		.server.disabled { opacity: 0.55; }
@@ -260,8 +257,14 @@ function buildHtml(
 		<div class="panes">
 			<section class="left">
 				<div class="actions list-actions">
-					<button id="add" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerAdd)}" aria-label="${escapeHtml(messages.mcpManagerAdd)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>
-					<button id="delete" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}"><span class="codicon codicon-trash" aria-hidden="true"></span></button>
+					<div class="list-actions-left">
+						<button id="add" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerAdd)}" aria-label="${escapeHtml(messages.mcpManagerAdd)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>
+						<button id="delete" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}"><span class="codicon codicon-trash" aria-hidden="true"></span></button>
+					</div>
+					<div class="list-actions-right">
+						<button id="save" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerSave)}" aria-label="${escapeHtml(messages.mcpManagerSave)}"><span class="codicon codicon-save" aria-hidden="true"></span></button>
+						<button id="cancel" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerCancel)}" aria-label="${escapeHtml(messages.mcpManagerCancel)}"><span class="codicon codicon-discard" aria-hidden="true"></span></button>
+					</div>
 				</div>
 				<div class="server-list">${buildList(models, selectedModelId, query)}</div>
 			</section>
@@ -328,10 +331,6 @@ function buildHtml(
 				'<label>' + fieldLabel('Tool Timeout', descriptions.toolTimeoutSec) + '<input name="toolTimeoutSec" value="' + escapeHtml(current.toolTimeoutSec ?? '') + '" /></label>' +
 				'<label>' + fieldLabel('Enabled Tools', descriptions.enabledTools) + '<textarea name="enabledTools">' + escapeHtml((current.enabledTools || []).join('\\n')) + '</textarea></label>' +
 				'<label>' + fieldLabel('Disabled Tools', descriptions.disabledTools) + '<textarea name="disabledTools">' + escapeHtml((current.disabledTools || []).join('\\n')) + '</textarea></label>' +
-				'<div class="actions">' +
-				'<button class="icon-button" type="submit" title="${escapeHtml(messages.mcpManagerSave)}" aria-label="${escapeHtml(messages.mcpManagerSave)}"><span class="codicon codicon-save" aria-hidden="true"></span></button>' +
-				'<button id="cancel" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerCancel)}" aria-label="${escapeHtml(messages.mcpManagerCancel)}"><span class="codicon codicon-discard" aria-hidden="true"></span></button>' +
-				'</div>' +
 				'</form></div>';
 			bindForm();
 		};
@@ -356,7 +355,6 @@ function buildHtml(
 		const bindForm = () => {
 			const form = getForm();
 			const envRows = document.getElementById('envRows');
-			document.getElementById('cancel')?.addEventListener('click', () => vscode.postMessage({ type: 'cancel' }));
 			document.getElementById('addEnvRow')?.addEventListener('click', () => {
 				envRows?.appendChild(createEnvRow());
 				dirty = true;
@@ -441,6 +439,12 @@ function buildHtml(
 		document.getElementById('delete').addEventListener('click', () => {
 			const previousId = getForm()?.dataset?.previousId;
 			if (previousId) vscode.postMessage({ type: 'delete', id: previousId });
+		});
+		document.getElementById('save')?.addEventListener('click', () => {
+			getForm()?.requestSubmit();
+		});
+		document.getElementById('cancel')?.addEventListener('click', () => {
+			vscode.postMessage({ type: 'cancel' });
 		});
 		document.querySelector('.server-list')?.addEventListener('click', (event) => {
 			const target = event.target instanceof Element ? event.target : null;
