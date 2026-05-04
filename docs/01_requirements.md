@@ -25,8 +25,9 @@
 | 用語            | 定義                                                      | 備考                                             |
 | ------------- | ------------------------------------------------------- | ---------------------------------------------- |
 | `.codex`      | Codex のグローバル設定ディレクトリ。各 OS のホームディレクトリ直下の `~/.codex` を指す。 | Windows/macOS/Linux でホームパスは異なる                 |
-| `config.toml` | Codex の設定ファイル（TOML形式）。MCP 設定を含む。                        | 破損（TOML parse 不可）の場合は拡張を利用不可                   |
+| `config.toml` | Codex の設定ファイル（TOML形式）。MCP、skills、agents、feature flags、trusted directories などを含む。 | 破損時も一部の閲覧系機能は利用可能 |
 | `AGENTS.md`   | Codex のエージェント設定/説明用ファイル（Markdown）。                      | 直接エディタで編集可能                                    |
+| `AGENTS.override.md` | `AGENTS.md` より優先される上書き用のエージェント設定/説明ファイル。 | 存在時のみ対象 |
 | `prompts`     | プロンプトファイル/フォルダを格納するフォルダ（`.codex/prompts`）。階層は自由。        | ルートフォルダ名は固定／リネーム不可                             |
 | `skills`      | スキルファイル/フォルダを格納するフォルダ（`.codex/skills`）。階層は自由。           | ルートフォルダ名は固定／リネーム不可                             |
 | `codex-templates`   | テンプレートファイル/フォルダを格納するフォルダ（`.codex/codex-templates`）。           | 固定パス／ルートフォルダ名は固定／リネーム不可                        |
@@ -45,6 +46,10 @@
 | `turn_id` | 1タスクを識別する ID。                            | `task_started`〜`task_complete` を同一 `turn_id` で関連付ける |
 | `maxHistoryCount` | 履歴一覧の最大表示件数設定。                            | 明示設定時のみ適用。未設定時は全件表示 |
 | `incrudeReasoningMessage` | 思考過程表示の ON/OFF 設定。                            | 既定値 `false` |
+| `Codex Manager` | Core 系の診断・管理をまとめた WebviewPanel。 | 会話履歴、AGENTS Loading Chain、Trusted Directory、Feature Flags、Hooks をタブ表示 |
+| `Feature Flags` | `config.toml` の `[features]` に定義される Codex の機能フラグ。 | 主要フラグのみ UI 表示対象 |
+| `Hooks` | Codex hook source と hook entry の診断対象。 | `hooks.json` と `config.toml` 内 inline hooks を含む |
+| `Trusted Directory` | `config.toml` の `[projects.\"<path>\"]` に登録された trusted project。 | `trust_level = \"trusted\"` のみ初期表示対象 |
 
 ---
 
@@ -75,8 +80,14 @@
 * ユーザーは Agent 同期で追加されたエージェントについて、`config.toml` に最小構成の `[agents.<agent>]` エントリが自動追記される。
 * 既存ユーザーはアップデート後も旧同期メタ（`.codex/.codex-sync/state.json`）から新同期メタ（`.codex/.codex-workspace/codex-sync.json`）へ移行され、同期機能を継続利用できる。
 * 既存ユーザーはアップデート後も `.codex/codex-templates` の運用を変更せず、テンプレート選択を継続利用できる。
-* ユーザーは Codex Core Explorer の履歴ボタン（codicon: `history`）から、エディタ領域に会話履歴ビューを開ける。
-* ユーザーはコマンドパレットから会話履歴ビューを開ける。
+* ユーザーは Codex Core Explorer のボタン、またはコマンドパレットから、エディタ領域に `Codex Manager` を開ける。
+* ユーザーは `Codex Manager` の会話履歴タブで、従来どおり会話履歴を閲覧・検索・コピーできる。
+* ユーザーは `Codex Manager` の AGENTS Loading Chain タブで、現在有効な AGENTS 系ファイル、無視された候補、要確認項目を確認できる。
+* ユーザーは `Codex Manager` の Trusted Directory タブで、信頼済みディレクトリの一覧、追加、削除ができる。
+* ユーザーは `Codex Manager` の Feature Flags タブで、主要な feature flag の説明、成熟度、既定値、現在値を確認し、ON/OFF を切り替えられる。
+* ユーザーは `Codex Manager` の Hooks タブで、Hooks 機能状態、Project Hooks 状態、hook source ごとの entry 一覧、warning を確認できる。
+* ユーザーは `Codex Manager` の Hooks タブから、存在する `hooks.json` / `config.toml` を開ける。
+* ユーザーは `Codex Manager` の Hooks タブから、存在しない `hooks.json` / `config.toml` を作成して開ける。
 * ユーザーは左ペインの日付フォルダ（`yyyy/mm/dd`）とタスクカードを使い、履歴を新しい順に閲覧できる。
 * ユーザーはセッションカードを選択し、右ペインでユーザーメッセージ全文と AI メッセージ/思考過程を時系列で確認できる。
 * ユーザーはユーザーメッセージ全文を対象に検索し、部分一致で一覧を絞り込み、カード表示で一致箇所をハイライト表示できる。
@@ -96,6 +107,7 @@
   * Agent Explorer
   * MCP Explorer
   * Codex Core（`config.toml` / `AGENTS.md`）
+  * Codex Manager（WebviewPanel）
 * 各 Explorer は以下の固定ルートフォルダを持つ（UI ではルート直下の階層を表示し、ルート自体は表示しない）。
 
   * Prompts Explorer：`prompts`（`.codex/prompts`）
@@ -106,16 +118,26 @@
 
 ### 5.2 利用可否判定（共通）
 
-* 以下のいずれかに該当する場合、拡張機能は「利用不可」とする。
+* 以下のいずれかに該当する場合、拡張機能全体を「利用不可」とする。
 
   * `~/.codex` が存在しない
   * `~/.codex/config.toml` が存在しない
   * `config.toml` が読み取れない
-  * `config.toml` が TOML として parse できない
+* `config.toml` が TOML として parse できない場合は、拡張全体を利用不可にはしない。
+  * Core ファイルを開く操作
+  * `Codex Manager` の会話履歴タブ
+  * `Codex Manager` の AGENTS Loading Chain タブ
+  * `Codex Manager` の Hooks タブの source ファイル導線
+  は利用可能とする。
+* `config.toml` が TOML として parse できない場合は、設定解析に依存する更新操作を無効化する。
+  * Skill / Agent / MCP / Feature Flags の設定更新
+  * Trusted Directory の追加 / 削除
+  * config 解析を前提にした一覧更新
 * 利用不可の場合、各ビューには同一の 1 アイテムのみ表示する。
 
   * 表示：`⚠ Codex Workspace を開けません: <理由>`
 * 利用不可の場合、全コマンド操作は実行不可とする。
+* ただし `config.toml` の parse 失敗時は全停止ではなく、閲覧系と修復導線を残した部分利用不可とする。
 
 ### 5.3 選択必須（共通）
 
@@ -357,14 +379,23 @@
 * Enable 時は退避ブロックがあれば復元し、なければ最小構成ブロックを追加する。
 * 切り替え後は再起動が必要な旨を通知する。
 
-### 5.13 会話履歴ビュー（History）
+### 5.13 Codex Manager
 
 * 呼び出し導線
-  * Codex Core Explorer の上部に履歴ボタン（codicon: `history`）を追加する。
-  * コマンドを追加し、コマンドパレットから会話履歴ビューを開けるようにする。
+  * Codex Core Explorer の上部ボタンから `Codex Manager` を開けるようにする。
+  * コマンドを追加し、コマンドパレットから `Codex Manager` を開けるようにする。
   * 表示先は WebviewPanel を利用した **エディタ領域**とする。
-  * 既に履歴ビューが開いている場合は再利用し、前面表示する（単一インスタンス）。
-  * 履歴ビュー追加により既存 Explorer 機能の挙動を変更しない。
+  * `Codex Manager` は単一インスタンスとし、既に開いている場合は再利用し、前面表示する。
+* タブ構成
+  * 会話履歴
+  * AGENTS Loading Chain
+  * Trusted Directory
+  * Feature Flags
+  * Hooks
+* 各タブには個別 Refresh を提供し、現在開いているタブのみ再読み込みする。
+
+#### 5.13.1 会話履歴タブ
+
 * データソース / 解析対象
   * 履歴データは `$CODEX_HOME/sessions/.../rollout-*.jsonl` を正とする。
   * フォルダ階層は `年/月/日` を前提とする。
@@ -401,6 +432,64 @@
   * クリア操作で絞り込みを解除する。
   * 検索一致箇所への自動スクロールは実装しない。
 
+#### 5.13.2 AGENTS Loading Chain タブ
+
+* Codex の実行結果そのものではなく、Codex Workspace による推定診断を表示する。
+* 基準ディレクトリは VS Code ワークスペースルートとし、画面上で変更する操作は提供しない。
+* 左ペインは `現在有効` / `無視された候補` / `要確認` / `詳細候補` のセクションで表示する。
+* `詳細候補` は既定で非表示とし、トグル ON 時のみ表示する。
+* 右ペインは選択項目の状態、分類、パス、説明、本文プレビューを表示する。
+* ワークスペースが未オープンの場合は、候補一覧の代わりにワークスペースが必要である旨を表示する。
+
+#### 5.13.3 Trusted Directory タブ
+
+* `config.toml` の `[projects."<path>"]` のうち、`trust_level = "trusted"` のエントリのみ一覧表示する。
+* 一覧には、ディレクトリパス、状態アイコン、削除操作を表示する。
+* 追加はフォルダ選択ダイアログから行い、削除は確認ダイアログ後に `config.toml` の trust 設定のみを削除する。
+* ディレクトリが存在しない場合は warning 表示する。
+
+#### 5.13.4 Feature Flags タブ
+
+* `config.toml` の `[features]` を対象に、主要な feature flag 一覧を表示する。
+* 一覧には、feature 名、説明、成熟度、既定値、現在値、設定有無を表示する。
+* 初期リリースで対象とする主要 feature flag は以下とする。
+  * `apps`
+  * `codex_hooks`
+  * `fast_mode`
+  * `memories`
+  * `multi_agent`
+  * `personality`
+  * `shell_snapshot`
+  * `shell_tool`
+  * `unified_exec`
+  * `undo`
+  * `web_search`
+  * `web_search_cached`
+  * `web_search_request`
+* `config.toml` が解析可能な場合は、各 feature flag をトグルで ON/OFF 更新できる。
+* `codex_hooks` 更新時は Hooks タブも再描画して状態を同期する。
+
+#### 5.13.5 Hooks タブ
+
+* ヘッダには、Hooks 機能の有効状態、Project Hooks 機能の有効状態、基準ワークスペースパスを表示する。
+* 対象 source は以下とする。
+  * `~/.codex/hooks.json`
+  * `~/.codex/config.toml` 内の inline hooks
+  * `project/.codex/hooks.json`
+  * `project/.codex/config.toml` 内の inline hooks
+* 左ペインに source 一覧を表示し、選択した source 配下の hook entry のみを右ペインに表示する。
+* source 一覧には、layer、format、パス、active/inactive 状態、entry 件数を表示する。
+* project layer は trusted workspace の場合のみ active とする。
+* Hooks タブでは warning として以下を表示できる。
+  * `codex_hooks` 無効
+  * project-local hooks が trusted になるまで無効
+  * 同一 layer に `hooks.json` と inline hooks が共存
+  * command handler 以外の hook が含まれる
+* source ファイルが存在する場合は Open 操作を提供する。
+* `hooks.json` が存在しない場合は最小構成ファイルを作成して開く。
+* `config.toml` が存在しない場合は空ファイルを作成して開く。
+* 初期リリースでは、Hooks タブ上で hook entry の追加、削除、構造化編集は提供しない。
+
 ---
 
 ## 6. 🛡️非機能要件
@@ -414,6 +503,7 @@
   * アイコンにより、プロンプトファイル/フォルダ、エージェント状態および MCP の視認性が高いこと。
   * ファイルを選択した場合は通常の Explorer と同等にエディタで開いて編集できること。
   * 会話履歴ビューは左右 2 ペイン（左 30% / 右 70%）で表示されること。
+  * `Codex Manager` はタブ切り替え形式で Core 関連画面を表示し、Hooks タブは左ペイン source 選択と右ペイン entry 表示を維持すること。
   * 会話履歴の時刻表示はローカル時刻で自然な表記になること。
   * 検索ハイライトは VS Code テーマ色に追従し、可読性を維持すること。
 * ブランド要件（製品名、ブランド、アイコン、メタ情報など）
@@ -433,7 +523,8 @@
 * 開発環境や言語、フレームワークに制約はありますか？
 
   * VS Code 拡張機能として開発する（TypeScript/Node.js および VS Code Extension API を想定）。
-  * `.codex` はホームディレクトリ直下の `~/.codex` を対象とし、プロジェクトローカル（`workspace/.codex`）は扱わない。
+  * `.codex` はホームディレクトリ直下の `~/.codex` を基本対象とする。
+  * ただし、現在仕様では project-local の `workspace/.codex` および一部 `workspace/.agents` を、Skills / Sub Agents / Hooks / Trusted Directory 判定のため参照する。
   * 拡張のユーザー設定項目（設定値）は同期先フォルダ設定に加え、履歴表示設定（`maxHistoryCount` / `incrudeReasoningMessage`）を提供する。
   * 拡張機能メタファイルは `.codex/.codex-workspace/` に保存する。
   * 会話履歴データの参照先は `$CODEX_HOME/sessions/.../rollout-*.jsonl` のみとする。
@@ -450,6 +541,8 @@
 * 想定されるリスクや懸念点
 
   * `config.toml` のフォーマットや MCP 設定の仕様変更により、`[mcp_servers.<id>]` 抽出や `enabled` 行のパッチが将来的に動作しなくなる可能性。
+  * `config.toml` の feature flag や trusted directory、inline hooks の仕様変更により、`Codex Manager` の診断や更新が将来的に動作しなくなる可能性。
+  * `hooks.json` と inline hooks の共存ルール変更により、Hooks タブの warning や active/inactive 判定が将来的に実態とずれる可能性。
   * ファイル/フォルダの物理削除や上書き削除を伴う操作により、ユーザーが意図せずデータを失うリスク（確認ダイアログで緩和）。
   * OS 依存のファイル名禁則（特に Windows）による作成/リネーム失敗（禁止文字 `_` 置換で緩和）。
   * `.codex/prompts` / `.codex/skills` / `.codex/codex-templates` の初回自動作成により、ユーザーの意図しないディレクトリ生成が発生する可能性（初回操作時に限定）。

@@ -29,6 +29,8 @@ codex-workspace/
 │   ├── services/              # ファイル操作・MCP/Agent 切替・利用可否判定
 │   │   ├── historyService.ts  # 会話履歴の走査・抽出・インデックス化
 │   │   ├── historyPanel.ts    # 履歴 WebView UI とメッセージング
+│   │   ├── coreDiagnosticsService.ts # AGENTS Loading Chain / trusted directory 診断
+│   │   ├── coreManagerConfigService.ts # feature flags / hooks 診断と設定更新
 │   │   ├── settings.ts        # 設定値読み取り（同期先/履歴設定）
 │   │   ├── agentService.ts    # Agent 追加/編集/削除と有効化/無効化
 │   │   └── syncStateService.ts # 同期メタの読取/移行（.codex-workspace）
@@ -45,9 +47,10 @@ codex-workspace/
   - 入力：`~/.codex` と `config.toml` の存在、`config.toml` の読み取り結果
   - 処理：存在チェックと TOML パース
   - 出力：利用可否ステータス、不可時は理由表示（`⚠ Codex Workspace を開けません: <理由>`）
+  - 補足：`config.toml` の parse 失敗時は全面停止ではなく、Core ファイルの Open、会話履歴、AGENTS Loading Chain、Hooks source 導線を残し、設定更新系のみ無効化する
   - 検索条件：なし
   - ソート：なし
-  - バリデーション：`config.toml` が TOML として parse 可能であること
+  - バリデーション：設定更新系を有効化するには `config.toml` が TOML として parse 可能であること
 
 - **共通（対象選択必須）**
   - 入力：Tree 上の選択状態
@@ -150,7 +153,7 @@ codex-workspace/
   - バリデーション：言語判定
 
 - **会話履歴ビュー（History）**
-  - 入力：Codex Core の履歴ボタン押下、またはコマンドパレット実行
+  - 入力：Codex Core のボタン押下、またはコマンドパレット実行
   - 処理：
     - 単一インスタンスの WebviewPanel を作成/再利用し、エディタ領域に表示
     - `$CODEX_HOME/sessions/年/月/日/rollout-*.jsonl` を再帰走査し、新形式イベントのみを解析
@@ -172,6 +175,65 @@ codex-workspace/
     - `user_message` がないタスクは除外
     - 時刻は各メッセージごとにローカル時刻 `[H:mm:ss]` で表示
     - 同一ビューが既にある場合は新規作成しない
+
+- **Codex Manager（Core 管理タブ）**
+  - 入力：Codex Core Explorer の起動操作、タブ切替、各タブ内の Webview 操作
+  - 処理：
+    - 単一インスタンスの WebviewPanel を作成/再利用し、エディタ領域に表示
+    - タブ構成は `会話履歴` / `AGENTS Loading Chain` / `Trusted Directory` / `Feature Flags` / `Hooks`
+    - 各タブの Refresh は現在タブのみ再読み込みする
+  - 出力：タブごとの管理 UI
+  - 検索条件：タブごとの仕様に従う
+  - ソート：タブごとの仕様に従う
+  - バリデーション：`config.toml` 解析失敗時は設定更新系操作を無効化する
+
+- **AGENTS Loading Chain**
+  - 入力：ワークスペースルート、`config.toml` の `project_doc_fallback_filenames`、グローバル / project 配下の AGENTS 系ファイル
+  - 処理：
+    - `Active` / `Skipped` / `Missing` / `Error` を内部判定として生成
+    - UI では `使用中` / `未使用` / `候補なし` / `問題あり` へ変換
+    - 左ペインは `現在有効` / `無視された候補` / `要確認` / `詳細候補` に分類して表示
+    - `詳細候補` はトグル ON 時のみ表示
+  - 出力：診断一覧、選択項目の詳細、本文プレビュー
+  - 検索条件：なし
+  - ソート：有効項目優先、同セクション内は候補順
+  - バリデーション：ワークスペース未オープン時は一覧ではなく説明文を表示
+
+- **Trusted Directory**
+  - 入力：`config.toml` の `[projects."<path>"]`
+  - 処理：
+    - `trust_level = "trusted"` のみ抽出
+    - 追加はフォルダ選択ダイアログから `config.toml` へ追記
+    - 削除は確認後に trust 設定のみを削除
+  - 出力：trusted directory 一覧、追加 / 削除結果
+  - 検索条件：なし
+  - ソート：一覧順
+  - バリデーション：`config.toml` 解析失敗時は追加 / 削除不可
+
+- **Feature Flags**
+  - 入力：`config.toml` の `[features]`、既知 feature 定義
+  - 処理：
+    - 主要 feature flag の既定値、説明、成熟度、現在値、設定有無を表示用モデルへ変換
+    - トグル変更時は `[features]` を更新
+    - `codex_hooks` 更新時は Hooks タブも再読み込み
+  - 出力：feature flag 一覧とトグル状態
+  - 検索条件：なし
+  - ソート：既知 feature 定義順
+  - バリデーション：対象は既知の主要 feature flag に限定
+
+- **Hooks**
+  - 入力：`~/.codex/hooks.json`、`~/.codex/config.toml` 内 inline hooks、`project/.codex/hooks.json`、`project/.codex/config.toml` 内 inline hooks、trusted directory 状態
+  - 処理：
+    - source 一覧を user / project、json / inline 単位で作成
+    - 各 source ごとに active/inactive、entry 件数、warning を算出
+    - 左ペインで選択した source 配下の hook entry のみ右ペインに表示
+    - source ファイルが存在しない場合は `hooks.json` の最小作成または空 `config.toml` 作成導線を表示
+  - 出力：Hooks summary、source 一覧、source 別 entry 一覧、warning
+  - 検索条件：なし
+  - ソート：user json → user inline → project json → project inline
+  - バリデーション：
+    - project layer は trusted workspace の場合のみ active
+    - command handler 以外は warning 付きの診断対象として表示
 
 ## 5. 🗃️データモデル
 
@@ -219,6 +281,26 @@ codex-workspace/
 | HistoryTurnRecord | aiTimeline | HistoryAiTimelineItem[] | AI回答/思考過程の統合タイムライン | 時刻昇順 |
 | HistoryIndex | turns | HistoryTurnRecord[] | 全タスク一覧（新しい順） | 必須 |
 | HistoryIndex | days | HistoryDayNode[] | `dateKey` 単位の表示ノード | 必須 |
+| FeatureFlagRecord | key | string | feature flag 名 | 既知の主要 flag |
+| FeatureFlagRecord | description | string | ローカライズ済み説明 | 必須 |
+| FeatureFlagRecord | maturity | string | `stable` / `experimental` / `deprecated` | 必須 |
+| FeatureFlagRecord | defaultValue | boolean | 既定値 | 必須 |
+| FeatureFlagRecord | effectiveValue | boolean | 現在有効値 | 必須 |
+| FeatureFlagRecord | configuredValue | boolean \| null | `config.toml` に明示設定された値 | optional |
+| HookSourceRecord | id | string | hook source 識別子 | 一意 |
+| HookSourceRecord | layer | string | `user` / `project` | 必須 |
+| HookSourceRecord | format | string | `json` / `inline` | 必須 |
+| HookSourceRecord | path | string | source ファイルの絶対パス | 必須 |
+| HookSourceRecord | isActive | boolean | source が有効レイヤーか | 必須 |
+| HookSourceRecord | entryCount | number | source 配下の entry 件数 | 0 以上 |
+| HookSourceRecord | warnings | string[] | source 単位の warning 一覧 | 0 件以上 |
+| HookEntryRecord | event | string | hook event 名 | 必須 |
+| HookEntryRecord | matcher | string | matcher 文字列 | optional |
+| HookEntryRecord | handlerType | string | `command` などの handler 種別 | 必須 |
+| HookEntryRecord | command | string | 実行コマンド | optional |
+| HookEntryRecord | timeout | number \| null | timeout 秒 | optional |
+| HookEntryRecord | statusMessage | string | status message | optional |
+| HookEntryRecord | warning | string \| null | entry 単位 warning | optional |
 
 ## 6. 🖥️画面設計
 
@@ -229,6 +311,7 @@ codex-workspace/
   - Agent Explorer
   - MCP Explorer
   - Codex Core
+  - Codex Manager
   - UI 最上部のボタンで追加/削除/リネーム/Refresh/フォルダを開く
 - **Prompts/Skills/Templates**
   - 固定ルートフォルダ（`prompts` / `skills` / `codex-templates`）を持ち、UI はルート直下を表示
@@ -246,10 +329,22 @@ codex-workspace/
   - クリックで ON/OFF を切替
   - 成功時に再起動が必要な旨を通知
 - **Codex Core**
-  - `config.toml` / `AGENTS.md` のショートカット
-  - 操作：UI 最上部のボタンで `.codex` を開く/同期/会話履歴ビュー起動
+  - `config.toml` / `AGENTS.md` / `AGENTS.override.md` のショートカット
+  - 操作：UI 最上部のボタンで `.codex` を開く/同期/`Codex Manager` 起動
   - 同期ボタンは同期先フォルダ設定が空の場合は非表示
-- **会話履歴ビュー（WebView in Editor）**
+- **Codex Manager（WebView in Editor）**
+  - タブ：会話履歴 / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks
+  - 各タブに個別 Refresh を表示
+  - Hooks タブ
+    - 上部 summary：Hooks 機能、Project Hooks 機能、基準ワークスペース
+    - 左ペイン：hook source 一覧
+    - 右ペイン：選択 source 配下の hook entry 一覧
+  - Feature Flags タブ
+    - feature 名、説明、成熟度、既定値、現在値、設定有無、トグル
+  - AGENTS Loading Chain タブ
+    - 左ペイン：現在有効 / 無視された候補 / 要確認 / 詳細候補
+    - 右ペイン：状態、分類、パス、説明、本文プレビュー
+- **会話履歴タブ**
   - 上部ペイン：検索テキストボックス + クリアボタン（codicon `clear-all`）
   - 下部左ペイン：日付フォルダ（`yyyy/mm/dd`） + タスクカード（`💬 [H:mm:ss]` + 最大 100 文字のユーザーメッセージ）
   - 下部右ペイン：選択タスクの会話プレビュー
@@ -285,6 +380,7 @@ flowchart TB
 ## 8.🔌外部インターフェース
 
 - **ローカルファイルシステム**：`~/.codex` 配下の読み書き
+- **project-local ファイルシステム**：`workspace/.codex` および一部 `workspace/.agents` の読み取り
 - **拡張機能メタ領域**：`.codex/.codex-workspace/`（`codex-sync.json` / `agents-disabled.json`）
 - **セッション履歴ファイル**：`$CODEX_HOME/sessions/.../rollout-*.jsonl` の読み取り
 - **OS Explorer/Finder**：対象ルートフォルダの表示
@@ -320,6 +416,10 @@ flowchart TB
   - AI回答/思考過程の時系列統合（`aiTimeline`）とメッセージ別時刻
   - `maxHistoryCount` と `incrudeReasoningMessage` の設定反映
   - 履歴ビューの単一インスタンス制御
+  - AGENTS Loading Chain の表示変換、詳細候補トグル、ワークスペース未オープン時表示
+  - Trusted Directory の一覧、追加、削除
+  - Feature Flags の一覧生成、ローカライズ、トグル更新
+  - Hooks source 一覧、source 切替、warning、missing source 作成導線
 - **統合テスト**
   - 各 Explorer の Tree 表示（ルート直下表示、利用不可表示）
   - 追加/削除/リネーム操作の UI フロー（未選択時のメッセージ含む）
@@ -328,9 +428,10 @@ flowchart TB
   - Agent Explorer の「フォルダを開く」導線
   - 同期ボタンの表示/非表示と確認ダイアログ
   - MCP トグル後の通知表示
-  - 履歴ボタン/コマンドからエディタ領域に履歴ビューが表示される
+  - Core ボタン/コマンドからエディタ領域に `Codex Manager` が表示される
   - カード選択で会話プレビューが更新される
   - 検索実行とクリアで一覧絞り込み状態が切り替わる
+  - Feature Flags と Hooks タブの表示更新が `Codex Manager` 上で反映される
 - **ローカライズ確認**
   - `ja` と `en` のラベル/メッセージの切替
 
