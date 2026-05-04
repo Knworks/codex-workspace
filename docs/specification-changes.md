@@ -13,7 +13,7 @@
 - Template Exploreは変更不要とし、現行仕様を維持する。
 - Codex Core Exploreを整理し、Codex Core Viewを追加する。
 - 既存の会話履歴画面は、Codex Core Viewの会話履歴タブへ移行する。
-- Codex Core Viewには、会話履歴、AGENTS Loading Chain、信頼するディレクトリをタブ表示する。
+- Codex Core Viewには、会話履歴、AGENTS Loading Chain、信頼するディレクトリ、Feature Flags、Hooksをタブ表示する。
 
 ## 🎭 ユースケース / ユーザーストーリー
 
@@ -32,6 +32,11 @@
 - ユーザーは信頼するディレクトリタブで、信頼済みディレクトリを一覧表示できる。
 - ユーザーはフォルダ選択ダイアログから信頼するディレクトリを追加できる。
 - ユーザーは確認ダイアログ後に信頼するディレクトリのエントリを削除できる。
+- ユーザーはFeature Flagsタブで、主要なCodex feature flagの現在値、既定値、成熟度、説明を確認できる。
+- ユーザーはFeature Flagsタブで、対応しているfeature flagをON/OFFで切り替えられる。
+- ユーザーはHooksタブで、Hooks機能の有効状態、Project Hooksの有効状態、hook sourceごとのentry一覧を確認できる。
+- ユーザーはHooksタブから、存在する`hooks.json`または`config.toml`を開ける。
+- ユーザーはHooksタブから、存在しない`hooks.json`または`config.toml`を作成して開ける。
 
 ## 🧩 機能要件
 
@@ -709,6 +714,8 @@ Codex Core同期は、以下を対象とする。
   - 会話履歴
   - AGENTS Loading Chain
   - 信頼するディレクトリ
+  - Feature Flags
+  - Hooks
 - 各タブには、タブごとのRefreshボタンを表示する。
 - Refresh操作は、現在開いているタブのみ再読み込みする。
 
@@ -846,6 +853,85 @@ Remove trusted directory [/Users/kaz/projects/CodexRateLimit]?
 This only removes the trust entry from config.toml and does not delete the actual folder.
 ```
 
+#### 🚩 Feature Flagsタブ
+
+- Feature Flagsタブでは、`config.toml`の`[features]`を対象に、主要なfeature flagの一覧と現在状態を表示する。
+- 一覧対象は、初期リリースでは以下の既知feature flagとする。
+  - `apps`
+  - `codex_hooks`
+  - `fast_mode`
+  - `memories`
+  - `multi_agent`
+  - `personality`
+  - `shell_snapshot`
+  - `shell_tool`
+  - `unified_exec`
+  - `undo`
+  - `web_search`
+  - `web_search_cached`
+  - `web_search_request`
+- 各feature flagには、名前、説明、成熟度、既定値、現在値、設定有無を表示する。
+- 説明文と状態文言は日本語と英語でローカライズする。
+- `config.toml`が解析可能な場合は、各feature flagをトグルでON/OFF変更できる。
+- トグル操作後は`config.toml`の`[features]`を更新し、Feature Flagsタブを再描画する。
+- `codex_hooks`を変更した場合は、Hooksタブも再描画して状態を同期する。
+- `config.toml`がTOMLとして不正な場合は、一覧表示は空状態またはエラー表示とし、更新操作は無効化する。
+
+#### 🪝 Hooksタブ
+
+- Hooksタブでは、Codex Hooksの診断とhook sourceの確認を行う。
+- ヘッダには、以下を表示する。
+  - Hooks機能の有効状態
+  - Project Hooks機能の有効状態
+  - 基準ワークスペースのパス
+- Hooks機能の有効状態は、`[features].codex_hooks`の現在値を基準に判定する。
+- Project Hooks機能の有効状態は、ワークスペースがtrustedであり、project layerが有効かどうかで判定する。
+- 基準ワークスペースは、先頭のVS Codeワークスペースルートとする。
+
+##### 🗂️ Hooksの対象source
+
+- Hooksタブは、以下のsourceを対象にする。
+  - `~/.codex/hooks.json`
+  - `~/.codex/config.toml`内のinline hooks
+  - `project/.codex/hooks.json`
+  - `project/.codex/config.toml`内のinline hooks
+- 左ペインには、source一覧を表示する。
+- source一覧の各行には、レイヤー、形式、対象パス、active状態、entry件数を表示する。
+- project layerのsourceは、ワークスペースがtrustedでない場合はinactiveとして表示する。
+- 右ペインには、左ペインで選択したsource配下のhook entryのみを表示する。
+- 初期選択は、一覧の先頭sourceとする。
+
+##### 📄 Hooksのentry表示
+
+- 右ペインのhook entryには、以下を表示する。
+  - Event
+  - Matcher
+  - Handler Type
+  - Command
+  - Timeout
+  - Status Message
+  - Warning
+- eventごとのentryはフラットな一覧で表示し、sourceを跨いだ集約表示は行わない。
+- 選択sourceに有効entryがない場合は、空状態メッセージを表示する。
+- command handler以外のhookは、初期リリースでは診断対象として表示するが、未対応warningを付与する。
+
+##### ⚠️ Hooksのwarning
+
+- Hooksタブでは、以下のwarningを表示できるようにする。
+  - `codex_hooks`が無効である
+  - project workspaceがtrustedでないためproject-local hooksが無効である
+  - 同一layerに`hooks.json`とinline hooksが共存している
+  - command handler以外のhookが含まれている
+- warning文言は日本語と英語でローカライズする。
+
+##### ➕ Hooks sourceの作成とOpen
+
+- sourceファイルが存在する場合は、Open操作を提供する。
+- `hooks.json`が存在しない場合は、最小構成の`hooks.json`を作成して開く操作を提供する。
+- `config.toml`が存在しない場合は、空の`config.toml`を作成して開く操作を提供する。
+- source作成後は、Hooksタブを再読み込みする。
+- 初期リリースでは、Hooksタブ上でhook entryの追加、削除、構造化編集は提供しない。
+
 ## 🛡️ 非機能要件
 
 ### 🎨 UI / UX
@@ -862,6 +948,9 @@ This only removes the trust entry from config.toml and does not delete the actua
 - AGENTS Loading Chainは、現在有効な項目を先頭に整理した診断ビューとする。
 - AGENTS Loading Chainの状態識別は、色だけに依存せず、バッジ、文字、トーン差を組み合わせる。
 - 信頼するディレクトリ一覧では、存在しないディレクトリのみ警告アイコンで示す。
+- Feature Flagsタブは、一覧とトグルを中心にした設定管理ビューとする。
+- Hooksタブは、左ペインのsource選択と右ペインのentry表示で構成する診断ビューとする。
+- Hooksタブのsource選択時スタイルは、会話履歴一覧と同系統の選択スタイルに揃える。
 - `config.toml`が不正な場合は、`config.toml`に警告アイコンを表示し、修正可能であることをツールチップで示す。
 
 ### 🧯 安全性
@@ -916,6 +1005,13 @@ This only removes the trust entry from config.toml and does not delete the actua
 | 信頼ディレクトリ一覧 | `trust_level = "trusted"`のエントリだけ表示される |
 | 信頼ディレクトリ追加 | フォルダ選択後に`[projects."<path>"] trust_level = "trusted"`が追加される |
 | 信頼ディレクトリ削除 | 確認後に信頼設定のみ削除される |
+| Feature Flags一覧 | 主要feature flagの説明、成熟度、既定値、現在値、設定有無が表示される |
+| Feature Flagsトグル | `config.toml`の`[features]`が更新され、必要に応じてHooksタブも同期更新される |
+| Hooks summary表示 | Hooks機能、Project Hooks機能、基準ワークスペースが表示される |
+| Hooks source一覧 | user / project、hooks.json / inline hooks のsourceが表示される |
+| Hooks source切替 | 左ペインで選んだsource配下のentryのみ右ペインに表示される |
+| Hooks warning表示 | hooks無効、untrusted、共存source、未対応handlerのwarningが表示される |
+| Hooks file作成 | 存在しない`hooks.json`と`config.toml`を作成して開ける |
 | config不正時Open | 壊れた`config.toml`でも存在して読めれば開ける |
 | config不正時操作制限 | 解析依存の更新操作が無効化される |
 | タブRefresh | 現在開いているタブだけ再読み込みされる |
@@ -939,6 +1035,9 @@ This only removes the trust entry from config.toml and does not delete the actua
 - マルチルートワークスペースでは、先頭のワークスペースルートを基準にする。
 - 信頼するディレクトリタブでは、`trust_level = "trusted"`以外のエントリは初期リリースでは一覧対象外とする。
 - 信頼するディレクトリの削除は、`config.toml`の信頼設定のみを削除し、実フォルダは削除しない。
+- Feature Flagsタブの対象は、初期リリースでは既知の主要feature flagに限定する。
+- Hooksタブは、初期リリースでは診断とsourceファイル導線に限定し、hook entryの追加、削除、構造化編集は提供しない。
+- Hooksタブのproject layer判定は、trusted directory設定に依存する。
 - 会話履歴タブは現行仕様をそのままタブ化し、解析仕様や表示仕様は変更しない。
 - `incrudeReasoningMessage`は既存互換を優先し、今回の変更では名称変更しない。
 
@@ -950,6 +1049,8 @@ This only removes the trust entry from config.toml and does not delete the actua
 - MCPサーバー接続テスト機能を追加するかは将来対応とする。
 - MCPサーバーが提供するツール一覧を実際に取得して表示するかは将来対応とする。
 - 信頼するディレクトリタブで、`trust_level = "trusted"`以外のプロジェクト設定を将来表示するかは未確定とする。
+- Hooksタブで`hooks.json`またはinline hooksの構造化編集UIを追加するかは将来対応とする。
+- Hooksタブでeffective順の統合表示や競合解決UIを追加するかは将来対応とする。
 - `incrudeReasoningMessage`はタイポの可能性があるが、既存互換を優先し、将来`includeReasoningMessage`への移行を検討する。
 
 ## ✅ まとめ
@@ -961,4 +1062,4 @@ This only removes the trust entry from config.toml and does not delete the actua
 - MCPは、Exploreの現行ON/OFF仕様を維持し、MCP Manager Viewを追加する。
 - PROMPTSは、Obsolete機能として現行維持する。
 - Templateは、変更不要として現行維持する。
-- Codex Coreは、Codex Core Viewを追加し、会話履歴、AGENTS Loading Chain、信頼するディレクトリをタブで扱う。
+- Codex Coreは、Codex Core Viewを追加し、会話履歴、AGENTS Loading Chain、信頼するディレクトリ、Feature Flags、Hooksをタブで扱う。

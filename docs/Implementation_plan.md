@@ -6,7 +6,7 @@
 | --- | --- | --- | --- |
 | フェーズ1: Walking Skeleton | 既存 Explorer を壊さず、新しい Core View 導線と複数保存場所の基盤を通す | Core View が開き、Core Explorer が `AGENTS.override.md` と不正 `config.toml` の扱いを満たす | Core View シェル、Core Explorer 更新、同期対象追加 |
 | フェーズ2: 機能網羅・自動化 | Skills / AGENTS / MCP の Manager View と主要操作を実装する | 変更仕様の管理画面、検索、トグル、追加編集削除が実装される | Skill Manager、AGENTS Manager、MCP Manager |
-| フェーズ3: 堅牢化・回帰防止 | 診断タブ、信頼ディレクトリ、テスト網羅を仕上げる | 仕様変更分のユニットテストとビルドが通る | AGENTS Loading Chain、Trusted Directories、回帰テスト |
+| フェーズ3: 堅牢化・回帰防止 | 診断タブ、信頼ディレクトリ、Feature Flags、Hooks、テスト網羅を仕上げる | 仕様変更分のユニットテストとビルドが通る | AGENTS Loading Chain、Trusted Directories、Feature Flags、Hooks、回帰テスト |
 
 ## 2. 🧾 Issueアウトライン
 
@@ -154,31 +154,36 @@
 
 - タイトル: Core View 診断タブと信頼ディレクトリ
 - フェーズ: 堅牢化・回帰防止
-- 要件: AGENTS Loading Chain / 信頼するディレクトリ / タブ Refresh
+- 要件: AGENTS Loading Chain / 信頼するディレクトリ / Feature Flags / Hooks / タブ Refresh
 - DependsOn: CORE-001
 - 規模: 0.5〜1日
 - 作業内容
   - AGENTS Loading Chain の推定サービスを追加する
   - Core View に AGENTS Loading Chain タブと右ペイン詳細を追加する
   - `[projects."<path>"] trust_level = "trusted"` の一覧、追加、削除を実装する
+  - Feature Flags の一覧モデル、ローカライズ、更新処理を追加する
+  - Hooks source / entry 診断、warning、source file Open / 作成導線を追加する
   - タブごとの Refresh を実装する
 
 - AC
-  - [ ] [機能] ワークスペースルート基準で Active / Skipped / Missing / Error のチェーンを表示できる
+  - [ ] [機能] ワークスペースルート基準で AGENTS Loading Chain の診断ビューを表示できる
   - [ ] [UI/UX] 状態を色だけでなくバッジ、文字、トーン差で識別できる
   - [ ] [機能] trusted な `[projects."<path>"]` のみを一覧表示できる
+  - [ ] [機能] Feature Flags タブで主要 flag の状態確認と更新ができる
+  - [ ] [機能] Hooks タブで source ごとの entry と warning を確認できる
   - [ ] [状態/エラー] `config.toml` 不正時は信頼ディレクトリの追加削除を無効化し、エラー内容を表示する
-  - [ ] [テスト] Loading Chain 判定、信頼ディレクトリ追加削除、タブ Refresh をテストする
+  - [ ] [テスト] Loading Chain 判定、信頼ディレクトリ追加削除、Feature Flags、Hooks、タブ Refresh をテストする
 
 ### IssueID: TEST-001
 
 - タイトル: 仕様変更回帰テストと品質確認
 - フェーズ: 堅牢化・回帰防止
-- 要件: テスト観点全般、PROMPTS / Template 現行維持
+- 要件: テスト観点全般、Feature Flags / Hooks 回帰、PROMPTS / Template 現行維持
 - DependsOn: SKILL-002, AGENT-002, MCP-002, CORE-002
 - 規模: 0.5〜1日
 - 作業内容
   - 変更仕様の不足テストを追加する
+  - Feature Flags と Hooks の回帰テストを追加する
   - PROMPTS Explore と Template Explore に新機能が混入していないことを確認する
   - `npm run compile` と `npm test` を通す
   - セルフチェック結果を整理する
