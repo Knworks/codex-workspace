@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import * as vscode from 'vscode';
 import { messages } from '../i18n';
 import { getConfiguredMaxHistoryCount, getIncludeReasoningMessage } from './settings';
@@ -9,6 +11,12 @@ import {
 	listTrustedDirectories,
 	removeTrustedDirectory,
 } from './coreDiagnosticsService';
+import {
+	createHooksJsonFile,
+	listFeatureFlagRecords,
+	listHookDiagnostics,
+	setFeatureFlag,
+} from './coreManagerConfigService';
 import { getCoreWorkspaceStatus, resolveCodexPaths } from './workspaceStatus';
 import { CODICON_RESOURCE_ROOTS, getCodiconCssHref, getCodiconIconPath } from './webviewAssets';
 
@@ -23,9 +31,13 @@ type HistoryPanelInboundMessage =
 	| { type: 'copyText'; text: string }
 	| { type: 'refreshTab'; tab: CoreViewTab }
 	| { type: 'addTrustedDirectory' }
-	| { type: 'removeTrustedDirectory'; targetPath: string };
+	| { type: 'removeTrustedDirectory'; targetPath: string }
+	| { type: 'setFeatureFlag'; featureKey: string; enabled: boolean }
+	| { type: 'openPath'; targetPath: string }
+	| { type: 'createHooksFile'; targetPath: string }
+	| { type: 'createEmptyFile'; targetPath: string };
 
-type CoreViewTab = 'history' | 'chain' | 'trusted';
+type CoreViewTab = 'history' | 'chain' | 'trusted' | 'features' | 'hooks';
 
 type HistoryTurnSummary = {
 	turnId: string;
@@ -257,7 +269,13 @@ function escapeHtml(value: string): string {
 }
 
 function isCoreViewTab(value: unknown): value is CoreViewTab {
-	return value === 'history' || value === 'chain' || value === 'trusted';
+	return (
+		value === 'history' ||
+		value === 'chain' ||
+		value === 'trusted' ||
+		value === 'features' ||
+		value === 'hooks'
+	);
 }
 
 function buildRefreshButtonHtml(tab: CoreViewTab): string {
@@ -392,6 +410,158 @@ function buildTrustedDirectoriesHtml(): string {
 	<div class="trusted-list">${trustedHtml || `<p class="muted">${messages.historyNoResult}</p>`}</div>`;
 }
 
+function buildFeatureFlagsHtml(): string {
+	const configPath = resolveCodexPaths().configPath;
+	const flags = listFeatureFlagRecords(configPath);
+	const coreStatus = getCoreWorkspaceStatus();
+	const rows = flags
+		.map((flag) => {
+			const configuredLabel =
+				flag.configuredValue === undefined
+					? messages.featureFlagSourceDefault
+					: messages.featureFlagSourceConfig;
+			const checked = flag.enabled ? 'checked' : '';
+			const disabled = coreStatus.isConfigInvalid ? 'disabled' : '';
+			return `<article class="setting-card">
+				<div class="setting-card-main">
+					<div class="setting-card-title-row">
+						<div>
+							<h3 class="setting-card-title">${escapeHtml(flag.key)}</h3>
+							<p class="setting-card-subtitle">${escapeHtml(flag.description)}</p>
+						</div>
+						<div class="feature-badges">
+							<span class="feature-badge ${escapeHtml(flag.maturity.toLowerCase())}">${escapeHtml(flag.maturity)}</span>
+							<span class="feature-badge subtle">${escapeHtml(configuredLabel)}</span>
+						</div>
+					</div>
+					<div class="setting-card-meta muted">
+						<span>${escapeHtml(messages.featureFlagDefaultLabel)}: ${flag.defaultEnabled ? 'true' : 'false'}</span>
+						<span>${escapeHtml(messages.featureFlagEffectiveLabel)}: ${flag.enabled ? 'true' : 'false'}</span>
+					</div>
+				</div>
+				<label class="setting-toggle">
+					<input type="checkbox" data-feature-toggle="${escapeHtml(flag.key)}" ${checked} ${disabled} />
+					<span class="chain-toggle-switch" aria-hidden="true"></span>
+				</label>
+			</article>`;
+		})
+		.join('');
+	return `<div class="trusted-toolbar">
+		${buildRefreshButtonHtml('features')}
+		${coreStatus.isConfigInvalid ? `<span class="muted">${messages.reasonConfigInvalid}</span>` : ''}
+	</div>
+	<div class="settings-list">${rows || `<p class="muted">${messages.historyNoResult}</p>`}</div>`;
+}
+
+function buildHooksHtml(): string {
+	const diagnostics = listHookDiagnostics();
+	const hookFeatureAction = diagnostics.hooksEnabled
+		? ''
+		: `<button class="icon-button" type="button" data-enable-hooks="true" title="${escapeHtml(messages.hooksEnableFeature)}" aria-label="${escapeHtml(messages.hooksEnableFeature)}"><span class="codicon codicon-pass-filled" aria-hidden="true"></span></button>`;
+	const warnings = diagnostics.warnings
+		.map((warning) => `<article class="warning-card"><span class="codicon codicon-warning" aria-hidden="true"></span><span>${escapeHtml(warning)}</span></article>`)
+		.join('');
+	const hookRadios = diagnostics.sources
+		.map(
+			(_source, index) =>
+				`<input id="hooks-source-${index}" class="hook-source-radio" type="radio" name="hooks-source" ${index === 0 ? 'checked' : ''} />`,
+		)
+		.join('');
+	const hookPanelSelectors = diagnostics.sources
+		.map(
+			(_source, index) =>
+				`#hooks-source-${index}:checked ~ .hooks-layout [data-hook-panel="${index}"] { display: grid; }
+#hooks-source-${index}:checked ~ .hooks-layout label[for="hooks-source-${index}"] { border-color: var(--vscode-focusBorder); background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
+#hooks-source-${index}:checked ~ .hooks-layout label[for="hooks-source-${index}"] .setting-card-subtitle,
+#hooks-source-${index}:checked ~ .hooks-layout label[for="hooks-source-${index}"] .muted,
+#hooks-source-${index}:checked ~ .hooks-layout label[for="hooks-source-${index}"] .feature-badge.subtle { color: var(--vscode-list-activeSelectionForeground); opacity: 0.9; }`,
+		)
+		.join('\n');
+	const sourceCards = diagnostics.sources
+		.map((source, index) => {
+			const sourceDomId = `hooks-source-${index}`;
+			const openButton = source.exists
+				? `<button class="icon-button" type="button" data-open-path="${escapeHtml(source.path)}" title="${escapeHtml(messages.hooksOpenSource)}" aria-label="${escapeHtml(messages.hooksOpenSource)}"><span class="codicon codicon-go-to-file" aria-hidden="true"></span></button>`
+				: source.format === 'hooks.json'
+					? `<button class="icon-button" type="button" data-create-hooks-file="${escapeHtml(source.path)}" title="${escapeHtml(messages.hooksCreateFile)}" aria-label="${escapeHtml(messages.hooksCreateFile)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>`
+					: `<button class="icon-button" type="button" data-create-empty-file="${escapeHtml(source.path)}" title="${escapeHtml(messages.hooksCreateConfigFile)}" aria-label="${escapeHtml(messages.hooksCreateConfigFile)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>`;
+			return `<article class="hooks-source-item">
+				<label class="setting-card hook-source-card" for="${sourceDomId}">
+				<div class="setting-card-main">
+					<div class="setting-card-title-row">
+						<div>
+							<h3 class="setting-card-title">${escapeHtml(source.layer === 'user' ? messages.hooksLayerUser : messages.hooksLayerProject)} / ${escapeHtml(source.format)}</h3>
+							<p class="setting-card-subtitle">${escapeHtml(source.path)}</p>
+						</div>
+						<div class="feature-badges">
+							<span class="feature-badge ${source.active ? 'stable' : 'deprecated'}">${escapeHtml(source.active ? messages.hooksActive : messages.hooksInactive)}</span>
+							<span class="feature-badge subtle">${escapeHtml(messages.hooksEntryCount(source.entryCount))}</span>
+						</div>
+					</div>
+					${source.warning ? `<p class="muted">${escapeHtml(source.warning)}</p>` : ''}
+				</div>
+				</label>
+				<div class="inline-actions">${openButton}</div>
+			</article>`;
+		})
+		.join('');
+	const entryPanels = diagnostics.sources
+		.map((source, index) => {
+			const matchingEntries = diagnostics.entries.filter(
+				(entry) => entry.layer === source.layer && entry.format === source.format && entry.sourcePath === source.path,
+			);
+			const panelRows = matchingEntries
+				.map((entry) => `<article class="hook-entry-card">
+			<div class="setting-card-title-row">
+				<div>
+					<h3 class="setting-card-title">${escapeHtml(entry.event)}</h3>
+					<p class="setting-card-subtitle">${escapeHtml(entry.command ?? messages.hooksNoCommand)}</p>
+				</div>
+				<div class="feature-badges">
+					<span class="feature-badge ${entry.active ? 'stable' : 'deprecated'}">${escapeHtml(entry.active ? messages.hooksActive : messages.hooksInactive)}</span>
+					<span class="feature-badge subtle">${escapeHtml(entry.layer === 'user' ? messages.hooksLayerUser : messages.hooksLayerProject)} / ${escapeHtml(entry.format)}</span>
+				</div>
+			</div>
+			<div class="setting-card-meta muted">
+				<span>${escapeHtml(messages.hooksMatcherLabel)}: ${escapeHtml(entry.matcher ?? messages.hooksMatcherNotUsed)}</span>
+				<span>${escapeHtml(messages.hooksTypeLabel)}: ${escapeHtml(entry.handlerType)}</span>
+				<span>${escapeHtml(messages.hooksTimeoutLabel)}: ${escapeHtml(entry.timeout?.toString() ?? '600')}</span>
+			</div>
+			${entry.statusMessage ? `<p class="muted">${escapeHtml(messages.hooksStatusMessageLabel)}: ${escapeHtml(entry.statusMessage)}</p>` : ''}
+			${entry.warning ? `<p class="muted">${escapeHtml(entry.warning)}</p>` : ''}
+		</article>`)
+				.join('');
+			return `<section class="hooks-detail-panel" data-hook-panel="${index}">
+				<h2 class="section-heading">${escapeHtml(messages.hooksEntriesHeading)}</h2>
+				${panelRows || `<p class="muted hooks-empty-state">${messages.hooksNoEntries}</p>`}
+			</section>`;
+		})
+		.join('');
+	return `<div class="trusted-toolbar">
+		<div class="chain-toolbar-main">
+			<div class="chain-summary">
+				<span>${escapeHtml(messages.hooksFeatureStatus(diagnostics.hooksEnabled ? messages.hooksActive : messages.hooksInactive))}</span>
+				<span>${escapeHtml(messages.hooksProjectTrustLabel)}: ${escapeHtml(diagnostics.projectTrusted ? messages.hooksActive : messages.hooksInactive)}</span>
+			</div>
+			<div class="chain-context">${escapeHtml(messages.chainWorkspaceRootLabel)}: ${escapeHtml(diagnostics.workspaceRoot ?? messages.chainNoWorkspace)}</div>
+		</div>
+		${hookFeatureAction}
+		${buildRefreshButtonHtml('hooks')}
+	</div>
+	<style>${hookPanelSelectors}</style>
+	${hookRadios}
+	<div class="hooks-layout">
+		<section class="settings-list">
+			<h2 class="section-heading">${escapeHtml(messages.hooksSourcesHeading)}</h2>
+			${warnings}
+			${sourceCards || `<p class="muted">${messages.historyNoResult}</p>`}
+		</section>
+		<section class="settings-list">
+			${entryPanels || `<p class="muted">${messages.hooksNoEntries}</p>`}
+		</section>
+	</div>`;
+}
+
 function serializeAgentsChain(payload: AgentsChainDisplayPayload): string {
 	return JSON.stringify(payload);
 }
@@ -405,6 +575,8 @@ function buildHistoryWebviewHtml(
 		conversationHistoryTab: messages.coreViewConversationHistoryTab,
 		agentsChainTab: messages.coreViewAgentsChainTab,
 		trustedDirectoriesTab: messages.coreViewTrustedDirectoriesTab,
+		featureFlagsTab: messages.coreViewFeatureFlagsTab,
+		hooksTab: messages.coreViewHooksTab,
 		searchPlaceholder: messages.historySearchPlaceholder,
 		clear: messages.historyClear,
 		noResult: messages.historyNoResult,
@@ -883,6 +1055,156 @@ function buildHistoryWebviewHtml(
 			border-bottom: 1px solid var(--vscode-panel-border);
 		}
 		.trusted-list { padding: 10px 8px; }
+		.settings-list {
+			padding: 10px 12px;
+			display: grid;
+			gap: 10px;
+		}
+		.hooks-layout {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 0;
+		}
+		.hooks-source-item {
+			display: grid;
+			grid-template-columns: 1fr auto;
+			gap: 12px;
+			align-items: center;
+		}
+		.hook-source-radio {
+			position: absolute;
+			opacity: 0;
+			width: 1px;
+			height: 1px;
+			pointer-events: none;
+		}
+		.hook-source-card {
+			cursor: pointer;
+		}
+		.setting-card, .hook-entry-card, .warning-card {
+			border: 1px solid var(--vscode-panel-border);
+			border-radius: 8px;
+			padding: 10px 12px;
+			background: var(--vscode-editorWidget-background);
+		}
+		.warning-card {
+			display: flex;
+			gap: 8px;
+			align-items: center;
+			line-height: 1.5;
+		}
+		.warning-card .codicon {
+			line-height: 1;
+			flex: 0 0 auto;
+		}
+		.setting-card {
+			display: grid;
+			grid-template-columns: 1fr auto;
+			gap: 12px;
+			align-items: center;
+		}
+		.setting-card-main {
+			display: grid;
+			gap: 6px;
+			min-width: 0;
+		}
+		.setting-card-title-row {
+			display: flex;
+			gap: 12px;
+			align-items: start;
+			justify-content: space-between;
+		}
+		.setting-card-title {
+			margin: 0;
+			font-size: 13px;
+			font-weight: 600;
+		}
+		.setting-card-subtitle {
+			margin: 4px 0 0;
+			font-size: 12px;
+			line-height: 1.5;
+			color: var(--vscode-descriptionForeground);
+			word-break: break-word;
+		}
+		.setting-card-meta {
+			display: flex;
+			gap: 10px;
+			flex-wrap: wrap;
+		}
+		.setting-toggle {
+			display: inline-flex;
+			align-items: center;
+			cursor: pointer;
+		}
+		.setting-toggle input {
+			position: absolute;
+			opacity: 0;
+			width: 1px;
+			height: 1px;
+			pointer-events: none;
+		}
+		.setting-toggle input:checked + .chain-toggle-switch {
+			background: var(--vscode-button-background);
+			border-color: var(--vscode-button-background);
+		}
+		.setting-toggle input:checked + .chain-toggle-switch::after {
+			transform: translate(16px, -50%);
+			background: var(--vscode-button-foreground);
+		}
+		.setting-toggle input:focus-visible + .chain-toggle-switch {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 2px;
+		}
+		.feature-badges {
+			display: flex;
+			gap: 6px;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+		}
+		.feature-badge {
+			font-size: 11px;
+			padding: 2px 8px;
+			border-radius: 999px;
+			border: 1px solid var(--vscode-panel-border);
+			white-space: nowrap;
+		}
+		.feature-badge.stable {
+			background: color-mix(in srgb, var(--vscode-testing-iconPassed) 14%, transparent);
+		}
+		.feature-badge.experimental {
+			background: color-mix(in srgb, var(--vscode-editorWarning-foreground) 14%, transparent);
+		}
+		.feature-badge.deprecated {
+			background: color-mix(in srgb, var(--vscode-inputValidation-errorBorder) 12%, transparent);
+		}
+		.feature-badge.subtle {
+			color: var(--vscode-descriptionForeground);
+		}
+		.inline-actions {
+			display: inline-flex;
+			gap: 8px;
+			align-items: center;
+		}
+		.hooks-detail-panel {
+			display: none;
+			gap: 10px;
+			align-content: start;
+		}
+		.hooks-detail-panel > .section-heading {
+			margin: 0;
+		}
+		.hooks-empty-state {
+			margin: 0;
+			align-self: start;
+			justify-self: start;
+			text-align: left;
+		}
+		.section-heading {
+			margin: 0;
+			font-size: 12px;
+			font-weight: 600;
+			color: var(--vscode-descriptionForeground);
+		}
 		.markdown-content p {
 			margin: 0 0 10px 0;
 			line-height: 1.5;
@@ -901,6 +1223,8 @@ function buildHistoryWebviewHtml(
 			<button class="tab active" data-tab="history" type="button"><span class="codicon codicon-history" aria-hidden="true"></span>${messages.coreViewConversationHistoryTab}</button>
 			<button class="tab" data-tab="chain" type="button"><span class="codicon codicon-server" aria-hidden="true"></span>${messages.coreViewAgentsChainTab}</button>
 			<button class="tab" data-tab="trusted" type="button"><span class="codicon codicon-shield" aria-hidden="true"></span>${messages.coreViewTrustedDirectoriesTab}</button>
+			<button class="tab" data-tab="features" type="button"><span class="codicon codicon-settings-gear" aria-hidden="true"></span>${messages.coreViewFeatureFlagsTab}</button>
+			<button class="tab" data-tab="hooks" type="button"><span class="codicon codicon-symbol-event" aria-hidden="true"></span>${messages.coreViewHooksTab}</button>
 		</nav>
 		<section id="historyTab" class="diag-tab active">
 			<section class="top-pane">
@@ -935,6 +1259,12 @@ function buildHistoryWebviewHtml(
 		</section>
 		<section id="trustedTab" class="diag-tab">
 			<div id="trustedContent">${buildTrustedDirectoriesHtml()}</div>
+		</section>
+		<section id="featuresTab" class="diag-tab">
+			<div id="featuresContent">${buildFeatureFlagsHtml()}</div>
+		</section>
+		<section id="hooksTab" class="diag-tab">
+			<div id="hooksContent">${buildHooksHtml()}</div>
 		</section>
 	</div>
 	<script nonce="${nonce}">
@@ -977,6 +1307,36 @@ function buildHistoryWebviewHtml(
 			const removeTrustedButton = target?.closest('[data-remove-trusted]');
 			if (removeTrustedButton?.dataset?.removeTrusted) {
 				vscode.postMessage({ type: 'removeTrustedDirectory', targetPath: removeTrustedButton.dataset.removeTrusted });
+				return;
+			}
+			const openPathButton = target?.closest('[data-open-path]');
+			if (openPathButton?.dataset?.openPath) {
+				vscode.postMessage({ type: 'openPath', targetPath: openPathButton.dataset.openPath });
+				return;
+			}
+			const createHooksFileButton = target?.closest('[data-create-hooks-file]');
+			if (createHooksFileButton?.dataset?.createHooksFile) {
+				vscode.postMessage({ type: 'createHooksFile', targetPath: createHooksFileButton.dataset.createHooksFile });
+				return;
+			}
+			const createEmptyFileButton = target?.closest('[data-create-empty-file]');
+			if (createEmptyFileButton?.dataset?.createEmptyFile) {
+				vscode.postMessage({ type: 'createEmptyFile', targetPath: createEmptyFileButton.dataset.createEmptyFile });
+				return;
+			}
+			const enableHooksButton = target?.closest('[data-enable-hooks]');
+			if (enableHooksButton) {
+				vscode.postMessage({ type: 'setFeatureFlag', featureKey: 'codex_hooks', enabled: true });
+			}
+		});
+		document.addEventListener('change', (event) => {
+			const target = event.target instanceof HTMLInputElement ? event.target : null;
+			if (target?.dataset?.featureToggle) {
+				vscode.postMessage({
+					type: 'setFeatureFlag',
+					featureKey: target.dataset.featureToggle,
+					enabled: target.checked,
+				});
 			}
 		});
 		searchInput.placeholder = labels.searchPlaceholder;
@@ -1302,6 +1662,18 @@ function buildHistoryWebviewHtml(
 						trustedContent.innerHTML = message.html;
 					}
 				}
+				if (message.tab === 'features') {
+					const featuresContent = document.getElementById('featuresContent');
+					if (featuresContent) {
+						featuresContent.innerHTML = message.html;
+					}
+				}
+				if (message.tab === 'hooks') {
+					const hooksContent = document.getElementById('hooksContent');
+					if (hooksContent) {
+						hooksContent.innerHTML = message.html;
+					}
+				}
 				return;
 			}
 			if (message?.type !== 'state') {
@@ -1432,6 +1804,32 @@ export class HistoryPanelManager implements vscode.Disposable {
 			typeof incoming.targetPath === 'string'
 		) {
 			void this.removeTrustedDirectory(incoming.targetPath);
+			return;
+		}
+		if (
+			incoming.type === 'setFeatureFlag' &&
+			typeof incoming.featureKey === 'string' &&
+			typeof incoming.enabled === 'boolean'
+		) {
+			void this.setFeatureFlag(incoming.featureKey, incoming.enabled);
+			return;
+		}
+		if (incoming.type === 'openPath' && typeof incoming.targetPath === 'string') {
+			void this.openPath(incoming.targetPath);
+			return;
+		}
+		if (
+			incoming.type === 'createHooksFile' &&
+			typeof incoming.targetPath === 'string'
+		) {
+			void this.createHooksFile(incoming.targetPath);
+			return;
+		}
+		if (
+			incoming.type === 'createEmptyFile' &&
+			typeof incoming.targetPath === 'string'
+		) {
+			void this.createEmptyFile(incoming.targetPath);
 		}
 	}
 
@@ -1464,6 +1862,35 @@ export class HistoryPanelManager implements vscode.Disposable {
 		this.refreshTab('trusted');
 	}
 
+	private async setFeatureFlag(featureKey: string, enabled: boolean): Promise<void> {
+		setFeatureFlag(resolveCodexPaths().configPath, featureKey, enabled);
+		vscode.window.showInformationMessage(messages.mcpToggleUpdated);
+		this.refreshTab('features');
+		if (featureKey === 'codex_hooks') {
+			this.refreshTab('hooks');
+		}
+	}
+
+	private async openPath(targetPath: string): Promise<void> {
+		const targetUri = vscode.Uri.file(targetPath);
+		await vscode.commands.executeCommand('vscode.open', targetUri);
+	}
+
+	private async createHooksFile(targetPath: string): Promise<void> {
+		createHooksJsonFile(targetPath);
+		await this.openPath(targetPath);
+		this.refreshTab('hooks');
+	}
+
+	private async createEmptyFile(targetPath: string): Promise<void> {
+		fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+		if (!fs.existsSync(targetPath)) {
+			fs.writeFileSync(targetPath, '', 'utf8');
+		}
+		await this.openPath(targetPath);
+		this.refreshTab('hooks');
+	}
+
 	private refreshTab(tab: CoreViewTab): void {
 		if (!this.panel || !this.state) {
 			return;
@@ -1481,6 +1908,22 @@ export class HistoryPanelManager implements vscode.Disposable {
 				type: 'tabContent',
 				tab,
 				html: buildTrustedDirectoriesHtml(),
+			});
+			return;
+		}
+		if (tab === 'features') {
+			void this.panel.webview.postMessage({
+				type: 'tabContent',
+				tab,
+				html: buildFeatureFlagsHtml(),
+			});
+			return;
+		}
+		if (tab === 'hooks') {
+			void this.panel.webview.postMessage({
+				type: 'tabContent',
+				tab,
+				html: buildHooksHtml(),
 			});
 			return;
 		}

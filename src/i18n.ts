@@ -117,6 +117,14 @@ export const messages = {
 		'message.coreViewConversationHistoryTab',
 		'History',
 	),
+	coreViewFeatureFlagsTab: localize(
+		'message.coreViewFeatureFlagsTab',
+		'Feature Flags',
+	),
+	coreViewHooksTab: localize(
+		'message.coreViewHooksTab',
+		'Hooks',
+	),
 	skillManagerTitle: localize(
 		'message.skillManagerTitle',
 		'Skill Manager',
@@ -326,6 +334,141 @@ export const messages = {
 	coreViewTrustedDirectoriesTab: localize(
 		'message.coreViewTrustedDirectoriesTab',
 		'Trusted Directory',
+	),
+	featureFlagSourceDefault: localize(
+		'message.featureFlagSourceDefault',
+		'Default',
+	),
+	featureFlagSourceConfig: localize(
+		'message.featureFlagSourceConfig',
+		'Configured',
+	),
+	featureFlagDefaultLabel: localize(
+		'message.featureFlagDefaultLabel',
+		'Default',
+	),
+	featureFlagEffectiveLabel: localize(
+		'message.featureFlagEffectiveLabel',
+		'Effective',
+	),
+	featureFlagDescriptionApps: localize(
+		'message.featureFlagDescriptionApps',
+		'Enable ChatGPT Apps and connectors support.',
+	),
+	featureFlagDescriptionCodexHooks: localize(
+		'message.featureFlagDescriptionCodexHooks',
+		'Enable lifecycle hooks from hooks.json or inline [hooks].',
+	),
+	featureFlagDescriptionFastMode: localize(
+		'message.featureFlagDescriptionFastMode',
+		'Enable Fast mode selection and the service_tier = "fast" path.',
+	),
+	featureFlagDescriptionMemories: localize(
+		'message.featureFlagDescriptionMemories',
+		'Enable Memories.',
+	),
+	featureFlagDescriptionMultiAgent: localize(
+		'message.featureFlagDescriptionMultiAgent',
+		'Enable subagent collaboration tools.',
+	),
+	featureFlagDescriptionPersonality: localize(
+		'message.featureFlagDescriptionPersonality',
+		'Enable personality selection controls.',
+	),
+	featureFlagDescriptionShellSnapshot: localize(
+		'message.featureFlagDescriptionShellSnapshot',
+		'Snapshot the shell environment to speed up repeated commands.',
+	),
+	featureFlagDescriptionShellTool: localize(
+		'message.featureFlagDescriptionShellTool',
+		'Enable the default shell tool.',
+	),
+	featureFlagDescriptionUnifiedExec: localize(
+		'message.featureFlagDescriptionUnifiedExec',
+		'Use the unified PTY-backed exec tool.',
+	),
+	featureFlagDescriptionUndo: localize(
+		'message.featureFlagDescriptionUndo',
+		'Enable undo via per-turn git ghost snapshots.',
+	),
+	featureFlagDescriptionWebSearch: localize(
+		'message.featureFlagDescriptionWebSearch',
+		'Legacy toggle. Prefer the top-level web_search setting.',
+	),
+	featureFlagDescriptionWebSearchCached: localize(
+		'message.featureFlagDescriptionWebSearchCached',
+		'Legacy toggle that maps to web_search = "cached".',
+	),
+	featureFlagDescriptionWebSearchRequest: localize(
+		'message.featureFlagDescriptionWebSearchRequest',
+		'Legacy toggle that maps to web_search = "live".',
+	),
+	hooksEnableFeature: localize(
+		'message.hooksEnableFeature',
+		'Enable hooks feature',
+	),
+	hooksLayerUser: localize('message.hooksLayerUser', 'User'),
+	hooksLayerProject: localize('message.hooksLayerProject', 'Project'),
+	hooksActive: localize('message.hooksActive', 'Active'),
+	hooksInactive: localize('message.hooksInactive', 'Inactive'),
+	hooksEntryCount: (count: number) =>
+		localize('message.hooksEntryCount', '{0} entries', count.toString()),
+	hooksOpenSource: localize('message.hooksOpenSource', 'Open source'),
+	hooksCreateFile: localize('message.hooksCreateFile', 'Create hooks.json'),
+	hooksCreateConfigFile: localize(
+		'message.hooksCreateConfigFile',
+		'Create config.toml',
+	),
+	hooksNoCommand: localize(
+		'message.hooksNoCommand',
+		'No command is configured for this handler.',
+	),
+	hooksMatcherLabel: localize('message.hooksMatcherLabel', 'Matcher'),
+	hooksMatcherNotUsed: localize(
+		'message.hooksMatcherNotUsed',
+		'Not specified',
+	),
+	hooksTypeLabel: localize('message.hooksTypeLabel', 'Type'),
+	hooksTimeoutLabel: localize('message.hooksTimeoutLabel', 'Timeout'),
+	hooksStatusMessageLabel: localize(
+		'message.hooksStatusMessageLabel',
+		'Status message',
+	),
+	hooksFeatureStatus: (status: string) =>
+		localize('message.hooksFeatureStatus', 'Hooks feature: {0}', status),
+	hooksProjectTrustLabel: localize(
+		'message.hooksProjectTrustLabel',
+		'Project hooks',
+	),
+	hooksSourcesHeading: localize(
+		'message.hooksSourcesHeading',
+		'Hook sources',
+	),
+	hooksEntriesHeading: localize(
+		'message.hooksEntriesHeading',
+		'Hook entries',
+	),
+	hooksNoEntries: localize(
+		'message.hooksNoEntries',
+		'No hook entries were found in the active layers.',
+	),
+	hooksWarningMergedSources: (layer: string) =>
+		localize(
+			'message.hooksWarningMergedSources',
+			'{0} layer has both hooks.json and inline hooks. Codex merges them and warns at startup.',
+			layer,
+		),
+	hooksWarningFeatureDisabled: localize(
+		'message.hooksWarningFeatureDisabled',
+		'Hooks are disabled because features.codex_hooks is false.',
+	),
+	hooksWarningProjectUntrusted: localize(
+		'message.hooksWarningProjectUntrusted',
+		'Project-local hooks are inactive until this workspace is trusted.',
+	),
+	hooksWarningUnsupportedHandler: localize(
+		'message.hooksWarningUnsupportedHandler',
+		'Only command hook handlers are currently executed by Codex.',
 	),
 	trustedDirectoryDeleteConfirm: (targetPath: string) =>
 		localize(

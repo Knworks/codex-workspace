@@ -78,6 +78,9 @@ suite('History panel manager', () => {
 		assert.ok(fakePanel.panel.webview.html.includes('codicon codicon-copy'));
 		assert.ok(fakePanel.panel.webview.html.includes('codicon codicon-hubot'));
 		assert.ok(fakePanel.panel.webview.html.includes('id="chainContext"'));
+		assert.ok(fakePanel.panel.webview.html.includes('id="featuresContent"'));
+		assert.ok(fakePanel.panel.webview.html.includes('id="hooksContent"'));
+		assert.ok(fakePanel.panel.webview.html.includes('hooks-source-0'));
 		assert.ok(fakePanel.panel.webview.html.includes('reasoning-frame'));
 		assert.ok(fakePanel.panel.webview.html.includes('class="message-frame"'));
 		assert.ok(
@@ -304,6 +307,16 @@ suite('History panel manager', () => {
 		const historyMessage = fakePanel.getPostedMessages()[1] as { type: string };
 		assert.strictEqual(historyMessage.type, 'state');
 		assert.strictEqual(loadCount, 2);
+
+		fakePanel.sendMessage({ type: 'refreshTab', tab: 'features' });
+		const featuresMessage = fakePanel.getPostedMessages()[2] as {
+			type: string;
+			tab: string;
+			html: string;
+		};
+		assert.strictEqual(featuresMessage.type, 'tabContent');
+		assert.strictEqual(featuresMessage.tab, 'features');
+		assert.ok(featuresMessage.html.includes('data-feature-toggle='));
 		manager.dispose();
 	});
 
