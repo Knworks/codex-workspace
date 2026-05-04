@@ -215,6 +215,13 @@ function flattenTurnIds(days: HistoryDayView[]): string[] {
 	return turnIds;
 }
 
+function createEmptyHistoryIndex(): HistoryIndex {
+	return {
+		days: [],
+		turns: [],
+	};
+}
+
 export function deriveHistoryPanelViewModel(state: HistoryPanelState): HistoryPanelViewModel {
 	const appliedQuery = normalizeQuery(state.appliedQuery);
 	const days = filterDays(state.index.days, appliedQuery);
@@ -602,7 +609,6 @@ function buildHistoryWebviewHtml(
 		chainDetailPath: messages.chainDetailPath,
 		chainDetailExplanation: messages.chainDetailExplanation,
 	});
-	const agentsChain = buildAgentsChainPayload();
 	const csp = [
 		"default-src 'none'",
 		`img-src ${webview.cspSource} https: data:`,
@@ -1258,20 +1264,29 @@ function buildHistoryWebviewHtml(
 			</section>
 		</section>
 		<section id="trustedTab" class="diag-tab">
-			<div id="trustedContent">${buildTrustedDirectoriesHtml()}</div>
+			<div id="trustedContent"></div>
 		</section>
 		<section id="featuresTab" class="diag-tab">
-			<div id="featuresContent">${buildFeatureFlagsHtml()}</div>
+			<div id="featuresContent"></div>
 		</section>
 		<section id="hooksTab" class="diag-tab">
-			<div id="hooksContent">${buildHooksHtml()}</div>
+			<div id="hooksContent"></div>
 		</section>
 	</div>
 	<script nonce="${nonce}">
 		const vscode = acquireVsCodeApi();
 		const labels = ${labels};
-		let chainPayload = ${serializeAgentsChain(agentsChain)};
+		let chainPayload = ${serializeAgentsChain({
+			entries: [],
+			summary: {
+				currentCount: 0,
+				ignoredCount: 0,
+				problemCount: 0,
+				hiddenCount: 0,
+			},
+		})};
 		let showDetailedChainCandidates = false;
+		const loadedTabs = new Set();
 		let selectedChainId = chainPayload.entries.find((entry) => entry.section === 'current')?.id
 			|| chainPayload.entries.find((entry) => entry.defaultVisible)?.id
 			|| chainPayload.entries[0]?.id;
@@ -1289,7 +1304,11 @@ function buildHistoryWebviewHtml(
 				document.querySelectorAll('[data-tab]').forEach((item) => item.classList.remove('active'));
 				document.querySelectorAll('.diag-tab').forEach((item) => item.classList.remove('active'));
 				button.classList.add('active');
-				document.getElementById(button.dataset.tab + 'Tab')?.classList.add('active');
+				const tab = button.dataset.tab;
+				document.getElementById(tab + 'Tab')?.classList.add('active');
+				if (tab && !loadedTabs.has(tab)) {
+					vscode.postMessage({ type: 'refreshTab', tab });
+				}
 			});
 		}
 		document.addEventListener('click', (event) => {
@@ -1647,6 +1666,7 @@ function buildHistoryWebviewHtml(
 			const message = event.data;
 			if (message?.type === 'tabContent') {
 				if (message.tab === 'chain') {
+					loadedTabs.add('chain');
 					chainPayload = message.payload || {
 						entries: [],
 						summary: { currentCount: 0, ignoredCount: 0, problemCount: 0, hiddenCount: 0 },
@@ -1657,18 +1677,21 @@ function buildHistoryWebviewHtml(
 					renderChain();
 				}
 				if (message.tab === 'trusted') {
+					loadedTabs.add('trusted');
 					const trustedContent = document.getElementById('trustedContent');
 					if (trustedContent) {
 						trustedContent.innerHTML = message.html;
 					}
 				}
 				if (message.tab === 'features') {
+					loadedTabs.add('features');
 					const featuresContent = document.getElementById('featuresContent');
 					if (featuresContent) {
 						featuresContent.innerHTML = message.html;
 					}
 				}
 				if (message.tab === 'hooks') {
+					loadedTabs.add('hooks');
 					const hooksContent = document.getElementById('hooksContent');
 					if (hooksContent) {
 						hooksContent.innerHTML = message.html;
@@ -1679,6 +1702,7 @@ function buildHistoryWebviewHtml(
 			if (message?.type !== 'state') {
 				return;
 			}
+			loadedTabs.add('history');
 			state = message.payload;
 			render();
 		});
@@ -1740,7 +1764,7 @@ export class HistoryPanelManager implements vscode.Disposable {
 
 		const panel = this.panelFactory();
 		this.state = {
-			index: limitHistoryIndex(this.loadIndex(), this.getMaxHistoryCount()),
+			index: createEmptyHistoryIndex(),
 			selectedTurnId: undefined,
 			appliedQuery: '',
 			includeReasoningMessage: this.includeReasoningMessage(),
@@ -1766,7 +1790,7 @@ export class HistoryPanelManager implements vscode.Disposable {
 		}
 		const incoming = message as Partial<HistoryPanelInboundMessage>;
 		if (incoming.type === 'ready') {
-			this.postState();
+			this.refreshTab('history');
 			return;
 		}
 		if (incoming.type === 'selectTurn' && typeof incoming.turnId === 'string') {

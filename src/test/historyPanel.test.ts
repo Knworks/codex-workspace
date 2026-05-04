@@ -80,7 +80,6 @@ suite('History panel manager', () => {
 		assert.ok(fakePanel.panel.webview.html.includes('id="chainContext"'));
 		assert.ok(fakePanel.panel.webview.html.includes('id="featuresContent"'));
 		assert.ok(fakePanel.panel.webview.html.includes('id="hooksContent"'));
-		assert.ok(fakePanel.panel.webview.html.includes('hooks-source-0'));
 		assert.ok(fakePanel.panel.webview.html.includes('reasoning-frame'));
 		assert.ok(fakePanel.panel.webview.html.includes('class="message-frame"'));
 		assert.ok(
@@ -301,12 +300,12 @@ suite('History panel manager', () => {
 			chainMessage.payload.emptyStateMessage,
 			'Open a workspace folder to view the AGENTS loading chain.',
 		);
-		assert.strictEqual(loadCount, 1);
+		assert.strictEqual(loadCount, 0);
 
 		fakePanel.sendMessage({ type: 'refreshTab', tab: 'history' });
 		const historyMessage = fakePanel.getPostedMessages()[1] as { type: string };
 		assert.strictEqual(historyMessage.type, 'state');
-		assert.strictEqual(loadCount, 2);
+		assert.strictEqual(loadCount, 1);
 
 		fakePanel.sendMessage({ type: 'refreshTab', tab: 'features' });
 		const featuresMessage = fakePanel.getPostedMessages()[2] as {
