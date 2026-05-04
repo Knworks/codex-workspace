@@ -89,6 +89,8 @@
   "message.chainSummaryIgnored": "未使用",
   "message.chainSummaryProblems": "問題あり",
   "message.chainSummaryHidden": "非表示候補",
+  "message.chainWorkspaceRootLabel": "基準ワークスペース",
+  "message.chainNoWorkspace": "AGENTS Loading Chain を表示するには、ワークスペースフォルダを開いてください。",
   "message.chainPreviewEmpty": "左側の項目を選ぶと詳細が表示されます。",
   "message.chainStatusCurrent": "使用中",
   "message.chainStatusIgnored": "未使用",

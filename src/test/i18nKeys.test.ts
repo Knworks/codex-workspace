@@ -61,6 +61,8 @@ suite('Localization keys', () => {
 			'message.mcpValidationEnvKeyInvalid',
 			'message.mcpValidationEnvKeyDuplicate',
 			'message.coreViewAgentsChainTab',
+			'message.chainWorkspaceRootLabel',
+			'message.chainNoWorkspace',
 			'message.coreViewTrustedDirectoriesTab',
 			'message.trustedDirectoryDeleteConfirm',
 			'message.historyPanelPlaceholder',

@@ -248,6 +248,14 @@ export const messages = {
 		'message.chainSummaryHidden',
 		'Hidden candidates',
 	),
+	chainWorkspaceRootLabel: localize(
+		'message.chainWorkspaceRootLabel',
+		'Workspace root',
+	),
+	chainNoWorkspace: localize(
+		'message.chainNoWorkspace',
+		'Open a workspace folder to view the AGENTS loading chain.',
+	),
 	chainPreviewEmpty: localize(
 		'message.chainPreviewEmpty',
 		'Select an item on the left to view details.',

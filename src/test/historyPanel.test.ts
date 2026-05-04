@@ -79,6 +79,7 @@ suite('History panel manager', () => {
 		assert.ok(fakePanel.panel.webview.html.includes('copyAssistantButton-'));
 		assert.ok(fakePanel.panel.webview.html.includes('codicon codicon-copy'));
 		assert.ok(fakePanel.panel.webview.html.includes('codicon codicon-hubot'));
+		assert.ok(fakePanel.panel.webview.html.includes('id="chainContext"'));
 		assert.ok(fakePanel.panel.webview.html.includes('reasoning-frame'));
 		assert.ok(fakePanel.panel.webview.html.includes('class="message-frame"'));
 		assert.ok(
@@ -258,11 +259,16 @@ suite('History panel manager', () => {
 		const chainMessage = fakePanel.getPostedMessages()[0] as {
 			type: string;
 			tab: string;
-			payload: { entries: unknown[] };
+			payload: { entries: unknown[]; emptyStateMessage?: string; workspaceRoot?: string };
 		};
 		assert.strictEqual(chainMessage.type, 'tabContent');
 		assert.strictEqual(chainMessage.tab, 'chain');
 		assert.ok(Array.isArray(chainMessage.payload.entries));
+		assert.strictEqual(chainMessage.payload.workspaceRoot, undefined);
+		assert.strictEqual(
+			chainMessage.payload.emptyStateMessage,
+			'Open a workspace folder to view the AGENTS loading chain.',
+		);
 		assert.strictEqual(loadCount, 1);
 
 		fakePanel.sendMessage({ type: 'refreshTab', tab: 'history' });

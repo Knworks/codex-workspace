@@ -93,6 +93,8 @@ type AgentsChainDisplayPayload = {
 		problemCount: number;
 		hiddenCount: number;
 	};
+	workspaceRoot?: string;
+	emptyStateMessage?: string;
 };
 
 function normalizeQuery(query: string): string {
@@ -346,8 +348,22 @@ function toDisplayEntry(node: AgentsChainNode, index: number): AgentsChainDispla
 	};
 }
 
-function buildAgentsChainPayload(): AgentsChainDisplayPayload {
-	const entries = buildAgentsLoadingChain().map(toDisplayEntry);
+function buildAgentsChainPayload(
+	workspaceRoot: string | undefined = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+): AgentsChainDisplayPayload {
+	if (!workspaceRoot) {
+		return {
+			entries: [],
+			summary: {
+				currentCount: 0,
+				ignoredCount: 0,
+				problemCount: 0,
+				hiddenCount: 0,
+			},
+			emptyStateMessage: messages.chainNoWorkspace,
+		};
+	}
+	const entries = buildAgentsLoadingChain(workspaceRoot).map(toDisplayEntry);
 	return {
 		entries,
 		summary: {
@@ -356,6 +372,7 @@ function buildAgentsChainPayload(): AgentsChainDisplayPayload {
 			problemCount: entries.filter((entry) => entry.section === 'problems').length,
 			hiddenCount: entries.filter((entry) => !entry.defaultVisible).length,
 		},
+		workspaceRoot,
 	};
 }
 
@@ -405,6 +422,8 @@ function buildHistoryWebviewHtml(
 		chainSummaryIgnored: messages.chainSummaryIgnored,
 		chainSummaryProblems: messages.chainSummaryProblems,
 		chainSummaryHidden: messages.chainSummaryHidden,
+		chainWorkspaceRootLabel: messages.chainWorkspaceRootLabel,
+		chainNoWorkspace: messages.chainNoWorkspace,
 		chainPreviewEmpty: messages.chainPreviewEmpty,
 		chainDetailStatus: messages.chainDetailStatus,
 		chainDetailClassification: messages.chainDetailClassification,
@@ -792,6 +811,17 @@ function buildHistoryWebviewHtml(
 			font-size: 12px;
 			line-height: 1.5;
 		}
+		.chain-toolbar-main {
+			display: grid;
+			gap: 6px;
+			min-width: 0;
+			margin-right: auto;
+		}
+		.chain-context {
+			color: var(--vscode-descriptionForeground);
+			font-size: 12px;
+			word-break: break-all;
+		}
 		.chain-detail {
 			border: 1px solid var(--vscode-panel-border);
 			border-radius: 6px;
@@ -887,7 +917,10 @@ function buildHistoryWebviewHtml(
 		</section>
 		<section id="chainTab" class="diag-tab">
 			<div class="tab-toolbar">
-				<div id="chainSummary" class="chain-summary"></div>
+				<div class="chain-toolbar-main">
+					<div id="chainContext" class="chain-context"></div>
+					<div id="chainSummary" class="chain-summary"></div>
+				</div>
 				<label class="chain-toggle">
 					<span class="chain-toggle-label">${messages.chainToggleDetails}</span>
 					<input id="chainDetailsToggle" type="checkbox" />
@@ -918,6 +951,7 @@ function buildHistoryWebviewHtml(
 		const previewArea = document.getElementById('previewArea');
 		const chainList = document.getElementById('chainList');
 		const chainPreview = document.getElementById('chainPreview');
+		const chainContext = document.getElementById('chainContext');
 		const chainSummary = document.getElementById('chainSummary');
 		const chainDetailsToggle = document.getElementById('chainDetailsToggle');
 		for (const button of document.querySelectorAll('[data-tab]')) {
@@ -1006,7 +1040,7 @@ function buildHistoryWebviewHtml(
 		};
 
 		const renderChainSummary = () => {
-			if (!chainSummary) {
+			if (!chainSummary || !chainContext) {
 				return;
 			}
 			const summary = chainPayload.summary || {
@@ -1015,6 +1049,9 @@ function buildHistoryWebviewHtml(
 				problemCount: 0,
 				hiddenCount: 0,
 			};
+			chainContext.textContent = chainPayload.workspaceRoot
+				? labels.chainWorkspaceRootLabel + ': ' + chainPayload.workspaceRoot
+				: labels.chainNoWorkspace;
 			chainSummary.innerHTML =
 				'<span>' + labels.chainSummaryCurrent + ': ' + summary.currentCount + '</span>' +
 				'<span>' + labels.chainSummaryIgnored + ': ' + summary.ignoredCount + '</span>' +
@@ -1031,8 +1068,9 @@ function buildHistoryWebviewHtml(
 			const visibleEntries = getVisibleChainEntries();
 			renderChainSummary();
 			if (visibleEntries.length === 0) {
-				chainList.innerHTML = '<div class="preview-empty">' + labels.noResult + '</div>';
-				chainPreview.innerHTML = '<div class="preview-empty">' + labels.chainPreviewEmpty + '</div>';
+				const emptyMessage = chainPayload.emptyStateMessage || labels.noResult;
+				chainList.innerHTML = '<div class="preview-empty">' + emptyMessage + '</div>';
+				chainPreview.innerHTML = '<div class="preview-empty">' + emptyMessage + '</div>';
 				return;
 			}
 			ensureSelectedChainId(visibleEntries);

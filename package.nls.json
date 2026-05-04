@@ -89,6 +89,8 @@
   "message.chainSummaryIgnored": "Ignored",
   "message.chainSummaryProblems": "Problems",
   "message.chainSummaryHidden": "Hidden candidates",
+  "message.chainWorkspaceRootLabel": "Workspace root",
+  "message.chainNoWorkspace": "Open a workspace folder to view the AGENTS loading chain.",
   "message.chainPreviewEmpty": "Select an item on the left to view details.",
   "message.chainStatusCurrent": "Using",
   "message.chainStatusIgnored": "Ignored",
