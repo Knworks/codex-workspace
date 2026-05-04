@@ -89,34 +89,51 @@ suite('History panel manager', () => {
 		manager.dispose();
 	});
 
-	test.skip('show creates a new panel after the current panel is disposed', () => {
+	test('show clears the active panel when the injected dispose callback fires', () => {
 		const firstPanel = createFakePanel();
-		const secondPanel = createFakePanel();
-		const panels = [firstPanel.panel, secondPanel.panel];
-		let createCount = 0;
-		const manager = new HistoryPanelManager(() => {
-			const panel = panels[createCount];
-			createCount += 1;
-			return panel;
-		});
+		const disposeListeners = new Map<vscode.WebviewPanel, () => void>();
+		const manager = new HistoryPanelManager(
+			() => firstPanel.panel,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			(panel, listener) => {
+				disposeListeners.set(panel, listener);
+				return { dispose: () => undefined };
+			},
+		);
 
 		manager.show();
-		(
-			manager as unknown as {
-				panel?: vscode.WebviewPanel;
-				state?: unknown;
-			}
-		).panel = undefined;
-		(
-			manager as unknown as {
-				panel?: vscode.WebviewPanel;
-				state?: unknown;
-			}
-		).state = undefined;
-		manager.show();
+		assert.strictEqual(
+			(
+				manager as unknown as {
+					panel?: vscode.WebviewPanel;
+				}
+			).panel,
+			firstPanel.panel,
+		);
+		disposeListeners.get(firstPanel.panel)?.();
 
-		assert.strictEqual(createCount, 2);
-		assert.strictEqual(secondPanel.getRevealCount(), 0);
+		assert.strictEqual(
+			(
+				manager as unknown as {
+					panel?: vscode.WebviewPanel;
+					state?: unknown;
+				}
+			).panel,
+			undefined,
+		);
+		assert.strictEqual(
+			(
+				manager as unknown as {
+					panel?: vscode.WebviewPanel;
+					state?: unknown;
+				}
+			).state,
+			undefined,
+		);
 		manager.dispose();
 	});
 

@@ -1350,6 +1350,10 @@ export class HistoryPanelManager implements vscode.Disposable {
 			getConfiguredMaxHistoryCount(),
 		private readonly includeReasoningMessage: () => boolean = () =>
 			getIncludeReasoningMessage(),
+		private readonly registerPanelDispose: (
+			panel: vscode.WebviewPanel,
+			listener: () => void,
+		) => vscode.Disposable | void = (panel, listener) => panel.onDidDispose(listener),
 	) {}
 
 	show(): vscode.WebviewPanel {
@@ -1374,7 +1378,7 @@ export class HistoryPanelManager implements vscode.Disposable {
 		panel.webview.onDidReceiveMessage((message: unknown) =>
 			this.handleInboundMessage(message),
 		);
-		panel.onDidDispose(() => {
+		this.registerPanelDispose(panel, () => {
 			if (this.panel === panel) {
 				this.panel = undefined;
 				this.state = undefined;
