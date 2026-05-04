@@ -241,6 +241,7 @@ flowchart LR
 
 ## 5. ❓ 要確認事項
 
-- `project/.codex/skills` と `project/.codex/agents` の `project` は VS Code ワークスペースの先頭ルートを基準とする。
+- `project` は VS Code ワークスペースの先頭ルートを基準とし、Skills は `project/.agents/skills` を優先、存在しない場合のみ `project/.codex/skills` を読む。
+- Project Sub Agents は `project/.codex/agents` を優先、存在しない場合のみ `project/.agents/agents` を読む。
 - `workspace` 保存場所は、既存互換のため `$HOME/.codex/skills` と `$HOME/.codex/agents` を指す。
 - 仕様内の User Skills は `$HOME/.agents/skills`、User Agents は `$HOME/.codex/agents` として扱う。Workspace Agents と User Agents が同一パスになる場合は同一実体を重複表示しない。

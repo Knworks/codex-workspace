@@ -454,10 +454,12 @@ async function resolveTargetDirectoryForAdd(
 		return null;
 	}
 
-	if (currentLocation?.kind === selected.location.kind) {
+	const selectedTargetDir =
+		selected.location.createPath ?? selected.location.rootPath;
+	if (isSamePath(targetDir, selectedTargetDir)) {
 		return targetDir;
 	}
-	return selected.location.rootPath;
+	return selectedTargetDir;
 }
 
 function createRootItem(viewKind: FileViewKind, rootPath: string): CodexTreeItem {

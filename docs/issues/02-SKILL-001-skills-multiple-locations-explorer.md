@@ -13,6 +13,8 @@ status: Reviewing
 ## 📌 要件
 
 - Skills Explore は複数保存場所を単一一覧として表示する。
+- Project Skills は `project/.agents/skills` を優先し、存在しない場合のみ `project/.codex/skills` を読む。
+- Project Skills の新規追加先は常に `project/.agents/skills` とする。
 - 作成、リネーム、削除、フォルダを開く操作は実体パスに対して行う。
 - 同期は既存互換のため Workspace Skills のみを対象に維持する。
 
@@ -28,7 +30,7 @@ status: Reviewing
 
 - [x] [機能] 3種類の Skill 保存場所を優先度順、同一保存場所内は名称昇順で表示できる。
 - [x] [UI/UX] 保存場所種別と絶対パスをアイコンまたはツールチップで識別できる。
-- [x] [機能] 新規ファイル・フォルダ作成時に保存場所を選択でき、未選択時は Workspace Skills が初期候補になる。
+- [x] [機能] Skills ルートからの新規ファイル・フォルダ作成時に保存場所を選択でき、Project Skills 選択時の作成先は常に `project/.agents/skills` になる。
 - [x] [状態/エラー] User Skills 削除時に他プロジェクト影響の警告を表示する。
 - [x] [テスト] 保存場所検出、作成先選択、同期対象維持をテストする。
 

@@ -1,3 +1,4 @@
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import * as vscode from 'vscode';
@@ -9,6 +10,7 @@ export type SkillLocation = {
 	kind: SkillLocationKind;
 	label: string;
 	rootPath: string;
+	createPath?: string;
 	priority: number;
 };
 
@@ -25,10 +27,17 @@ export function getSkillLocations(
 ): SkillLocation[] {
 	const locations: SkillLocation[] = [];
 	if (projectRoot) {
+		const preferredProjectRoot = path.join(projectRoot, '.agents', 'skills');
+		const legacyProjectRoot = path.join(projectRoot, '.codex', 'skills');
 		locations.push({
 			kind: 'project',
 			label: 'Project Skills',
-			rootPath: path.join(projectRoot, '.codex', 'skills'),
+			rootPath: fs.existsSync(preferredProjectRoot)
+				? preferredProjectRoot
+				: fs.existsSync(legacyProjectRoot)
+					? legacyProjectRoot
+					: preferredProjectRoot,
+			createPath: preferredProjectRoot,
 			priority: 1,
 		});
 	}
@@ -37,12 +46,14 @@ export function getSkillLocations(
 			kind: 'workspace',
 			label: 'Workspace Skills',
 			rootPath: path.join(resolveCodexPaths(homeDir).codexDir, 'skills'),
+			createPath: path.join(resolveCodexPaths(homeDir).codexDir, 'skills'),
 			priority: 2,
 		},
 		{
 			kind: 'user',
 			label: 'User Skills',
 			rootPath: path.join(homeDir, '.agents', 'skills'),
+			createPath: path.join(homeDir, '.agents', 'skills'),
 			priority: 3,
 		},
 	);

@@ -13,6 +13,8 @@ status: Reviewing
 ## 📌 要件
 
 - Project / Workspace / User Agents を単一一覧として表示する。
+- Project Agents は `project/.codex/agents` を優先し、存在しない場合のみ `project/.agents/agents` を読む。
+- Project Agents の新規追加先は常に `project/.codex/agents` とする。
 - `AGENTS.md` と `AGENTS.override.md` は Core Explorer で扱い、AGENTS Explorer では扱わない。
 - ON/OFF 操作は AGENTS Manager View へ移す。
 
@@ -28,6 +30,7 @@ status: Reviewing
 
 - [x] [機能] `AGENTS.md` と `AGENTS.override.md` は AGENTS Explorer に表示されない。
 - [x] [機能] 3種類の Agents 保存場所を優先度順、同一保存場所内はファイル名昇順で表示できる。
+- [x] [機能] 新規追加時に Project Agents を選んだ場合、読込元が `project/.agents/agents` でも作成先は `project/.codex/agents` になる。
 - [x] [UI/UX] 保存場所種別と絶対パスをアイコンまたはツールチップで識別できる。
 - [x] [状態/エラー] User Agents 削除時に他プロジェクト影響の警告を表示する。
 - [x] [テスト] 複数保存場所検出、対象除外、保存場所別操作をテストする。

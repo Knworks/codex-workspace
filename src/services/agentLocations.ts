@@ -1,3 +1,4 @@
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import * as vscode from 'vscode';
@@ -9,6 +10,7 @@ export type AgentLocation = {
 	kind: AgentLocationKind;
 	label: string;
 	rootPath: string;
+	createPath?: string;
 	priority: number;
 };
 
@@ -22,10 +24,17 @@ export function getAgentLocations(
 ): AgentLocation[] {
 	const locations: AgentLocation[] = [];
 	if (projectRoot) {
+		const preferredProjectRoot = path.join(projectRoot, '.codex', 'agents');
+		const legacyProjectRoot = path.join(projectRoot, '.agents', 'agents');
 		locations.push({
 			kind: 'project',
 			label: 'Project Agents',
-			rootPath: path.join(projectRoot, '.codex', 'agents'),
+			rootPath: fs.existsSync(preferredProjectRoot)
+				? preferredProjectRoot
+				: fs.existsSync(legacyProjectRoot)
+					? legacyProjectRoot
+					: preferredProjectRoot,
+			createPath: preferredProjectRoot,
 			priority: 1,
 		});
 	}
@@ -34,6 +43,7 @@ export function getAgentLocations(
 		kind: 'workspace',
 		label: 'Workspace Agents',
 		rootPath: workspaceRoot,
+		createPath: workspaceRoot,
 		priority: 2,
 	});
 	const userRoot = path.join(homeDir, '.codex', 'agents');
@@ -42,6 +52,7 @@ export function getAgentLocations(
 			kind: 'user',
 			label: 'User Agents',
 			rootPath: userRoot,
+			createPath: userRoot,
 			priority: 3,
 		});
 	}

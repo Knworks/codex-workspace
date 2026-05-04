@@ -248,19 +248,21 @@ async function pickAgentLocationRoot(
 	agentProvider: AgentExplorerProvider,
 ): Promise<string | null> {
 	const locations = agentProvider.getRootOptions();
-	const workspaceFirst = [
-		...locations.filter((location) => location.kind === 'workspace'),
-		...locations.filter((location) => location.kind !== 'workspace'),
+	const projectFirst = [
+		...locations.filter((location) => location.kind === 'project'),
+		...locations.filter((location) => location.kind !== 'project'),
 	];
 	const selected = await vscode.window.showQuickPick(
-		workspaceFirst.map((location) => ({
+		projectFirst.map((location) => ({
 			label: location.label,
 			description: location.rootPath,
 			location,
 		})),
 		{ placeHolder: messages.agent.locationPickPlaceholder },
 	);
-	return selected?.location.rootPath ?? null;
+	return selected
+		? (selected.location.createPath ?? selected.location.rootPath)
+		: null;
 }
 
 async function enableAgent(
