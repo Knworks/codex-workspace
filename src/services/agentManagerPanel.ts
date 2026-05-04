@@ -14,6 +14,7 @@ const AGENT_MANAGER_VIEW_TYPE = 'codex-workspace.agentManager';
 type InboundMessage =
 	| { type: 'ready' }
 	| { type: 'search'; query: string }
+	| { type: 'refresh' }
 	| { type: 'openAgent'; agentPath: string }
 	| { type: 'toggleAgent'; name: string; enabled: boolean };
 
@@ -132,6 +133,7 @@ function buildHtml(webview: vscode.Webview, records: AgentManagerRecord[], query
 	<section class="toolbar">
 		<input id="searchInput" type="text" value="${escapeHtml(query)}" placeholder="${escapeHtml(messages.agentManagerSearchPlaceholder)}" />
 		<button id="clearSearch" class="icon-button" type="button" title="${escapeHtml(messages.historyClear)}" aria-label="${escapeHtml(messages.historyClear)}"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
+		<button id="refreshList" class="icon-button" type="button" title="${escapeHtml(messages.commandRefresh)}" aria-label="${escapeHtml(messages.commandRefresh)}"><span class="codicon codicon-refresh" aria-hidden="true"></span></button>
 	</section>
 	<section class="body">${buildRows(records)}</section>
 	<script nonce="${nonce}">
@@ -149,6 +151,9 @@ function buildHtml(webview: vscode.Webview, records: AgentManagerRecord[], query
 			searchInput.value = '';
 			applyFilter();
 			searchInput.focus();
+		});
+		document.getElementById('refreshList')?.addEventListener('click', () => {
+			vscode.postMessage({ type: 'refresh' });
 		});
 		applyFilter();
 		document.addEventListener('change', (event) => {
@@ -222,6 +227,10 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 		if (message.type === 'search') {
 			this.query = message.query;
 			this.render();
+			return;
+		}
+		if (message.type === 'refresh') {
+			this.refresh();
 			return;
 		}
 		if (message.type === 'openAgent') {

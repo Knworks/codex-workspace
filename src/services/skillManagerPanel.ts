@@ -10,6 +10,7 @@ type InboundMessage =
 	| { type: 'ready' }
 	| { type: 'openSkill'; skillPath: string }
 	| { type: 'toggleSkill'; skillPath: string; enabled: boolean }
+	| { type: 'refresh' }
 	| { type: 'search'; query: string };
 
 function escapeHtml(value: string): string {
@@ -119,6 +120,7 @@ function buildHtml(webview: vscode.Webview, records: SkillRecord[], query: strin
 	<section class="toolbar">
 		<input id="searchInput" type="text" value="${escapeHtml(query)}" placeholder="${escapeHtml(messages.skillManagerSearchPlaceholder)}" />
 		<button id="clearSearch" class="icon-button" type="button" title="${escapeHtml(messages.historyClear)}" aria-label="${escapeHtml(messages.historyClear)}"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
+		<button id="refreshList" class="icon-button" type="button" title="${escapeHtml(messages.commandRefresh)}" aria-label="${escapeHtml(messages.commandRefresh)}"><span class="codicon codicon-refresh" aria-hidden="true"></span></button>
 	</section>
 	<section id="body" class="body">${rows}</section>
 	<script nonce="${nonce}">
@@ -136,6 +138,9 @@ function buildHtml(webview: vscode.Webview, records: SkillRecord[], query: strin
 			searchInput.value = '';
 			applyFilter();
 			searchInput.focus();
+		});
+		document.getElementById('refreshList')?.addEventListener('click', () => {
+			vscode.postMessage({ type: 'refresh' });
 		});
 		applyFilter();
 		document.addEventListener('change', (event) => {
@@ -215,6 +220,10 @@ export class SkillManagerPanelManager implements vscode.Disposable {
 			setSkillEnabled(configPath, message.skillPath, message.enabled);
 			vscode.window.showInformationMessage(messages.mcpToggleUpdated);
 			this.onDidChangeSkills();
+			this.refresh();
+			return;
+		}
+		if (message.type === 'refresh') {
 			this.refresh();
 			return;
 		}
