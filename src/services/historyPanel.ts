@@ -687,15 +687,18 @@ function buildHistoryWebviewHtml(
 		.bottom-pane {
 			display: grid;
 			grid-template-columns: 30% 70%;
+			height: 100%;
 			min-height: 0;
 		}
 		.left-pane {
 			border-right: 1px solid var(--vscode-panel-border);
 			overflow: auto;
+			min-height: 0;
 			padding: 10px 8px;
 		}
 		.right-pane {
 			overflow: auto;
+			min-height: 0;
 			padding: 12px;
 		}
 		details {
@@ -866,8 +869,22 @@ function buildHistoryWebviewHtml(
 		.reasoning-content {
 			padding: 10px;
 		}
-		.diag-tab { display: none; overflow: auto; height: 100%; }
-		.diag-tab.active { display: block; }
+		.diag-tab { display: none; min-height: 0; }
+		#historyTab.active,
+		#chainTab.active {
+			display: grid;
+			grid-template-rows: auto 1fr;
+			height: 100%;
+			min-height: 0;
+			overflow: hidden;
+		}
+		#trustedTab.active,
+		#featuresTab.active,
+		#hooksTab.active {
+			display: block;
+			height: 100%;
+			overflow: auto;
+		}
 		.chain-summary {
 			margin-right: auto;
 			font-size: 12px;
