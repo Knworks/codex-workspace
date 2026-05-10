@@ -1424,19 +1424,64 @@ function buildHistoryWebviewHtml(
 			);
 		};
 
-		const renderMarkdown = (markdown) => {
-			const escaped = escapeHtml(markdown || '');
-			const withCodeBlocks = escaped.replace(
-				/\`\`\`([\\s\\S]*?)\`\`\`/g,
-				(_, code) => '<pre><code>' + code + '</code></pre>',
-			);
-			const withInline = withCodeBlocks
+		const renderInlineMarkdown = (text) =>
+			escapeHtml(text || '')
+				.replace(/\\\[([^\\]]+)\\\]\\(([^)]+)\\)/g, '<a href="$2">$1</a>')
 				.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
 				.replace(/\\\`([^\\\`]+)\\\`/g, '<code>$1</code>');
-			return withInline
-				.split(/\\n{2,}/)
-				.map((chunk) => '<p>' + chunk.replaceAll('\\n', '<br />') + '</p>')
-				.join('');
+
+		const renderMarkdown = (markdown) => {
+			const source = String(markdown || '').replace(/\\r\\n/g, '\\n');
+			const codeBlocks = [];
+			const withPlaceholders = source.replace(/\`\`\`([^\\n]*)\\n([\\s\\S]*?)\`\`\`/g, (_, language, code) => {
+				const className = String(language || '').trim();
+				const rendered =
+					'<pre><code' +
+					(className ? ' class="language-' + escapeHtml(className) + '"' : '') +
+					'>' +
+					escapeHtml(String(code).replace(/\\n$/, '')) +
+					'</code></pre>';
+				const token = '__CODE_BLOCK_' + codeBlocks.length + '__';
+				codeBlocks.push({ token, rendered });
+				return token;
+			});
+			const blocks = withPlaceholders.split(/\\n{2,}/).map((block) => block.trim()).filter(Boolean);
+			const renderedBlocks = blocks.map((block) => {
+				if (/^__CODE_BLOCK_\\d+__$/.test(block)) {
+					return block;
+				}
+				if (/^#{1,6}\\s+/.test(block)) {
+					const headingMatch = block.match(/^(#{1,6})\\s+([\\s\\S]+)$/);
+					if (headingMatch) {
+						const level = Math.min(headingMatch[1].length, 6);
+						return '<h' + level + '>' + renderInlineMarkdown(headingMatch[2].trim()) + '</h' + level + '>';
+					}
+				}
+				if (/^(?:[-*]\\s+.+\\n?)+$/.test(block)) {
+					const items = block
+						.split('\\n')
+						.map((line) => line.replace(/^[-*]\\s+/, '').trim())
+						.filter(Boolean)
+						.map((item) => '<li>' + renderInlineMarkdown(item) + '</li>')
+						.join('');
+					return '<ul>' + items + '</ul>';
+				}
+				if (/^(?:>\\s?.+\\n?)+$/.test(block)) {
+					const quote = block
+						.split('\\n')
+						.map((line) => line.replace(/^>\\s?/, ''))
+						.join('\\n');
+					return '<blockquote>' + renderInlineMarkdown(quote).replaceAll('\\n', '<br />') + '</blockquote>';
+				}
+				if (/^---+$/.test(block)) {
+					return '<hr />';
+				}
+				return '<p>' + renderInlineMarkdown(block).replaceAll('\\n', '<br />') + '</p>';
+			});
+			return codeBlocks.reduce(
+				(html, block) => html.replace(block.token, block.rendered),
+				renderedBlocks.join(''),
+			);
 		};
 
 		const chainSections = [
@@ -1541,7 +1586,9 @@ function buildHistoryWebviewHtml(
 				'<div class="chain-detail-label">' + escapeHtml(labels.chainDetailPath) + '</div><div class="muted">' + escapeHtml(selected.path) + '</div>' +
 				'<div class="chain-detail-label">' + escapeHtml(labels.chainDetailExplanation) + '</div><div>' + escapeHtml(selected.explanation) + '</div>' +
 				'</div>' +
-				(selected.contentPreview ? '<pre>' + escapeHtml(selected.contentPreview) + '</pre>' : '') +
+				(selected.contentPreview
+					? '<div class="markdown-content">' + renderMarkdown(selected.contentPreview) + '</div>'
+					: '') +
 				'</section>';
 		};
 
