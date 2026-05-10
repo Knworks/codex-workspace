@@ -2,99 +2,61 @@
 
 ## 1. 🎯背景と目的
 
-* Codex のグローバル設定ディレクトリ（`~/.codex`）配下にある設定・プロンプト・スキル・テンプレート・エージェント・MCP 設定を、VS Code 内で一元的に閲覧・編集できるようにする。
-* ターミナルや OS のファイラーで設定ファイルを探して編集する手間を削減し、運用の効率と作業の一貫性を高める。
-* MCP サーバーの有効/無効（`enabled`）切り替えを VS Code UI から行えるようにし、設定変更の手間を下げる（反映には再起動が必要である旨を通知）。
+- Codex 関連ファイルを VS Code から参照しやすくし、`~/.codex` と周辺保存場所の編集導線をまとめる。
+- `config.toml`、`AGENTS.md`、Skills、Sub Agents、MCP Server、Templates、Commands を Explorer と Webview で扱えるようにする。
+- Codex Manager から会話履歴と Core 設定周辺の診断を確認できるようにする。
 
 ---
 
 ## 2. 👥利用者とステークホルダー
 
-* 利用者
-
-  * Codex を利用し、`~/.codex` の設定（`config.toml`, `AGENTS.md`）、プロンプト、スキル、テンプレート、エージェント、MCP サーバー設定を日常的に編集する開発者
-* ステークホルダー
-
-  * 拡張機能開発者（作者）
-  * 拡張機能利用者（Codex ユーザー）
+- 利用者
+  - Codex CLI を利用し、`~/.codex` やワークスペース配下の Codex 関連ファイルを編集する開発者
+- ステークホルダー
+  - 拡張機能開発者
+  - 拡張機能利用者
 
 ---
 
 ## 3. 📚用語・ドメイン定義
 
-| 用語            | 定義                                                      | 備考                                             |
-| ------------- | ------------------------------------------------------- | ---------------------------------------------- |
-| `.codex`      | Codex のグローバル設定ディレクトリ。各 OS のホームディレクトリ直下の `~/.codex` を指す。 | Windows/macOS/Linux でホームパスは異なる                 |
-| `config.toml` | Codex の設定ファイル（TOML形式）。MCP、skills、agents、feature flags、trusted directories などを含む。 | 破損時も一部の閲覧系機能は利用可能 |
-| `AGENTS.md`   | Codex のエージェント設定/説明用ファイル（Markdown）。                      | 直接エディタで編集可能                                    |
-| `AGENTS.override.md` | `AGENTS.md` より優先される上書き用のエージェント設定/説明ファイル。 | 存在時のみ対象 |
-| `prompts`     | プロンプトファイル/フォルダを格納するフォルダ（`.codex/prompts`）。階層は自由。        | ルートフォルダ名は固定／リネーム不可                             |
-| `skills`      | スキルファイル/フォルダを格納するフォルダ（`.codex/skills`）。階層は自由。           | ルートフォルダ名は固定／リネーム不可                             |
-| `codex-templates`   | テンプレートファイル/フォルダを格納するフォルダ（`.codex/codex-templates`）。           | 固定パス／ルートフォルダ名は固定／リネーム不可                        |
-| `agents`      | エージェント定義ファイルを格納するフォルダ（`.codex/agents`）。                     | 固定パス／`*.toml` を対象／ルートフォルダ名は固定／リネーム不可          |
-| `.codex-workspace` | 拡張機能が生成するメタファイルの管理フォルダ（`.codex/.codex-workspace`）。          | 拡張機能管理領域                                       |
-| `config.toml.bk` | `config.toml` 整理コマンド実行前の退避ファイル。 | 保存先は `.codex/.codex-workspace/config.toml.bk`、常に1世代のみ |
-| `agents-disabled.json` | 無効化したエージェントの退避情報を保持するファイル。                       | 保存先は `.codex/.codex-workspace/agents-disabled.json` |
-| `codex-sync.json` | 同期の削除判定に使うメタ情報を保持するファイル。                           | 保存先は `.codex/.codex-workspace/codex-sync.json`      |
-| MCP           | Model Context Protocol のサーバー設定群。                        | `[mcp_servers.<id>]` テーブルとして `config.toml` に定義 |
-| MCP サーバー      | `config.toml` の `[mcp_servers.<id>]` ブロック1つを指す。         | `<id>` がサーバー表示名                                |
-| `enabled`     | MCP サーバーの有効/無効を表す設定値。                                   | 省略時は ON 扱い                                     |
-| `rollout-*.jsonl` | Codex CLI のセッション履歴ファイル。                            | `$CODEX_HOME/sessions/年/月/日/` 配下に保存される |
-| `user_message` | 履歴イベントのうち、ユーザーの発話本文。                                 | `type:"event_msg"` かつ `payload.type:"user_message"` |
-| `task_started / task_complete` | 履歴タスクの開始/終了イベント。                            | `type:"event_msg"` かつ `payload.type:"task_started"` / `payload.type:"task_complete"` |
-| `agent_message` | 履歴イベントのうち、AI の回答本文。                            | `type:"event_msg"` かつ `payload.type:"agent_message"` |
-| `response_item(reasoning)` | 履歴イベントのうち、思考過程本文。                            | `type:"response_item"` かつ `payload.type:"reasoning"` |
-| `turn_id` | 1タスクを識別する ID。                            | `task_started`〜`task_complete` を同一 `turn_id` で関連付ける |
-| `maxHistoryCount` | 履歴一覧の最大表示件数設定。                            | 明示設定時のみ適用。未設定時は全件表示 |
-| `incrudeReasoningMessage` | 思考過程表示の ON/OFF 設定。                            | 既定値 `false` |
-| `Codex Manager` | Core 系の診断・管理をまとめた WebviewPanel。 | 会話履歴、AGENTS Loading Chain、Trusted Directory、Feature Flags、Hooks をタブ表示 |
-| `Feature Flags` | `config.toml` の `[features]` に定義される Codex の機能フラグ。 | 主要フラグのみ UI 表示対象 |
-| `Hooks` | Codex hook source と hook entry の診断対象。 | `hooks.json` と `config.toml` 内 inline hooks を含む |
-| `Trusted Directory` | `config.toml` の `[projects.\"<path>\"]` に登録された trusted project。 | `trust_level = \"trusted\"` のみ初期表示対象 |
+| 用語 | 定義 | 備考 |
+| --- | --- | --- |
+| `.codex` | Codex のホームディレクトリ配下にある設定ルート | `resolveCodexPaths()` は `~/.codex` を使用 |
+| `config.toml` | Codex の主要設定ファイル | `~/.codex/config.toml` |
+| `AGENTS.md` | Codex のグローバル AGENTS ファイル | `~/.codex/AGENTS.md` |
+| `AGENTS.override.md` | グローバル override 用 AGENTS ファイル | 存在時のみ Core Explorer に表示 |
+| `Commands` | `~/.codex/prompts` 配下の Markdown 等を表示するビュー | ビュー名は `Commands` |
+| `Skills` | 複数保存場所の `SKILL.md` を含むフォルダ群 | Project / Workspace / User / System を表示 |
+| `Templates` | テンプレート保存場所 | `~/.codex/codex-templates` 固定 |
+| `Sub Agents` | エージェント定義 `*.toml` を表示するビュー | Project / Workspace ルートを列挙 |
+| `MCP Server` | `config.toml` の `[mcp_servers.<id>]` 設定 | 一覧表示と有効/無効切替に対応 |
+| `Codex Manager` | Core 画面から開く WebviewPanel | History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks タブを持つ |
+| `Skill Manager` | Skills 一覧と有効/無効切替を行う WebviewPanel | `SKILL.md` の frontmatter を参照 |
+| `AGENTS Manager` | Sub Agents 一覧と有効/無効切替を行う WebviewPanel | `config.toml` と agent TOML を参照 |
+| `MCP Manager` | MCP Server の一覧・作成・編集・削除を行う WebviewPanel | 左右 2 ペイン構成 |
+| `.codex-workspace` | 拡張機能のメタ領域 | `~/.codex/.codex-workspace` |
+| `config.toml.bk` | `Organize config.toml` 実行前バックアップ | `~/.codex/.codex-workspace/config.toml.bk` |
+| `agents-disabled.json` | 無効化した agent 設定ブロック退避先 | `~/.codex/.codex-workspace/agents-disabled.json` |
+| `codex-sync.json` | 同期状態の保存先 | `~/.codex/.codex-workspace/codex-sync.json` |
+| `maxHistoryCount` | 会話履歴一覧の最大件数設定 | 明示設定時のみ適用 |
+| `incrudeReasoningMessage` | 履歴プレビューに reasoning を含める設定 | キー名は実装のまま |
 
 ---
 
 ## 4. 🎭ユースケース / ユーザーストーリー
 
-* ユーザーは VS Code の専用 Explorer（複数ビュー）から `config.toml` / `AGENTS.md` を開き、エディタで編集できる。
-* ユーザーは Prompts Explorer からプロンプトファイル/フォルダを作成・編集・リネーム・削除できる。
-* ユーザーは Skills Explorer からスキルファイル/フォルダを作成・編集・リネーム・削除できる。
-* ユーザーは Template Explorer からテンプレートファイル/フォルダを閲覧し、テンプレートファイルを開いて編集できる。
-* ユーザーはファイル作成時に `.codex/codex-templates` 配下にテンプレートファイルが存在する場合、テンプレートを選択して雛形を適用できる。
-* ユーザーは Agent Explorer で `.codex/agents` 配下の `*.toml` を一覧し、選択して編集できる。
-* ユーザーは Agent Explorer からエージェントを追加し、追加時にテンプレート適用の有無を選択できる。
-* ユーザーはエージェント追加時に `config.toml` へ `[agents.<agent>]` が自動追記される。
-* ユーザーは Agent Explorer のコンテキストメニューからエージェントを有効化/無効化できる。
-* ユーザーは Agent Explorer の「フォルダを開く」ボタンで `.codex/agents` を OS のエクスプローラ/Finder で開ける。
-* ユーザーは MCP Explorer で MCP サーバー一覧を閲覧し、スイッチ風 UI で `enabled` を ON/OFF 切り替えできる。
-* ユーザーは Prompts/Skills/Template Explorer の「フォルダを開く」ボタンで各ルートフォルダを OS のエクスプローラ/Finder で開ける。
-* ユーザーは Codex Core の「フォルダを開く」ボタンで `.codex` を OS のエクスプローラ/Finder で開ける。
-* ユーザーは Refresh 操作により全ビューを更新できる。
-* `.codex` や `config.toml` が存在しない/壊れている場合、ユーザーは「拡張が利用できない」ことを UI 上で確認できる。
-* ユーザーは VS Code の表示言語に応じて、日本語または英語で拡張の表示（ラベル/メッセージ）を利用できる。
-* ユーザーは Codex Core の同期ボタンを押下することで、`.codex` と同期フォルダの間で最終更新日時が新しいファイルを正として相互同期できる。
-* ユーザーは Prompts Explorer の同期ボタンを押下することで、`.codex/prompts` と同期フォルダの間で最終更新日時が新しいファイルを正として相互同期できる。
-* ユーザーは Skills Explorer の同期ボタンを押下することで、`.codex/skills` と同期フォルダの間で最終更新日時が新しいファイルを正として相互同期できる。
-* ユーザーは Template Explorer の同期ボタンを押下することで、`.codex/codex-templates` と同期フォルダの間で最終更新日時が新しいファイルを正として相互同期できる。
-* ユーザーは Agent Explorer の同期ボタンを押下することで、`.codex/agents` と同期フォルダの間で最終更新日時が新しいファイルを正として相互同期できる。
-* ユーザーは Agent 同期で `.codex/agents` から削除されたエージェントについて、`config.toml` の `[agents.<agent>]` エントリと `.codex/.codex-workspace/agents-disabled.json` の退避エントリが自動削除される。
-* ユーザーは Agent 同期で追加されたエージェントについて、`config.toml` に最小構成の `[agents.<agent>]` エントリが自動追記される。
-* 既存ユーザーはアップデート後も旧同期メタ（`.codex/.codex-sync/state.json`）から新同期メタ（`.codex/.codex-workspace/codex-sync.json`）へ移行され、同期機能を継続利用できる。
-* 既存ユーザーはアップデート後も `.codex/codex-templates` の運用を変更せず、テンプレート選択を継続利用できる。
-* ユーザーは Codex Core Explorer のボタン、またはコマンドパレットから、エディタ領域に `Codex Manager` を開ける。
-* ユーザーは `Codex Manager` の会話履歴タブで、従来どおり会話履歴を閲覧・検索・コピーできる。
-* ユーザーは `Codex Manager` の AGENTS Loading Chain タブで、現在有効な AGENTS 系ファイル、無視された候補、要確認項目を確認できる。
-* ユーザーは `Codex Manager` の Trusted Directory タブで、信頼済みディレクトリの一覧、追加、削除ができる。
-* ユーザーは `Codex Manager` の Feature Flags タブで、主要な feature flag の説明、成熟度、既定値、現在値を確認し、ON/OFF を切り替えられる。
-* ユーザーは `Codex Manager` の Hooks タブで、Hooks 機能状態、Project Hooks 状態、hook source ごとの entry 一覧、warning を確認できる。
-* ユーザーは `Codex Manager` の Hooks タブから、存在する `hooks.json` / `config.toml` を開ける。
-* ユーザーは `Codex Manager` の Hooks タブから、存在しない `hooks.json` / `config.toml` を作成して開ける。
-* ユーザーはコマンドパレットから `config.toml` 整理コマンドを実行し、管理対象セクションの分断を解消できる。
-* ユーザーは `config.toml` 整理コマンド実行時、書き換え前の内容を `.codex/.codex-workspace/config.toml.bk` に退避できる。
-* ユーザーは左ペインの日付フォルダ（`yyyy/mm/dd`）とタスクカードを使い、履歴を新しい順に閲覧できる。
-* ユーザーはセッションカードを選択し、右ペインでユーザーメッセージ全文と AI メッセージ/思考過程を時系列で確認できる。
-* ユーザーはユーザーメッセージ全文を対象に検索し、部分一致で一覧を絞り込み、カード表示で一致箇所をハイライト表示できる。
-* ユーザーは検索クリアで全件表示へ戻せる。
+- ユーザーは Codex Manager ビューから `config.toml`、`AGENTS.md`、`AGENTS.override.md` を開ける。
+- ユーザーは Commands ビューで `~/.codex/prompts` 配下のファイルを開き、タイトルバーから新規ファイルを追加できる。
+- ユーザーは Skills ビューで複数保存場所の Skill フォルダをまとめて見られる。
+- ユーザーは Skills ビューで `SKILL.md` を開き、Skill root には状態アイコンを確認できる。
+- ユーザーは Skill Manager で Skill 名、説明、保存場所、パスを一覧し、有効/無効を切り替えられる。
+- ユーザーは Templates ビューでテンプレートファイルを開き、ファイル作成時の雛形として利用できる。
+- ユーザーは Sub Agents ビューで Agent TOML を開き、AGENTS Manager から有効/無効を切り替えられる。
+- ユーザーは MCP Server ビューでサーバー一覧を見て、項目クリックで有効/無効を切り替えられる。
+- ユーザーは MCP Manager で MCP サーバーを追加、編集、削除できる。
+- ユーザーは Codex Manager を開き、履歴検索、AGENTS Loading Chain、Trusted Directory、Feature Flags、Hooks を確認できる。
+- ユーザーは設定済みの同期先フォルダに対して Core / Commands / Skills / Templates / Sub Agents の同期を実行できる。
 
 ---
 
@@ -102,486 +64,193 @@
 
 ### 5.1 ビュー（Explorer）構成
 
-* 次のビューを提供する（同一 View Container 配下に配置）
-
-  * Prompts Explorer
-  * Skills Explorer
-  * Template Explorer
-  * Agent Explorer
-  * MCP Explorer
-  * Codex Core（`config.toml` / `AGENTS.md`）
-  * Codex Manager（WebviewPanel）
-* 各 Explorer は以下の固定ルートフォルダを持つ（UI ではルート直下の階層を表示し、ルート自体は表示しない）。
-
-  * Prompts Explorer：`prompts`（`.codex/prompts`）
-  * Skills Explorer：`skills`（`.codex/skills`）
-  * Template Explorer：`codex-templates`（`.codex/codex-templates`）
-  * Agent Explorer：`agents`（`.codex/agents`）
-* 上記の固定ルートフォルダは **リネーム不可**とする。
+- Activity Bar 配下に `codex-workspace` View Container を提供する。
+- ビューの構成と表示名は以下とする。
+  - `codex-workspace.core` : `Codex Manager`
+  - `codex-workspace.agents` : `Sub Agents`
+  - `codex-workspace.skills` : `Skills`
+  - `codex-workspace.prompts` : `Commands`
+  - `codex-workspace.mcp` : `MCP Server`
+  - `codex-workspace.templates` : `Templates`
+- Core ビューは `config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を表示する。
+- Skills ビューは以下の順で Skill ルートを表示する。
+  - Project Skills: `workspace/.agents/skills` 優先、なければ `workspace/.codex/skills`
+  - Workspace Skills: `~/.codex/skills`
+  - User Skills: `~/.agents/skills`
+  - System Skills: `~/.codex/skills/.system`
+- Sub Agents ビューは以下の順で Agent ルートを表示する。
+  - Project Agents: `workspace/.codex/agents` 優先、なければ `workspace/.agents/agents`
+  - Workspace Agents: `~/.codex/agents`
+- Templates の実体パスは `~/.codex/codex-templates` 固定とする。
 
 ### 5.2 利用可否判定（共通）
 
-* 以下のいずれかに該当する場合、拡張機能全体を「利用不可」とする。
-
-  * `~/.codex` が存在しない
-  * `~/.codex/config.toml` が存在しない
-  * `config.toml` が読み取れない
-* `config.toml` が TOML として parse できない場合は、拡張全体を利用不可にはしない。
-  * Core ファイルを開く操作
-  * `Codex Manager` の会話履歴タブ
-  * `Codex Manager` の AGENTS Loading Chain タブ
-  * `Codex Manager` の Hooks タブの source ファイル導線
-  は利用可能とする。
-* `config.toml` が TOML として parse できない場合は、設定解析に依存する更新操作を無効化する。
-  * Skill / Agent / MCP / Feature Flags の設定更新
-  * Trusted Directory の追加 / 削除
-  * config 解析を前提にした一覧更新
-* 利用不可の場合、各ビューには同一の 1 アイテムのみ表示する。
-
-  * 表示：`⚠ Codex Workspace を開けません: <理由>`
-* 利用不可の場合、全コマンド操作は実行不可とする。
-* ただし `config.toml` の parse 失敗時は全停止ではなく、閲覧系と修復導線を残した部分利用不可とする。
-
-### 5.3 選択必須（共通）
-
-* 削除/リネームなどの操作は対象選択が必須。
-* 対象が未選択の場合は操作を実行せず、右下に簡易メッセージを表示する。
-
-  * `showInformationMessage("操作する対象を選択してください。")`（英語環境では英語表示）
-
-### 5.4 アイコン表示（共通）
-
-* 以下の対象にはアイコンを設定する。
-  * プロンプトファイル：`markdown32.png`
-  * プロンプトフォルダ：`folder32.png`
-  * エージェント（有効）：`agent_on.png`
-  * エージェント（無効）：`agent_off.png`
-  * MCP サーバー：`ThemeIcon('mcp')`
-* MCP の ON/OFF はスイッチ風 UI として視認できること（アイコン表現を含む）。
-
-### 5.5 ファイル/フォルダ操作（prompts / skills / codex-templates）
-
-* フォルダ階層は自由。
-* ファイルを選択した場合は、通常の VS Code Explorer と同様にエディタで開く（テキスト編集）。
-
-#### 5.5.1 初回作成時のルートフォルダ自動作成
-
-* ファイル追加/フォルダ追加の実行時に、対象 Explorer のルートフォルダ（`.codex/prompts` / `.codex/skills` / `.codex/codex-templates`）が存在しない場合は、拡張が自動で作成する。
-
-#### 5.5.2 追加（ファイル/フォルダ）
-
-* 作成先ルール
-
-  * 選択対象がフォルダ：そのフォルダ配下に作成
-  * 選択対象がファイル：そのファイルの親フォルダ配下に作成
-  * 未選択：対象 Explorer のルートフォルダ配下に作成
-* ファイル作成時の拡張子
-
-  * 入力が拡張子なし：`.md` を付与
-  * 入力が拡張子あり：入力を優先
-* 命名重複時
-
-  * ファイル：`_1`, `_2`… の連番候補を提示し、OK で連番名を採用して作成
-  * フォルダ：同名が存在する場合はエラー表示で中止
-* 入力名のバリデーション
-
-  * ファイル名/フォルダ名に使用できない文字列は `_` に置換する
-
-#### 5.5.3 編集（Open）
-
-* 対象がファイルの場合、エディタで開く。
-* 対象がフォルダの場合、編集操作は行わない（もしくは無効）。
-
-#### 5.5.4 削除（物理削除）
-
-* 対象：ファイル/フォルダ
-* フォルダは再帰削除する（配下をすべて削除）
-* 確認ダイアログは必須。文言例：
-
-  * フォルダ：`このフォルダ以下をすべて削除してもよろしいですか？`
-  * ファイル：`このファイルを削除してもよろしいですか？`
-* 確認ダイアログには対象パス/名称を表示する。
-
-#### 5.5.5 リネーム（Rename）
-
-* 対象：ファイル/フォルダ
-* ファイルは拡張子込みでリネーム対象とする。
-* 固定ルートフォルダ（`prompts` / `skills` / `codex-templates`）は常にリネーム不可とする。
-
-**ファイル**
-
-* 目標名が存在しない場合：そのままリネーム
-* 目標名が存在する場合：`_1`, `_2`… の連番候補を提示し、OK で連番名を採用してリネーム（キャンセルで中止）
-* 大文字小文字のみの変更は許可する
-
-**フォルダ**
-
-* 目標名が存在する場合：リネーム不可（エラー表示）
-* 大文字小文字のみの変更は許可する
-
-### 5.6 テンプレート機能（`.codex/codex-templates` 固定）
-
-* テンプレートフォルダは `.codex/codex-templates` に固定する（設定値は存在しない）。
-* `.codex/codex-templates` 配下にテンプレートファイルが存在する場合のみ、ファイル作成時にテンプレート選択を可能とする。
-* テンプレート選択対象は「ファイルのみ」とし、隠しファイル（`.` 始まり）は除外する。
-* 選択したテンプレートファイルの内容を新規作成ファイルに適用する。
-* Template Explorer ではテンプレートファイルを開いて編集できる。
-
-### 5.7 MCP Explorer
-
-#### 5.7.1 一覧抽出
-
-* `config.toml` 内の `[mcp_servers.<id>]` を MCP サーバー定義として抽出する。
-* `<id>` をサーバー名として表示する。
-* 並び順は `config.toml` に出現した順（設定値順）とする。
-
-#### 5.7.2 トグル UI（スイッチ風）
-
-* MCP サーバーの ON/OFF は、Tree 上でスイッチ風に見える UI として提供する。
-
-  * クリック操作で ON/OFF が切り替わる。
-  * ON/OFF の状態はスイッチ表現（アイコンや装飾）で明確に視認できる。
-
-#### 5.7.3 トグル仕様（enabled パッチ）
-
-* ブロック内の `enabled` 行を検出し、値を `true/false` 反転する。
-* `enabled` 行の検出はスペース有無を許容する（例：`enabled=true`, `enabled = true`）。
-* 末尾コメント（例：`enabled = true # comment`）が存在する場合、コメントは保持する。
-* `enabled` が無い場合は ON 扱いとし、トグル操作で OFF にするため、ヘッダ直下に `enabled = false` を挿入する。
-* トグル成功後は通知を表示する。
-
-  * `設定を更新しました。反映には Codex の再起動が必要です。`（英語環境では英語表示）
-
-### 5.8 フォルダを開く
-
-* Prompts/Skills/Template Explorer の「フォルダを開く」ボタンは、それぞれ `.codex/prompts` / `.codex/skills` / `.codex/codex-templates` を開く。
-* Agent Explorer の「フォルダを開く」ボタンは `.codex/agents` を開く。
-* Codex Core の「フォルダを開く」ボタンは `.codex` を開く。
-
-### 5.9 Refresh
-
-* Refresh 操作は Prompts / Skills / Template / Agent / MCP / Core の **全ビューを更新**する。
-
-### 5.10 多言語対応（日本語・英語）
-
-* 拡張機能のラベル/メッセージは **日本語・英語**を提供する。
-* VS Code の表示言語が **日本語（ja）**の場合は日本語を表示する。
-* VS Code の表示言語が **日本語以外**の場合はすべて英語を表示する。
-
-### 5.11 同期（Sync）
-
-* 同期先フォルダ設定を追加する（既定値はブランク）。
-  * Codex Core Sync Folder（キー：`codexFolder`）
-  * Prompts Sync Folder（キー：`promptsFolder`）
-  * Skills Sync Folder（キー：`skillsFolder`）
-  * Template Sync Folder（キー：`templatesFolder`）
-  * Agent Sync Folder（キー：`agentFolder`）
-* 拡張機能が作成するメタファイルの固定ルートは `.codex/.codex-workspace/` とする。
-* 同期メタの保存先は `.codex/.codex-workspace/codex-sync.json` とする。
-* 互換読み取りの優先順は `.codex/.codex-workspace/codex-sync.json` → `.codex/.codex-sync/state.json` とする。
-* 新保存先が存在せず旧保存先が存在する場合、旧内容を新保存先へ原子的に移行し、移行後に旧 `state.json` を削除する。
-* 移行に失敗した場合は旧保存先を保持し、処理を中断してエラー通知する。
-* Codex Core
-  * 同期ボタン（codicon: `sync`）を追加する。
-  * `codexFolder` が未設定の場合は同期ボタンを非表示にする。
-  * 押下時に確認メッセージを表示し、OK の場合に `.codex/AGENTS.md` と `.codex/config.toml` を `codexFolder` と相互同期する。
-    * `.codex` と `codexFolder` の同名ファイルは最終更新日時が新しい方を正として古い方を上書きする。
-    * いずれかで削除されたファイルは両方から削除する。
-    * 削除同期の判定に必要なメタ情報は `.codex/.codex-workspace/codex-sync.json` に保存し、削除が両方に反映された時点で対象エントリを削除する。
-    * `.codex/.codex-workspace` 配下は隠しフォルダとして同期対象外とする。
-    * 隠しフォルダ/隠しファイルは対象外とする。
-    * 上書き中にエラーが発生した場合は該当ファイルのみスキップし、スキップした旨を簡易ダイアログで通知する。
-    * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
-* Prompts Explorer
-  * 同期ボタン（codicon: `sync`）を追加する。
-  * `promptsFolder` が未設定の場合は同期ボタンを非表示にする。
-  * 押下時に確認メッセージを表示し、OK の場合に `.codex/prompts` と `promptsFolder` を相互同期する。
-    * `.codex/prompts` と `promptsFolder` の同名ファイルは最終更新日時が新しい方を正として古い方を上書きする。
-    * いずれかで削除されたファイルは両方から削除する。
-    * 削除同期の判定に必要なメタ情報は `.codex/.codex-workspace/codex-sync.json` に保存し、削除が両方に反映された時点で対象エントリを削除する。
-    * `.codex/.codex-workspace` 配下は隠しフォルダとして同期対象外とする。
-    * 隠しフォルダ/隠しファイルは対象外とする。
-    * 上書き中にエラーが発生した場合は該当ファイルのみスキップし、スキップした旨を簡易ダイアログで通知する。
-    * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
-* Skills Explorer
-  * 同期ボタン（codicon: `sync`）を追加する。
-  * `skillsFolder` が未設定の場合は同期ボタンを非表示にする。
-  * 押下時に確認メッセージを表示し、OK の場合に `.codex/skills` と `skillsFolder` を相互同期する。
-    * `.codex/skills` と `skillsFolder` の同名ファイルは最終更新日時が新しい方を正として古い方を上書きする。
-    * いずれかで削除されたファイルは両方から削除する。
-    * 削除同期の判定に必要なメタ情報は `.codex/.codex-workspace/codex-sync.json` に保存し、削除が両方に反映された時点で対象エントリを削除する。
-    * `.codex/.codex-workspace` 配下は隠しフォルダとして同期対象外とする。
-    * 隠しフォルダ/隠しファイルは対象外とする。
-    * 上書き中にエラーが発生した場合は該当ファイルのみスキップし、スキップした旨を簡易ダイアログで通知する。
-    * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
-* Template Explorer
-  * 同期ボタン（codicon: `sync`）を追加する。
-  * `templatesFolder` が未設定の場合は同期ボタンを非表示にする。
-  * 押下時に確認メッセージを表示し、OK の場合に `.codex/codex-templates` と `templatesFolder` を相互同期する。
-    * `.codex/codex-templates` と `templatesFolder` の同名ファイルは最終更新日時が新しい方を正として古い方を上書きする。
-    * いずれかで削除されたファイルは両方から削除する。
-    * 削除同期の判定に必要なメタ情報は `.codex/.codex-workspace/codex-sync.json` に保存し、削除が両方に反映された時点で対象エントリを削除する。
-    * `.codex/.codex-workspace` 配下は隠しフォルダとして同期対象外とする。
-    * 隠しフォルダ/隠しファイルは対象外とする。
-    * 上書き中にエラーが発生した場合は該当ファイルのみスキップし、スキップした旨を簡易ダイアログで通知する。
-    * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
-* Agent Explorer
-  * 同期ボタン（codicon: `sync`）を追加する。
-  * `agentFolder` が未設定の場合は同期ボタンを非表示にする。
-  * 押下時に確認メッセージを表示し、OK の場合に `.codex/agents` と `agentFolder` を相互同期する。
-    * `.codex/agents` と `agentFolder` の同名ファイルは最終更新日時が新しい方を正として古い方を上書きする。
-    * いずれかで削除されたファイルは両方から削除する。
-    * 削除同期の判定に必要なメタ情報は `.codex/.codex-workspace/codex-sync.json` に保存し、削除が両方に反映された時点で対象エントリを削除する。
-    * `.codex/.codex-workspace` 配下は隠しフォルダとして同期対象外とする。
-    * 隠しフォルダ/隠しファイルは対象外とする。
-    * 上書き中にエラーが発生した場合は該当ファイルのみスキップし、スキップした旨を簡易ダイアログで通知する。
-    * 文言：`<パス> のファイルを上書きしますがよろしいですか？`
-    * 同期結果でエージェントファイルが削除された場合、対応する `[agents.<agent>]` を `config.toml` から削除する。
-    * 同期結果でエージェントファイルが削除された場合、`.codex/.codex-workspace/agents-disabled.json` の対応エントリも削除する。
-    * 同期結果でエージェントファイルが新規追加された場合、`config.toml` に最小構成の `[agents.<agent>]` を追記する。
-
-### 5.12 Agent Explorer
-
-#### 5.12.1 一覧表示と基本操作
-
-* 固定ルート `.codex/agents` 配下の `*.toml` を一覧表示する。
-* 一覧アイテム選択時は該当 `*.toml` をエディタで開く。
-* 以下の操作を提供する。
-  * 新規作成
-  * リネーム
-  * 削除
-  * エディタで開く（選択時）
-
-#### 5.12.2 追加・編集・削除フロー
-
-* 追加フローは以下の順序で実施する。
-  1. エージェント名入力
-  2. 説明入力
-  3. テンプレート選択（「空のファイル」を含む）
-* 作成先は `.codex/agents/<agent>.toml` とする。
-* 同名ファイルが既に存在する場合は作成を中断し、衝突通知する。
-* 編集フローはエージェント名と説明の編集を提供する。
-* 削除フローは確認ダイアログを表示し、OK 時のみ物理削除する。
-
-#### 5.12.3 `config.toml` 連携
-
-* `.codex/agents/<agent>.toml` 作成成功後に `config.toml` へ `[agents.<agent>]` を自動追記する。
-* 自動追記の最小構成は以下とする。
-  * `description`（空文字許可）
-  * `config_file = "agents/<agent>.toml"`
-* 既に `[agents.<agent>]` が存在する場合は上書きせず、通知する。
-
-#### 5.12.4 有効/無効切り替え
-
-* Agent Explorer のコンテキストメニューに `Agentを有効化` / `Agentを無効化` を追加する。
-* Agent Explorer のインライン操作は文字列ではなくアイコンで表現し、有効化は `images/agent_on.png`、無効化は `images/agent_off.png` を使用する。
-* 有効/無効の実体は `config.toml` の `[agents.<agent>]` の有無で表現する。
-  * Enable：`[agents.<agent>]` を追加
-  * Disable：`[agents.<agent>]` を削除
-* Disable 時は削除ブロック（コメント含む）を `.codex/.codex-workspace/agents-disabled.json` に退避する。
-* Enable 時は退避ブロックがあれば復元し、なければ最小構成ブロックを追加する。
-* 切り替え後は再起動が必要な旨を通知する。
-
-### 5.13 Codex Manager
-
-* 呼び出し導線
-  * Codex Core Explorer の上部ボタンから `Codex Manager` を開けるようにする。
-  * コマンドを追加し、コマンドパレットから `Codex Manager` を開けるようにする。
-  * 表示先は WebviewPanel を利用した **エディタ領域**とする。
-  * `Codex Manager` は単一インスタンスとし、既に開いている場合は再利用し、前面表示する。
-* タブ構成
-  * 会話履歴
-  * AGENTS Loading Chain
-  * Trusted Directory
-  * Feature Flags
-  * Hooks
-* 各タブには個別 Refresh を提供し、現在開いているタブのみ再読み込みする。
-* コマンドパレットから `Codex Workspace: Organize config.toml` を実行できる。
-
-#### 5.13.1 会話履歴タブ
-
-* データソース / 解析対象
-  * 履歴データは `$CODEX_HOME/sessions/.../rollout-*.jsonl` を正とする。
-  * フォルダ階層は `年/月/日` を前提とする。
-  * 新形式イベントのみを解析対象とする（旧形式ログは対象外）。
-  * 1 タスクは `type:"event_msg"` かつ `payload.type:"task_started"`〜`payload.type:"task_complete"` の同一 `turn_id` 区間で定義する。
-  * 1 タスク内の抽出対象は以下とする。
-    * ユーザー: `type:"event_msg"` かつ `payload.type:"user_message"`（最初の 1 件）
-    * AI回答: `type:"event_msg"` かつ `payload.type:"agent_message"`（複数件）
-    * 思考過程: `type:"response_item"` かつ `payload.type:"reasoning"`（複数件）
-  * `turn_id` が欠落したイベントは、`turn_context.turn_id` または単一アクティブタスクにフォールバックして紐づける。
-  * `task_complete` が欠落する場合でも、ファイル末尾時点のアクティブタスクを確定する。
-* 画面構成
-  * 上部に検索エリア、下部に左右 2 ペイン（左 30% / 右 70%）を表示する。
-  * 左ペインは日付フォルダ（`yyyy/mm/dd`）とタスクカード一覧を表示する。
-  * 右ペインは選択タスクの会話プレビュー（Markdown レンダリング）を表示する。
-* 左ペイン（ツリー＋カード）
-  * 日付フォルダは `yyyy/mm/dd` 単位で表示する。
-  * タスクカードは新しい順で表示する。
-  * カードタイトルは `user_message` の全文を検索対象とし、表示は最大 100 文字で省略する。
-  * カード先頭にローカル時刻 `[H:mm:ss]` を表示する。
-  * 表示件数は「全体の最新タスク件数」を `maxHistoryCount`（=1タスク=1ユーザーメッセージ）で制限する。
-    * 明示設定時のみ適用し、未設定時は全件表示する。
-* 右ペイン（会話プレビュー）
-  * タスク選択時に `user_message` 全文を表示する。
-  * AI回答（`agent_message`）と思考過程（`response_item.reasoning`）は同一タイムラインで時系列表示する。
-  * 思考過程は折りたたみ表示（chevron）とする。
-  * `incrudeReasoningMessage=false` の場合、思考過程は表示しない。
-  * ユーザーメッセージと AI回答にコピー操作（codicon `copy`）を提供する。
-* 検索
-  * 対象は `user_message` 全文とする。
-  * 一致ルールは大文字小文字を区別しない部分一致とする。
-  * 検索は入力時および Enter で実行する。
-  * 結果はツリー絞り込み状態で表示し、一致語をハイライトする。
-  * クリア操作で絞り込みを解除する。
-  * 検索一致箇所への自動スクロールは実装しない。
-
-#### 5.13.2 AGENTS Loading Chain タブ
-
-* Codex の実行結果そのものではなく、Codex Workspace による推定診断を表示する。
-* 基準ディレクトリは VS Code ワークスペースルートとし、画面上で変更する操作は提供しない。
-* 左ペインは `現在有効` / `無視された候補` / `要確認` / `詳細候補` のセクションで表示する。
-* `詳細候補` は既定で非表示とし、トグル ON 時のみ表示する。
-* 右ペインは選択項目の状態、分類、パス、説明、本文プレビューを表示する。
-* ワークスペースが未オープンの場合は、候補一覧の代わりにワークスペースが必要である旨を表示する。
-
-#### 5.13.3 Trusted Directory タブ
-
-* `config.toml` の `[projects."<path>"]` のうち、`trust_level = "trusted"` のエントリのみ一覧表示する。
-* 一覧には、ディレクトリパス、状態アイコン、削除操作を表示する。
-* 追加はフォルダ選択ダイアログから行い、削除は確認ダイアログ後に `config.toml` の trust 設定のみを削除する。
-* ディレクトリが存在しない場合は warning 表示する。
-
-#### 5.13.4 Feature Flags タブ
-
-* `config.toml` の `[features]` を対象に、主要な feature flag 一覧を表示する。
-* 一覧には、feature 名、説明、成熟度、既定値、現在値、設定有無を表示する。
-* 初期リリースで対象とする主要 feature flag は以下とする。
-  * `apps`
-  * `codex_hooks`
-  * `fast_mode`
-  * `memories`
-  * `multi_agent`
-  * `personality`
-  * `shell_snapshot`
-  * `shell_tool`
-  * `unified_exec`
-  * `undo`
-  * `web_search`
-  * `web_search_cached`
-  * `web_search_request`
-* `config.toml` が解析可能な場合は、各 feature flag をトグルで ON/OFF 更新できる。
-* `codex_hooks` 更新時は Hooks タブも再描画して状態を同期する。
-
-#### 5.13.5 Hooks タブ
-
-* ヘッダには、Hooks 機能の有効状態、Project Hooks 機能の有効状態、基準ワークスペースパスを表示する。
-* 対象 source は以下とする。
-  * `~/.codex/hooks.json`
-  * `~/.codex/config.toml` 内の inline hooks
-  * `project/.codex/hooks.json`
-  * `project/.codex/config.toml` 内の inline hooks
-* 左ペインに source 一覧を表示し、選択した source 配下の hook entry のみを右ペインに表示する。
-* source 一覧には、layer、format、パス、active/inactive 状態、entry 件数を表示する。
-* project layer は trusted workspace の場合のみ active とする。
-* Hooks タブでは warning として以下を表示できる。
-  * `codex_hooks` 無効
-  * project-local hooks が trusted になるまで無効
-  * 同一 layer に `hooks.json` と inline hooks が共存
-  * command handler 以外の hook が含まれる
-* source ファイルが存在する場合は Open 操作を提供する。
-* `hooks.json` が存在しない場合は最小構成ファイルを作成して開く。
-* `config.toml` が存在しない場合は空ファイルを作成して開く。
-* 初期リリースでは、Hooks タブ上で hook entry の追加、削除、構造化編集は提供しない。
-
-#### 5.13.6 `Organize config.toml` コマンド
-
-* 明示コマンド `Codex Workspace: Organize config.toml` を提供する。
-* 対象は `~/.codex/config.toml` とする。
-* コマンド実行時のみ、書き換え直前の内容を `.codex/.codex-workspace/config.toml.bk` へバックアップする。
-* バックアップは常に 1 世代のみ保持し、既存 `config.toml.bk` は上書きする。
-* `config.toml` が存在しない場合はコマンドを実行しない。
-* バックアップ作成に失敗した場合は整理処理を中止し、`config.toml` は書き換えない。
-* 整理対象は次の管理対象セクションのみとする。
-  * `[features]`
-  * `[[skills.config]]`
-  * `[agents.<name>]`
-  * `[mcp_servers.<id>]`
-  * `[mcp_servers.<id>.env]`
-  * `[projects."<path>"]`
-* 整理ルールは次のとおりとする。
-  * ファイル全体の大まかなセクション順は変更しない
-  * 同種セクションが分断されている場合は、その種類が最初に現れた位置へ集約する
-  * 集約後の同種セクション内順は元の出現順を維持する
-  * `[mcp_servers.<id>.env]` は必ず親 `[mcp_servers.<id>]` の直後へ配置する
-  * 管理対象外のセクションは並び替えない
-  * ブロック本文は変更しない
-  * コメントは可能な限り既存位置関係を維持する
+- 一般ビューと更新コマンドは `getWorkspaceStatus()` を利用し、以下のいずれかで利用不可とする。
+  - `~/.codex` が存在しない
+  - `~/.codex/config.toml` が存在しない
+  - `config.toml` が読み取れない
+  - `config.toml` が TOML として parse できない
+- Core ビューと Codex Manager 起動は `getCoreWorkspaceStatus()` を利用し、`config.toml` が不正でも利用可能とする。
+- 利用不可時は各 Tree に理由付きの単一項目を表示する。
+- Core ビューで `config.toml` が不正な場合、`config.toml` 項目は warning アイコンと理由付き tooltip を表示する。
+
+### 5.3 Commands / Skills / Templates のファイル操作
+
+- 共通でファイルはエディタで開ける。
+- 共通で rename / delete / refresh を提供する。
+- 共通で名前は `sanitizeName()` により正規化する。
+- ファイル追加時、拡張子がない場合は `.md` を付与する。
+- 既存ファイル名と衝突した場合、ファイルは `_1`, `_2` 形式の候補を確認して採用する。
+- フォルダ名衝突時はエラーで中止する。
+- フォルダ削除は再帰削除する。
+- `Commands` ビューのタイトルバー操作は新規ファイル、削除、リネーム、更新、フォルダを開く、同期とする。
+- `Skills` ビューのタイトルバー操作は新規 root folder、削除、リネーム、更新、フォルダを開く、同期、Skill Manager 起動とする。
+- `Templates` ビューのタイトルバー操作は新規 root folder、新規ファイル、削除、リネーム、更新、フォルダを開く、同期とする。
+- `Skills` / `Templates` は folder / root の item context からファイルとフォルダを追加できる。
+- `Skills` の新規ファイルは folder 選択時のみ許可し、root 直下のファイル追加は行わない。
+- `Skills` root に対する新規フォルダ作成時は保存先を Project / Workspace / User から選択させる。
+- `Skills` の folder に対する新規フォルダ作成時は `references/`、`scripts/`、`assets/` の候補を Quick Pick で選択できる。
+- `Skills` の `SKILL.md` と Skill root folder は `enabled` 状態に応じてアイコンを切り替える。
+- `Templates` を含む新規ファイル作成時、`~/.codex/codex-templates` 配下のテンプレート候補から内容を適用できる。
+
+### 5.4 Skills の有効/無効管理
+
+- Skill の有効/無効状態は `config.toml` の `[[skills.config]]` で管理する。
+- `path` は `SKILL.md` の絶対パスを保存する。
+- `enabled` が省略されている場合は有効扱いとする。
+- Skill Manager は以下を表示する。
+  - icon
+  - name
+  - description
+  - skillPath
+  - location label
+  - toggle
+  - open button
+- Skill Manager の検索対象は name / description / skillPath とする。
+
+### 5.5 Sub Agents の管理
+
+- Sub Agents ビューは各ルート配下の `*.toml` を一覧表示する。
+- 各項目は `config.toml` に `[agents.<id>]` が存在するかどうかで有効/無効アイコンを切り替える。
+- タイトルバー操作は新規作成、編集、削除、更新、フォルダを開く、同期、AGENTS Manager 起動とする。
+- enable / disable command は実装されているが、Tree item context menu には寄与しない。
+- 新規作成時は保存先ルートを選び、Agent 名、説明、テンプレート内容の順に入力する。
+- Agent 作成後、`config.toml` に `[agents.<name>]` ブロックを自動追記する。
+- 編集時はファイル名と description を更新し、`config.toml` の block も追従させる。
+- 削除時は TOML ファイルを削除し、`config.toml` の対応 block と disabled store の退避も削除する。
+- 無効化時は対応 block を `agents-disabled.json` に退避し、`config.toml` から削除する。
+- 有効化時は退避 block があれば復元し、なければ最小構成 block を追加する。
+- AGENTS Manager は name / description / model / model_reasoning_effort / sandbox_mode / agentPath / location / toggle / open button を表示する。
+
+### 5.6 MCP Server の管理
+
+- `config.toml` の `[mcp_servers.<id>]` を一覧表示する。
+- `enabled` がない場合は有効扱いとする。
+- MCP Server ビューでは項目クリックで `enabled` をトグルする。
+- 無効状態は `circle-slash` アイコン、 有効状態は `mcp` アイコンを使う。
+- MCP Manager は左ペインのサーバー一覧と右ペインの編集フォームを表示する。
+- MCP Manager のフォーム項目は以下を扱う。
+  - id
+  - transport (`stdio` / `http`)
+  - command
+  - args
+  - url
+  - env
+  - required
+  - startup_timeout_sec
+  - tool_timeout_sec
+  - enabled_tools
+  - disabled_tools
+- `enabled_tools` と `disabled_tools` の同時指定は保存不可とする。
+- 保存時は既存 block の未管理キーを保持する。
+- `env` は `[mcp_servers.<id>.env]` block と inline table の両方を読める。
+
+### 5.7 Codex Manager
+
+- Core ビュー上部ボタンまたはコマンド `codex-workspace.openHistoryView` で WebviewPanel を開く。
+- パネルタイトルは `Codex Manager` とする。
+- タブは以下を表示する。
+  - History
+  - AGENTS Loading Chain
+  - Trusted Directory
+  - Feature Flags
+  - Hooks
+- History タブ
+  - `CODEX_HOME/sessions` または `~/.codex/sessions` 配下の `rollout-*.jsonl` を走査する
+  - `task_started` / `task_complete` と `turn_id` を使ってタスク単位に集約する
+  - 左ペインに `yyyy/mm/dd` ごとのカード一覧、右ペインにユーザー本文と assistant / reasoning タイムラインを表示する
+  - `maxHistoryCount` が明示設定されている場合のみ件数制限する
+  - `incrudeReasoningMessage` が false の場合 reasoning は非表示とする
+- AGENTS Loading Chain タブ
+  - workspace root を基準に Global / Project tier の `AGENTS.override.md`、`AGENTS.md`、fallback 候補を診断する
+  - `Current` / `Ignored` / `Problems` / `Detailed candidates` に分類表示する
+- Trusted Directory タブ
+  - `[projects."<path>"]` のうち `trust_level = "trusted"` のみ表示する
+  - 追加と削除を行える
+- Feature Flags タブ
+  - `FEATURE_DEFINITIONS` から maturity が `Stable` または `Experimental` の定義を表示する
+  - toggle により `[features]` を更新できる
+- Hooks タブ
+  - user / project の `hooks.json` と inline hooks を診断表示する
+  - source ごとの open / create 操作を提供する
+
+### 5.8 同期
+
+- 同期設定キーは以下とする。
+  - `codex-workspace.codexFolder`
+  - `codex-workspace.promptsFolder`
+  - `codex-workspace.skillsFolder`
+  - `codex-workspace.templatesFolder`
+  - `codex-workspace.agentFolder`
+- Core 同期は `AGENTS.md` と `config.toml` を対象にする。
+- Commands / Skills / Templates / Sub Agents 同期は対応ディレクトリを相互同期する。
+- 同名ファイルは更新日時が新しい側で上書きする。
+- 削除同期状態は `~/.codex/.codex-workspace/codex-sync.json` に記録する。
+- 旧状態ファイル `.codex/.codex-sync/state.json` があれば新形式へ移行する。
+- 隠しファイルと隠しフォルダは同期対象外とする。
+- Sub Agents 同期後は `reconcileAgentConfigAfterSync()` により `config.toml` と disabled store を追従させる。
+
+### 5.9 `Organize config.toml`
+
+- `codex-workspace.organizeConfigToml` コマンドを提供する。
+- 実行前に `~/.codex/.codex-workspace/config.toml.bk` を更新する。
+- 整理対象は以下とする。
+  - `[features]`
+  - `[[skills.config]]`
+  - `[agents.<name>]`
+  - `[mcp_servers.<id>]`
+  - `[projects."<path>"]`
+- `[mcp_servers.<id>.env]` は親 block 直後へ再配置する。
+- クラスタ順は「その種別が最初に出た位置」を保つ。
 
 ---
 
 ## 6. 🛡️非機能要件
 
-* ユーザビリティ（操作性、UI/UX要件）
-
-  * UI 最上部のボタン操作により、InputBox を順に入力して各操作（追加/編集/削除/更新/フォルダを開く）を行えること。
-  * ボタンは codicon を使用し、`new-folder` / `new-file` / `trash` / `edit` / `refresh` / `folder-opened` / `sync` を表示する。
-  * 操作対象が未選択の場合は右下にメッセージを表示し、選択を促すこと。
-  * MCP の ON/OFF はスイッチ風 UI で直感的に切り替えられること。
-  * アイコンにより、プロンプトファイル/フォルダ、エージェント状態および MCP の視認性が高いこと。
-  * ファイルを選択した場合は通常の Explorer と同等にエディタで開いて編集できること。
-  * 会話履歴ビューは左右 2 ペイン（左 30% / 右 70%）で表示されること。
-  * `Codex Manager` はタブ切り替え形式で Core 関連画面を表示し、Hooks タブは左ペイン source 選択と右ペイン entry 表示を維持すること。
-  * 会話履歴の時刻表示はローカル時刻で自然な表記になること。
-  * 検索ハイライトは VS Code テーマ色に追従し、可読性を維持すること。
-* ブランド要件（製品名、ブランド、アイコン、メタ情報など）
-
-  * 拡張名：Codex Workspace
-  * タグライン：Explore and edit your .codex workspace (config.toml, AGENTS.md, prompts, skill, mcp) in VS Code.
-  * Keywords：`codex`, `.codex`, `codex-cli`, `workspace`, `config`, `config.toml`, `toml`, `agent`, `AGENTS.md`, `prompts`, `prompt`, `skills`, `mcp`, `mcp server`, `explorer`, `tree view`, `editor`
-* 保守性（拡張性、コード品質、ドキュメント）
-
-  * ビュー（prompts/skills/templates/agents/mcp/core）ごとに責務を分離し、将来拡張（再起動支援等）を追加しやすい構造とすること。
-  * UI とファイル操作ロジックを分離し、テスト容易性を確保すること。
+- UI / UX
+  - Tree View と WebviewPanel の組み合わせで操作する
+  - UI 文言は `package.nls.json` / `package.nls.ja.json` と `src/i18n.ts` により英日対応する
+  - Skill / Agent / MCP の ON/OFF は色とアイコンの両方で表す
+  - Webview は VS Code テーマ色と editor font family を利用する
+- 保守性
+  - Tree Provider、各 manager panel、設定更新サービスを分離する
+  - `src/test/` 配下にユニットテストを配置し、メニュー寄与や設定更新を検証する
 
 ---
 
 ## 7. 🔒制約条件
 
-* 開発環境や言語、フレームワークに制約はありますか？
-
-  * VS Code 拡張機能として開発する（TypeScript/Node.js および VS Code Extension API を想定）。
-  * `.codex` はホームディレクトリ直下の `~/.codex` を基本対象とする。
-  * ただし、現在仕様では project-local の `workspace/.codex` および一部 `workspace/.agents` を、Skills / Sub Agents / Hooks / Trusted Directory 判定のため参照する。
-  * 拡張のユーザー設定項目（設定値）は同期先フォルダ設定に加え、履歴表示設定（`maxHistoryCount` / `incrudeReasoningMessage`）を提供する。
-  * 拡張機能メタファイルは `.codex/.codex-workspace/` に保存する。
-  * 会話履歴データの参照先は `$CODEX_HOME/sessions/.../rollout-*.jsonl` のみとする。
-* 外部システムとの連携は必要ですか？
-
-  * Codex CLI の起動/終了/再起動などのプロセス制御は行わない（将来拡張で検討）。
-  * MCP の切替は `config.toml` の編集により実施し、反映には再起動が必要である旨を通知する。
-  * 会話履歴ビューは WebView を用いてエディタ領域に表示し、WebviewView は採用しない。
+- 実装は VS Code Extension API、TypeScript、Node.js を前提とする。
+- Templates の保存先は `~/.codex/codex-templates` 固定で、設定で変更しない。
+- `Commands` ビュー名は実装上の表示名であり、実体パスは `~/.codex/prompts` とする。
+- `Sub Agents` は Project / Workspace の 2 系統を列挙し、独立した User Agents ルートは持たない。
+- `incrudeReasoningMessage` の設定キー名は既存互換のため変更しない。
 
 ---
 
 ## 8. ⚠️リスクと課題
 
-* 想定されるリスクや懸念点
-
-  * `config.toml` のフォーマットや MCP 設定の仕様変更により、`[mcp_servers.<id>]` 抽出や `enabled` 行のパッチが将来的に動作しなくなる可能性。
-  * `config.toml` の feature flag や trusted directory、inline hooks の仕様変更により、`Codex Manager` の診断や更新が将来的に動作しなくなる可能性。
-  * `hooks.json` と inline hooks の共存ルール変更により、Hooks タブの warning や active/inactive 判定が将来的に実態とずれる可能性。
-  * ファイル/フォルダの物理削除や上書き削除を伴う操作により、ユーザーが意図せずデータを失うリスク（確認ダイアログで緩和）。
-  * OS 依存のファイル名禁則（特に Windows）による作成/リネーム失敗（禁止文字 `_` 置換で緩和）。
-  * `.codex/prompts` / `.codex/skills` / `.codex/codex-templates` の初回自動作成により、ユーザーの意図しないディレクトリ生成が発生する可能性（初回操作時に限定）。
-  * `[agents.<agent>]` ブロックの追加/削除時に `config.toml` の構造を壊すと、エージェント有効/無効切替が失敗する可能性。
-  * 旧同期メタ（`.codex/.codex-sync/state.json`）から新同期メタ（`.codex/.codex-workspace/codex-sync.json`）への移行失敗により、同期が中断される可能性。
-  * 多言語対応により、文言の更新や追加時に翻訳漏れが発生する可能性。
-  * `rollout-*.jsonl` のイベント形式変化により、`task_started/task_complete` 境界や `turn_id` 紐づけの抽出に失敗する可能性。
-  * 会話履歴件数が多い日の一覧描画で、表示性能が低下する可能性。
-* 解決すべき前提条件や依存関係
-
-  * `enabled = true/false` が Codex 側で MCP の有効/無効として解釈されること（前提）。
-  * `.codex/codex-templates` 配下にテンプレートファイルが存在する場合のみテンプレ選択が可能であること。
-  * VS Code の表示言語判定（日本語か否か）に基づき表示言語を切り替えられること。
-  * `$CODEX_HOME/sessions` が年/月/日ディレクトリ構成であり、`rollout-*.jsonl` が配置されること。
+- `config.toml` の構文や block 形式が変わると、Skills / Agents / MCP / Feature Flags / Hooks の書き換え処理が壊れる可能性がある。
+- `rollout-*.jsonl` のイベント形式が変わると、会話履歴の抽出が不完全になる可能性がある。
+- Skill / Agent / MCP の toggle は `config.toml` 直接書き換えに依存するため、コメント保持には限界がある。
+- Project trusted 判定は `config.toml` の trusted directory 定義に依存するため、Codex 本体の内部状態と完全一致する保証はない。
