@@ -430,7 +430,20 @@ function buildTrustedDirectoriesHtml(): string {
 
 function buildFeatureFlagsHtml(): string {
 	const configPath = resolveCodexPaths().configPath;
-	const flags = listFeatureFlagRecords(configPath);
+	const stageOrder = new Map([
+		['Stable', 0],
+		['Experimental', 1],
+	]);
+	const flags = listFeatureFlagRecords(configPath)
+		.filter((flag) => flag.maturity === 'Stable' || flag.maturity === 'Experimental')
+		.sort((left, right) => {
+			const stageDiff = (stageOrder.get(left.maturity) ?? Number.MAX_SAFE_INTEGER)
+				- (stageOrder.get(right.maturity) ?? Number.MAX_SAFE_INTEGER);
+			if (stageDiff !== 0) {
+				return stageDiff;
+			}
+			return left.key.localeCompare(right.key, 'en');
+		});
 	const coreStatus = getCoreWorkspaceStatus();
 	const rows = flags
 		.map((flag) => {
@@ -448,7 +461,7 @@ function buildFeatureFlagsHtml(): string {
 							<p class="setting-card-subtitle">${escapeHtml(flag.description)}</p>
 						</div>
 						<div class="feature-badges">
-							<span class="feature-badge ${escapeHtml(flag.maturity.toLowerCase())}">${escapeHtml(flag.maturity)}</span>
+							<span class="feature-badge ${escapeHtml(flag.maturityClass)}">${escapeHtml(flag.maturity)}</span>
 							<span class="feature-badge subtle">${escapeHtml(configuredLabel)}</span>
 						</div>
 					</div>
@@ -1269,8 +1282,15 @@ function buildHistoryWebviewHtml(
 		.feature-badge.experimental {
 			background: color-mix(in srgb, var(--vscode-editorWarning-foreground) 14%, transparent);
 		}
+		.feature-badge.under-development {
+			background: color-mix(in srgb, var(--vscode-editorInfo-foreground) 14%, transparent);
+		}
 		.feature-badge.deprecated {
 			background: color-mix(in srgb, var(--vscode-inputValidation-errorBorder) 12%, transparent);
+		}
+		.feature-badge.removed {
+			background: color-mix(in srgb, var(--vscode-inputValidation-errorBorder) 8%, transparent);
+			opacity: 0.85;
 		}
 		.feature-badge.subtle {
 			color: var(--vscode-descriptionForeground);

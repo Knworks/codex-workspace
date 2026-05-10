@@ -12,7 +12,18 @@ export type FeatureFlagRecord = {
 	enabled: boolean;
 	configuredValue?: boolean;
 	defaultEnabled: boolean;
-	maturity: 'Stable' | 'Experimental' | 'Deprecated';
+	maturity:
+		| 'Stable'
+		| 'Experimental'
+		| 'Deprecated'
+		| 'Under development'
+		| 'Removed';
+	maturityClass:
+		| 'stable'
+		| 'experimental'
+		| 'deprecated'
+		| 'under-development'
+		| 'removed';
 	description: string;
 };
 
@@ -78,85 +89,129 @@ type ParsedHookGroup = {
 	}>;
 };
 
+function getFeatureFlagDescription(key: string): string {
+	switch (key) {
+		case 'apps':
+			return messages.featureFlagDescriptionApps;
+		case 'browser_use':
+			return messages.featureFlagDescriptionBrowserUse;
+		case 'fast_mode':
+			return messages.featureFlagDescriptionFastMode;
+		case 'hooks':
+			return messages.featureFlagDescriptionHooks;
+		case 'memories':
+			return messages.featureFlagDescriptionMemories;
+		case 'multi_agent':
+			return messages.featureFlagDescriptionMultiAgent;
+		case 'personality':
+			return messages.featureFlagDescriptionPersonality;
+		case 'shell_snapshot':
+			return messages.featureFlagDescriptionShellSnapshot;
+		case 'shell_tool':
+			return messages.featureFlagDescriptionShellTool;
+		case 'unified_exec':
+			return messages.featureFlagDescriptionUnifiedExec;
+		case 'workspace_dependencies':
+			return messages.featureFlagDescriptionWorkspaceDependencies;
+		case 'undo':
+			return messages.featureFlagDescriptionUndo;
+		case 'web_search_cached':
+			return messages.featureFlagDescriptionWebSearchCached;
+		case 'web_search_request':
+			return messages.featureFlagDescriptionWebSearchRequest;
+		default:
+			return messages.featureFlagDescriptionGeneric(key);
+	}
+}
+
+function defineFeature(
+	key: string,
+	defaultEnabled: boolean,
+	maturity: FeatureFlagRecord['maturity'],
+): FeatureFlagDefinition {
+	return {
+		key,
+		defaultEnabled,
+		maturity,
+		getDescription: () => getFeatureFlagDescription(key),
+	};
+}
+
 const FEATURE_DEFINITIONS: FeatureFlagDefinition[] = [
-	{
-		key: 'apps',
-		defaultEnabled: false,
-		maturity: 'Experimental',
-		getDescription: () => messages.featureFlagDescriptionApps,
-	},
-	{
-		key: 'codex_hooks',
-		defaultEnabled: true,
-		maturity: 'Stable',
-		getDescription: () => messages.featureFlagDescriptionCodexHooks,
-	},
-	{
-		key: 'fast_mode',
-		defaultEnabled: true,
-		maturity: 'Stable',
-		getDescription: () => messages.featureFlagDescriptionFastMode,
-	},
-	{
-		key: 'memories',
-		defaultEnabled: false,
-		maturity: 'Stable',
-		getDescription: () => messages.featureFlagDescriptionMemories,
-	},
-	{
-		key: 'multi_agent',
-		defaultEnabled: true,
-		maturity: 'Stable',
-		getDescription: () => messages.featureFlagDescriptionMultiAgent,
-	},
-	{
-		key: 'personality',
-		defaultEnabled: true,
-		maturity: 'Stable',
-		getDescription: () => messages.featureFlagDescriptionPersonality,
-	},
-	{
-		key: 'shell_snapshot',
-		defaultEnabled: true,
-		maturity: 'Stable',
-		getDescription: () => messages.featureFlagDescriptionShellSnapshot,
-	},
-	{
-		key: 'shell_tool',
-		defaultEnabled: true,
-		maturity: 'Stable',
-		getDescription: () => messages.featureFlagDescriptionShellTool,
-	},
-	{
-		key: 'unified_exec',
-		defaultEnabled: process.platform !== 'win32',
-		maturity: 'Stable',
-		getDescription: () => messages.featureFlagDescriptionUnifiedExec,
-	},
-	{
-		key: 'undo',
-		defaultEnabled: false,
-		maturity: 'Stable',
-		getDescription: () => messages.featureFlagDescriptionUndo,
-	},
-	{
-		key: 'web_search',
-		defaultEnabled: true,
-		maturity: 'Deprecated',
-		getDescription: () => messages.featureFlagDescriptionWebSearch,
-	},
-	{
-		key: 'web_search_cached',
-		defaultEnabled: false,
-		maturity: 'Deprecated',
-		getDescription: () => messages.featureFlagDescriptionWebSearchCached,
-	},
-	{
-		key: 'web_search_request',
-		defaultEnabled: false,
-		maturity: 'Deprecated',
-		getDescription: () => messages.featureFlagDescriptionWebSearchRequest,
-	},
+	defineFeature('apply_patch_freeform', false, 'Under development'),
+	defineFeature('apply_patch_streaming_events', false, 'Under development'),
+	defineFeature('apps', true, 'Stable'),
+	defineFeature('apps_mcp_path_override', false, 'Under development'),
+	defineFeature('artifact', false, 'Under development'),
+	defineFeature('auth_elicitation', false, 'Under development'),
+	defineFeature('browser_use', true, 'Stable'),
+	defineFeature('browser_use_external', true, 'Stable'),
+	defineFeature('builtin_mcp', false, 'Under development'),
+	defineFeature('child_agents_md', false, 'Under development'),
+	defineFeature('chronicle', false, 'Under development'),
+	defineFeature('code_mode', false, 'Under development'),
+	defineFeature('code_mode_only', false, 'Under development'),
+	defineFeature('codex_git_commit', false, 'Under development'),
+	defineFeature('collaboration_modes', true, 'Removed'),
+	defineFeature('computer_use', true, 'Stable'),
+	defineFeature('default_mode_request_user_input', false, 'Under development'),
+	defineFeature('elevated_windows_sandbox', false, 'Removed'),
+	defineFeature('enable_fanout', false, 'Under development'),
+	defineFeature('enable_mcp_apps', false, 'Under development'),
+	defineFeature('enable_request_compression', true, 'Stable'),
+	defineFeature('exec_permission_approvals', false, 'Under development'),
+	defineFeature('experimental_windows_sandbox', false, 'Removed'),
+	defineFeature('external_migration', false, 'Experimental'),
+	defineFeature('fast_mode', true, 'Stable'),
+	defineFeature('goals', false, 'Experimental'),
+	defineFeature('guardian_approval', true, 'Stable'),
+	defineFeature('hooks', true, 'Stable'),
+	defineFeature('image_detail_original', false, 'Removed'),
+	defineFeature('image_generation', true, 'Stable'),
+	defineFeature('in_app_browser', true, 'Stable'),
+	defineFeature('js_repl', false, 'Removed'),
+	defineFeature('js_repl_tools_only', false, 'Removed'),
+	defineFeature('memories', true, 'Experimental'),
+	defineFeature('multi_agent', true, 'Stable'),
+	defineFeature('multi_agent_v2', false, 'Under development'),
+	defineFeature('personality', true, 'Stable'),
+	defineFeature('plugin_hooks', false, 'Under development'),
+	defineFeature('plugins', true, 'Stable'),
+	defineFeature('prevent_idle_sleep', false, 'Experimental'),
+	defineFeature('realtime_conversation', false, 'Under development'),
+	defineFeature('remote_compaction_v2', false, 'Under development'),
+	defineFeature('remote_control', false, 'Under development'),
+	defineFeature('remote_models', false, 'Removed'),
+	defineFeature('remote_plugin', false, 'Under development'),
+	defineFeature('request_permissions_tool', false, 'Under development'),
+	defineFeature('request_rule', false, 'Removed'),
+	defineFeature('responses_websocket_response_processed', false, 'Under development'),
+	defineFeature('responses_websockets', false, 'Removed'),
+	defineFeature('responses_websockets_v2', false, 'Removed'),
+	defineFeature('runtime_metrics', false, 'Under development'),
+	defineFeature('search_tool', false, 'Removed'),
+	defineFeature('shell_snapshot', true, 'Stable'),
+	defineFeature('shell_tool', true, 'Stable'),
+	defineFeature('shell_zsh_fork', false, 'Under development'),
+	defineFeature('skill_env_var_dependency_prompt', false, 'Under development'),
+	defineFeature('skill_mcp_dependency_install', true, 'Stable'),
+	defineFeature('sqlite', true, 'Removed'),
+	defineFeature('steer', true, 'Removed'),
+	defineFeature('terminal_resize_reflow', true, 'Experimental'),
+	defineFeature('tool_call_mcp_elicitation', true, 'Stable'),
+	defineFeature('tool_search', true, 'Stable'),
+	defineFeature('tool_search_always_defer_mcp_tools', false, 'Under development'),
+	defineFeature('tool_suggest', true, 'Stable'),
+	defineFeature('tui_app_server', true, 'Removed'),
+	defineFeature('unavailable_dummy_tools', true, 'Stable'),
+	defineFeature('undo', false, 'Removed'),
+	defineFeature('unified_exec', false, 'Stable'),
+	defineFeature('use_legacy_landlock', false, 'Deprecated'),
+	defineFeature('use_linux_sandbox_bwrap', false, 'Removed'),
+	defineFeature('web_search_cached', false, 'Deprecated'),
+	defineFeature('web_search_request', false, 'Deprecated'),
+	defineFeature('workspace_dependencies', true, 'Stable'),
+	defineFeature('workspace_owner_usage_nudge', false, 'Under development'),
 ];
 
 const HOOK_EVENTS: HookEventName[] = [
@@ -187,6 +242,7 @@ export function listFeatureFlagRecords(
 			configuredValue,
 			defaultEnabled: definition.defaultEnabled,
 			maturity: definition.maturity,
+			maturityClass: definition.maturity.toLocaleLowerCase().replace(/\s+/g, '-') as FeatureFlagRecord['maturityClass'],
 			description: definition.getDescription(),
 		};
 	});
@@ -261,7 +317,7 @@ export function listHookDiagnostics(
 	workspaceRoot: string | undefined = getWorkspaceRoot(),
 ): HookDiagnosticsSnapshot {
 	const featureFlags = listFeatureFlagRecords(configPath);
-	const hooksEnabled = featureFlags.find((record) => record.key === 'codex_hooks')?.enabled ?? true;
+	const hooksEnabled = featureFlags.find((record) => record.key === 'hooks')?.enabled ?? true;
 	const trustedDirectories = listTrustedDirectories(configPath);
 	const projectTrusted = workspaceRoot
 		? trustedDirectories.some(

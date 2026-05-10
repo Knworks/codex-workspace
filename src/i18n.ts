@@ -465,8 +465,16 @@ export const messages = {
 		'message.featureFlagDescriptionApps',
 		'Enable ChatGPT Apps and connectors support.',
 	),
+	featureFlagDescriptionBrowserUse: localize(
+		'message.featureFlagDescriptionBrowserUse',
+		'Enable browser automation support in Codex.',
+	),
 	featureFlagDescriptionCodexHooks: localize(
 		'message.featureFlagDescriptionCodexHooks',
+		'Enable lifecycle hooks from hooks.json or inline [hooks].',
+	),
+	featureFlagDescriptionHooks: localize(
+		'message.featureFlagDescriptionHooks',
 		'Enable lifecycle hooks from hooks.json or inline [hooks].',
 	),
 	featureFlagDescriptionFastMode: localize(
@@ -497,13 +505,13 @@ export const messages = {
 		'message.featureFlagDescriptionUnifiedExec',
 		'Use the unified PTY-backed exec tool.',
 	),
+	featureFlagDescriptionWorkspaceDependencies: localize(
+		'message.featureFlagDescriptionWorkspaceDependencies',
+		'Allow Codex to use workspace dependency metadata during task execution.',
+	),
 	featureFlagDescriptionUndo: localize(
 		'message.featureFlagDescriptionUndo',
 		'Enable undo via per-turn git ghost snapshots.',
-	),
-	featureFlagDescriptionWebSearch: localize(
-		'message.featureFlagDescriptionWebSearch',
-		'Legacy toggle. Prefer the top-level web_search setting.',
 	),
 	featureFlagDescriptionWebSearchCached: localize(
 		'message.featureFlagDescriptionWebSearchCached',
@@ -513,6 +521,12 @@ export const messages = {
 		'message.featureFlagDescriptionWebSearchRequest',
 		'Legacy toggle that maps to web_search = "live".',
 	),
+	featureFlagDescriptionGeneric: (key: string) =>
+		localize(
+			'message.featureFlagDescriptionGeneric',
+			'Codex CLI feature flag: {0}.',
+			key,
+		),
 	hooksEnableFeature: localize(
 		'message.hooksEnableFeature',
 		'Enable hooks feature',
