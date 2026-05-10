@@ -764,9 +764,9 @@ function buildHistoryWebviewHtml(
 		.answer-block {
 			border: 1px solid var(--vscode-panel-border);
 			border-radius: 8px;
-			padding: 12px;
+			padding: 10px 12px;
 			display: grid;
-			gap: 12px;
+			gap: 8px;
 		}
 		.copy-button, .icon-button {
 			background: var(--vscode-button-secondaryBackground);
@@ -833,6 +833,7 @@ function buildHistoryWebviewHtml(
 			border: 1px solid var(--vscode-panel-border);
 			border-radius: 6px;
 			padding: 10px;
+			margin: 0;
 		}
 		.frame-header {
 			display: flex;
@@ -884,7 +885,7 @@ function buildHistoryWebviewHtml(
 			border-bottom: 1px solid var(--vscode-panel-border);
 		}
 		.reasoning-content {
-			padding: 10px;
+			padding: 8px 10px 10px;
 		}
 		.diag-tab { display: none; min-height: 0; }
 		#historyTab.active,
@@ -1040,15 +1041,15 @@ function buildHistoryWebviewHtml(
 		.chain-detail {
 			border: 1px solid var(--vscode-panel-border);
 			border-radius: 6px;
-			padding: 14px;
+			padding: 10px 12px;
 			background: var(--vscode-editorWidget-background);
 			display: grid;
-			gap: 12px;
+			gap: 10px;
 		}
 		.chain-detail-grid {
 			display: grid;
 			grid-template-columns: 120px 1fr;
-			gap: 10px 14px;
+			gap: 8px 12px;
 			align-items: start;
 		}
 		.chain-detail-label {
@@ -1099,20 +1100,21 @@ function buildHistoryWebviewHtml(
 		}
 		.trusted-list { padding: 10px 8px; }
 		.settings-list {
-			padding: 10px 12px;
+			padding: 10px 8px;
 			display: grid;
-			gap: 10px;
+			gap: 8px;
 		}
 		.hooks-layout {
 			display: grid;
 			grid-template-columns: 1fr 1fr;
 			gap: 0;
+			align-items: start;
 		}
 		.hooks-source-item {
 			display: grid;
 			grid-template-columns: 1fr auto;
-			gap: 12px;
-			align-items: center;
+			gap: 8px;
+			align-items: start;
 		}
 		.hook-source-radio {
 			position: absolute;
@@ -1129,6 +1131,7 @@ function buildHistoryWebviewHtml(
 			border-radius: 8px;
 			padding: 10px 12px;
 			background: var(--vscode-editorWidget-background);
+			margin: 0;
 		}
 		.warning-card {
 			display: flex;
@@ -1143,8 +1146,8 @@ function buildHistoryWebviewHtml(
 		.setting-card {
 			display: grid;
 			grid-template-columns: 1fr auto;
-			gap: 12px;
-			align-items: center;
+			gap: 10px;
+			align-items: start;
 		}
 		.setting-card-main {
 			display: grid;
@@ -1230,8 +1233,9 @@ function buildHistoryWebviewHtml(
 		}
 		.hooks-detail-panel {
 			display: none;
-			gap: 10px;
+			gap: 8px;
 			align-content: start;
+			align-self: start;
 		}
 		.hooks-detail-panel > .section-heading {
 			margin: 0;
