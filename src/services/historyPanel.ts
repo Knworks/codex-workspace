@@ -22,6 +22,7 @@ import {
 	CODICON_RESOURCE_ROOTS,
 	getCodiconCssHref,
 	getCodiconIconPath,
+	getWebviewImageHref,
 	getWebviewFontFamily,
 } from './webviewAssets';
 
@@ -415,7 +416,7 @@ function buildTrustedDirectoriesHtml(): string {
 	const trustedDirectories = listTrustedDirectories(resolveCodexPaths().configPath);
 	const coreStatus = getCoreWorkspaceStatus();
 	const trustedHtml = trustedDirectories.map((directory) => `<article class="trusted-row turn-card">
-		<span class="codicon ${directory.exists ? 'codicon-pass-filled trusted-ok' : 'codicon-warning trusted-warning'}" aria-hidden="true"></span>
+		<span class="codicon codicon-workspace-trusted trusted-icon" aria-hidden="true"></span>
 		<span class="trusted-path" title="${escapeHtml(directory.reason ?? directory.path)}">${escapeHtml(directory.path)}</span>
 		<button class="icon-button" type="button" data-remove-trusted="${escapeHtml(directory.path)}" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}" ${coreStatus.isConfigInvalid ? 'disabled' : ''}><span class="codicon codicon-trash" aria-hidden="true"></span></button>
 	</article>`).join('');
@@ -507,7 +508,7 @@ function buildHooksHtml(): string {
 				<div class="setting-card-main">
 					<div class="setting-card-title-row">
 						<div>
-							<h3 class="setting-card-title">${escapeHtml(source.layer === 'user' ? messages.hooksLayerUser : messages.hooksLayerProject)} / ${escapeHtml(source.format)}</h3>
+							<h3 class="setting-card-title setting-card-title-with-icon"><span class="codicon codicon-symbol-event" aria-hidden="true"></span><span>${escapeHtml(source.layer === 'user' ? messages.hooksLayerUser : messages.hooksLayerProject)} / ${escapeHtml(source.format)}</span></h3>
 							<p class="setting-card-subtitle">${escapeHtml(source.path)}</p>
 						</div>
 						<div class="feature-badges">
@@ -516,8 +517,8 @@ function buildHooksHtml(): string {
 					</div>
 					${source.warning ? `<p class="muted">${escapeHtml(source.warning)}</p>` : ''}
 				</div>
+				<span class="source-card-actions">${openButton}</span>
 				</label>
-				<div class="inline-actions">${openButton}</div>
 			</article>`;
 		})
 		.join('');
@@ -593,6 +594,8 @@ function buildHistoryWebviewHtml(
 ): string {
 	const nonce = createNonce();
 	const webviewFontFamily = getWebviewFontFamily();
+	const agentsLightIconHref = getWebviewImageHref(webview, 'agents_light.png');
+	const agentsDarkIconHref = getWebviewImageHref(webview, 'agents_dark.png');
 	const labels = JSON.stringify({
 		conversationHistoryTab: messages.coreViewConversationHistoryTab,
 		agentsChainTab: messages.coreViewAgentsChainTab,
@@ -997,6 +1000,31 @@ function buildHistoryWebviewHtml(
 			gap: 8px;
 			align-items: start;
 		}
+		.chain-card-main {
+			display: grid;
+			gap: 3px;
+			min-width: 0;
+		}
+		.chain-title-row {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			min-width: 0;
+		}
+		.agents-file-icon {
+			width: 16px;
+			height: 16px;
+			flex: 0 0 auto;
+			background-image: url('${agentsLightIconHref ?? ''}');
+			background-repeat: no-repeat;
+			background-position: center;
+			background-size: 16px 16px;
+		}
+		@media (prefers-color-scheme: dark) {
+			.agents-file-icon {
+				background-image: url('${agentsDarkIconHref ?? agentsLightIconHref ?? ''}');
+			}
+		}
 		.chain-card.skipped {
 			opacity: 0.55;
 		}
@@ -1098,6 +1126,9 @@ function buildHistoryWebviewHtml(
 		.trusted-path { word-break: break-all; }
 		.trusted-ok { color: var(--vscode-testing-iconPassed); }
 		.trusted-warning { color: var(--vscode-editorWarning-foreground); }
+		.trusted-icon {
+			color: var(--vscode-descriptionForeground);
+		}
 		.muted { color: var(--vscode-descriptionForeground); font-size: 12px; }
 		.tab-toolbar, .trusted-toolbar {
 			display: flex;
@@ -1120,10 +1151,7 @@ function buildHistoryWebviewHtml(
 			align-items: start;
 		}
 		.hooks-source-item {
-			display: grid;
-			grid-template-columns: 1fr auto;
-			gap: 8px;
-			align-items: start;
+			display: block;
 		}
 		.hook-source-radio {
 			position: absolute;
@@ -1134,6 +1162,13 @@ function buildHistoryWebviewHtml(
 		}
 		.hook-source-card {
 			cursor: pointer;
+			width: 100%;
+			box-sizing: border-box;
+			gap: 2px;
+			padding-right: 4px;
+		}
+		.hook-source-card .feature-badges {
+			gap: 2px;
 		}
 		.setting-card, .hook-entry-card, .warning-card {
 			border: 1px solid var(--vscode-panel-border);
@@ -1173,6 +1208,11 @@ function buildHistoryWebviewHtml(
 			margin: 0;
 			font-size: 13px;
 			font-weight: 600;
+		}
+		.setting-card-title-with-icon {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
 		}
 		.setting-card-subtitle {
 			margin: 4px 0 0;
@@ -1240,6 +1280,13 @@ function buildHistoryWebviewHtml(
 			gap: 8px;
 			align-items: center;
 		}
+		.source-card-actions {
+			display: inline-flex;
+			gap: 2px;
+			align-items: center;
+			align-self: start;
+			margin-right: -2px;
+		}
 		.hooks-detail-panel {
 			display: none;
 			gap: 8px;
@@ -1260,6 +1307,11 @@ function buildHistoryWebviewHtml(
 			font-size: 12px;
 			font-weight: 600;
 			color: var(--vscode-descriptionForeground);
+		}
+		.section-heading.with-icon {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
 		}
 		.markdown-content p {
 			margin: 0 0 10px 0;
@@ -1574,8 +1626,8 @@ function buildHistoryWebviewHtml(
 						renderChain();
 					});
 					card.innerHTML =
-						'<span>' +
-						'<span class="turn-title">' + escapeHtml(entry.title) + '</span>' +
+						'<span class="chain-card-main">' +
+						'<span class="chain-title-row"><span class="agents-file-icon" aria-hidden="true"></span><span class="turn-title">' + escapeHtml(entry.title) + '</span></span>' +
 						'<span class="chain-meta muted"><span>' + escapeHtml(entry.subtitle) + '</span></span>' +
 						'<p class="chain-summary-text">' + escapeHtml(entry.summary) + '</p>' +
 						'</span>' +

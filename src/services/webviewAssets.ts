@@ -24,13 +24,44 @@ function resolveCodiconCssFsPath(): string | undefined {
 
 const CODICON_CSS_FS_PATH = resolveCodiconCssFsPath();
 
+function resolveImageFsPath(fileName: string): string | undefined {
+	const safeFileName = path.basename(fileName);
+	const candidates = [
+		path.join(__dirname, '..', 'images', safeFileName),
+		path.join(__dirname, '..', '..', 'images', safeFileName),
+		path.join(process.cwd(), 'images', safeFileName),
+	];
+	for (const candidate of candidates) {
+		if (fs.existsSync(candidate)) {
+			return candidate;
+		}
+	}
+	return undefined;
+}
+
+const WEBVIEW_IMAGE_ROOT = resolveImageFsPath('agents_light.png');
+
 export const CODICON_RESOURCE_ROOTS = CODICON_CSS_FS_PATH
-	? [vscode.Uri.joinPath(vscode.Uri.file(CODICON_CSS_FS_PATH), '..')]
-	: [];
+	? [
+		vscode.Uri.joinPath(vscode.Uri.file(CODICON_CSS_FS_PATH), '..'),
+		...(WEBVIEW_IMAGE_ROOT
+			? [vscode.Uri.joinPath(vscode.Uri.file(WEBVIEW_IMAGE_ROOT), '..')]
+			: []),
+	]
+	: WEBVIEW_IMAGE_ROOT
+		? [vscode.Uri.joinPath(vscode.Uri.file(WEBVIEW_IMAGE_ROOT), '..')]
+		: [];
 
 export function getCodiconCssHref(webview: vscode.Webview): string | undefined {
 	return CODICON_CSS_FS_PATH && typeof webview.asWebviewUri === 'function'
 		? webview.asWebviewUri(vscode.Uri.file(CODICON_CSS_FS_PATH)).toString()
+		: undefined;
+}
+
+export function getWebviewImageHref(webview: vscode.Webview, fileName: string): string | undefined {
+	const imageFsPath = resolveImageFsPath(fileName);
+	return imageFsPath && typeof webview.asWebviewUri === 'function'
+		? webview.asWebviewUri(vscode.Uri.file(imageFsPath)).toString()
 		: undefined;
 }
 
