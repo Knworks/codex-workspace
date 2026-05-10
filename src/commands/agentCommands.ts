@@ -11,6 +11,7 @@ import {
 	listTemplateCandidates,
 	readTemplateContents,
 } from '../services/templateService';
+import { promptTextInputWithQuickPick } from '../services/textInputQuickPick';
 import {
 	appendAgentConfigRawBlock,
 	appendAgentConfigBlock,
@@ -348,9 +349,16 @@ function resolveAgentSelection(
 }
 
 async function promptAgentName(defaultValue?: string): Promise<string | undefined> {
-	const value = await vscode.window.showInputBox({
-		prompt: messages.agent.inputName,
-		value: defaultValue,
+	const value = await promptTextInputWithQuickPick({
+		title: messages.agent.inputName,
+		placeholder: messages.agent.inputName,
+		initialValue: defaultValue,
+		resolvePreviewValue: (rawValue) => {
+			const sanitized = sanitizeName(rawValue.trim());
+			const withoutExt = path.basename(sanitized, path.extname(sanitized));
+			return withoutExt;
+		},
+		formatLabel: (previewValue) => `${previewValue}.toml`,
 	});
 	if (value === undefined) {
 		return undefined;

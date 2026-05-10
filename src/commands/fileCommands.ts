@@ -249,11 +249,14 @@ export function registerFileCommands(
 					}
 
 					const parentDir = path.dirname(selection.fsPath);
-					const renameInput = await vscode.window.showInputBox({
-						prompt: messages.file.inputRenameName,
-						value: path.basename(selection.fsPath),
+					const renameInput = await promptTextInputWithQuickPick({
+						title: messages.file.inputRenameName,
+						placeholder: messages.file.inputRenameName,
+						initialValue: path.basename(selection.fsPath),
+						resolvePreviewValue: (value) => sanitizeName(value.trim()),
+						formatLabel: (value) => value,
 					});
-					if (!renameInput) {
+					if (renameInput === undefined) {
 						return;
 					}
 
@@ -510,23 +513,26 @@ async function addFileWithSelection(
 	}
 
 	const fileNameInput =
-		selection.kind === 'skills'
-			? await promptTextInputWithQuickPick({
-					title: messages.file.inputFileName,
-					placeholder: messages.file.skillFileNamePlaceholder,
-					resolvePreviewValue: (value) => {
-						const normalized = sanitizeName(
-							!value.trim() ? SKILL_MARKDOWN_FILE_NAME : value,
-						);
-						return normalized ? applyDefaultExtension(normalized) : '';
-					},
-					resolveValue: (rawValue, previewValue) =>
-						rawValue.trim() ? rawValue : previewValue,
-					formatLabel: (value) => value,
-				})
-			: await vscode.window.showInputBox({
-					prompt: messages.file.inputFileName,
-				});
+		await promptTextInputWithQuickPick({
+			title: messages.file.inputFileName,
+			placeholder:
+				selection.kind === 'skills'
+					? messages.file.skillFileNamePlaceholder
+					: messages.file.inputFileName,
+			resolvePreviewValue: (value) => {
+				const normalized = sanitizeName(
+					selection.kind === 'skills' && !value.trim()
+						? SKILL_MARKDOWN_FILE_NAME
+						: value,
+				);
+				return normalized ? applyDefaultExtension(normalized) : '';
+			},
+			resolveValue: (rawValue, previewValue) =>
+				selection.kind === 'skills' && !rawValue.trim()
+					? previewValue
+					: rawValue,
+			formatLabel: (value) => value,
+		});
 	if (fileNameInput === undefined) {
 		return;
 	}
@@ -595,18 +601,13 @@ async function addFolderWithSelection(
 		return;
 	}
 
-	const folderNameInput =
-		selection.kind === 'skills'
-			? await promptTextInputWithQuickPick({
-					title: messages.file.inputFolderName,
-					placeholder: messages.file.inputFolderName,
-					resolvePreviewValue: (value) => sanitizeName(value.trim()),
-					formatLabel: (value) => value,
-				})
-			: await vscode.window.showInputBox({
-					prompt: messages.file.inputFolderName,
-				});
-	if (!folderNameInput) {
+	const folderNameInput = await promptTextInputWithQuickPick({
+		title: messages.file.inputFolderName,
+		placeholder: messages.file.inputFolderName,
+		resolvePreviewValue: (value) => sanitizeName(value.trim()),
+		formatLabel: (value) => value,
+	});
+	if (folderNameInput === undefined) {
 		return;
 	}
 

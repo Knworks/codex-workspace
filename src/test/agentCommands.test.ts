@@ -63,6 +63,126 @@ function createAgentItem(agentFilePath: string): CodexTreeItem {
 	);
 }
 
+type AcceptHandler = () => void;
+type ChangeValueHandler = (value: string) => void;
+type HideHandler = () => void;
+
+class FakeQuickPick {
+	value = '';
+	title = '';
+	placeholder: string | undefined;
+	ignoreFocusOut = false;
+	items: Array<vscode.QuickPickItem & { value: string }> = [];
+	activeItems: Array<vscode.QuickPickItem & { value: string }> = [];
+	selectedItems: Array<vscode.QuickPickItem & { value: string }> = [];
+	matchOnDescription = false;
+	matchOnDetail = false;
+	sortByLabel = true;
+	canSelectMany = false;
+	busy = false;
+	enabled = true;
+	keepScrollPosition = false;
+	step: number | undefined;
+	totalSteps: number | undefined;
+	valueSelection: [number, number] | undefined;
+	buttons: readonly vscode.QuickInputButton[] = [];
+	description: string | undefined;
+	detail: string | undefined;
+
+	private readonly acceptHandlers: AcceptHandler[] = [];
+	private readonly changeHandlers: ChangeValueHandler[] = [];
+	private readonly hideHandlers: HideHandler[] = [];
+	private showHook: (() => void) | undefined;
+
+	show(): void {
+		this.showHook?.();
+	}
+
+	hide(): void {
+		for (const handler of this.hideHandlers) {
+			handler();
+		}
+	}
+
+	dispose(): void {
+		// no-op
+	}
+
+	onDidAccept(handler: AcceptHandler): vscode.Disposable {
+		this.acceptHandlers.push(handler);
+		return new vscode.Disposable(() => undefined);
+	}
+
+	onDidChangeValue(handler: ChangeValueHandler): vscode.Disposable {
+		this.changeHandlers.push(handler);
+		return new vscode.Disposable(() => undefined);
+	}
+
+	onDidHide(handler: HideHandler): vscode.Disposable {
+		this.hideHandlers.push(handler);
+		return new vscode.Disposable(() => undefined);
+	}
+
+	onDidTriggerButton(): vscode.Disposable {
+		return new vscode.Disposable(() => undefined);
+	}
+
+	onDidTriggerItemButton(): vscode.Disposable {
+		return new vscode.Disposable(() => undefined);
+	}
+
+	onDidChangeActive(): vscode.Disposable {
+		return new vscode.Disposable(() => undefined);
+	}
+
+	onDidChangeSelection(): vscode.Disposable {
+		return new vscode.Disposable(() => undefined);
+	}
+
+	setShowHook(handler: () => void): void {
+		this.showHook = handler;
+	}
+
+	triggerValueChange(value: string): void {
+		this.value = value;
+		for (const handler of this.changeHandlers) {
+			handler(value);
+		}
+	}
+
+	triggerAccept(): void {
+		for (const handler of this.acceptHandlers) {
+			handler();
+		}
+	}
+}
+
+function mockQuickPickTextInputs(
+	values: string[],
+	sequence?: string[],
+): () => void {
+	const originalCreateQuickPick = vscode.window.createQuickPick;
+	(vscode.window as unknown as { createQuickPick: typeof originalCreateQuickPick }).createQuickPick =
+		() => {
+			const fakeQuickPick = new FakeQuickPick();
+			fakeQuickPick.setShowHook(() => {
+				const value = values.shift();
+				sequence?.push('name');
+				if (value === undefined) {
+					fakeQuickPick.hide();
+					return;
+				}
+				fakeQuickPick.triggerValueChange(value);
+				fakeQuickPick.triggerAccept();
+			});
+			return fakeQuickPick as unknown as vscode.QuickPick<any>;
+		};
+	return () => {
+		(vscode.window as unknown as { createQuickPick: typeof originalCreateQuickPick }).createQuickPick =
+			originalCreateQuickPick;
+	};
+}
+
 suite('Agent commands', () => {
 	test('addAgent executes name -> description -> template and creates empty file', async () => {
 		await withTempHome(async (homeDir) => {
@@ -73,15 +193,14 @@ suite('Agent commands', () => {
 			await activateExtension();
 
 			const sequence: string[] = [];
-			let inputCount = 0;
 			const originalInput = vscode.window.showInputBox;
 			const originalPick = vscode.window.showQuickPick;
+			const restoreQuickPickInput = mockQuickPickTextInputs(['reviewer'], sequence);
 
 			(vscode.window as unknown as { showInputBox: typeof originalInput }).showInputBox =
 				async () => {
-					sequence.push(inputCount === 0 ? 'name' : 'description');
-					inputCount += 1;
-					return inputCount === 1 ? 'reviewer' : 'Security reviewer';
+					sequence.push('description');
+					return 'Security reviewer';
 				};
 			(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
 				async (items: any) => {
@@ -96,6 +215,7 @@ suite('Agent commands', () => {
 			try {
 				await vscode.commands.executeCommand('codex-workspace.addAgent');
 			} finally {
+				restoreQuickPickInput();
 				(vscode.window as unknown as { showInputBox: typeof originalInput }).showInputBox =
 					originalInput;
 				(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
@@ -122,15 +242,12 @@ suite('Agent commands', () => {
 			fs.writeFileSync(templatePath, 'mode = "from-template"\n', 'utf8');
 			await activateExtension();
 
-			let inputCount = 0;
 			const originalInput = vscode.window.showInputBox;
 			const originalPick = vscode.window.showQuickPick;
+			const restoreQuickPickInput = mockQuickPickTextInputs(['templated']);
 
 			(vscode.window as unknown as { showInputBox: typeof originalInput }).showInputBox =
-				async () => {
-					inputCount += 1;
-					return inputCount === 1 ? 'templated' : 'Template agent';
-				};
+				async () => 'Template agent';
 			(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
 				async (items: any) => {
 					const workspace = items.find((item: { label?: string }) => item.label === 'Workspace Agents');
@@ -140,6 +257,7 @@ suite('Agent commands', () => {
 			try {
 				await vscode.commands.executeCommand('codex-workspace.addAgent');
 			} finally {
+				restoreQuickPickInput();
 				(vscode.window as unknown as { showInputBox: typeof originalInput }).showInputBox =
 					originalInput;
 				(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
@@ -157,17 +275,14 @@ suite('Agent commands', () => {
 			fs.writeFileSync(path.join(agentsDir, 'exists.toml'), 'old', 'utf8');
 			await activateExtension();
 
-			let inputCount = 0;
 			const warnings: string[] = [];
 			const originalInput = vscode.window.showInputBox;
 			const originalPick = vscode.window.showQuickPick;
 			const originalWarning = vscode.window.showWarningMessage;
+			const restoreQuickPickInput = mockQuickPickTextInputs(['exists']);
 
 			(vscode.window as unknown as { showInputBox: typeof originalInput }).showInputBox =
-				async () => {
-					inputCount += 1;
-					return inputCount === 1 ? 'exists' : 'desc';
-				};
+				async () => 'desc';
 			(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
 				async (items: any) =>
 					items.find((item: { label?: string }) => item.label === 'Workspace Agents') ?? items[0];
@@ -180,6 +295,7 @@ suite('Agent commands', () => {
 			try {
 				await vscode.commands.executeCommand('codex-workspace.addAgent');
 			} finally {
+				restoreQuickPickInput();
 				(vscode.window as unknown as { showInputBox: typeof originalInput }).showInputBox =
 					originalInput;
 				(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
@@ -211,17 +327,14 @@ suite('Agent commands', () => {
 			);
 			await activateExtension();
 
-			let inputCount = 0;
 			const warnings: string[] = [];
 			const originalInput = vscode.window.showInputBox;
 			const originalPick = vscode.window.showQuickPick;
 			const originalWarning = vscode.window.showWarningMessage;
+			const restoreQuickPickInput = mockQuickPickTextInputs(['reviewer']);
 
 			(vscode.window as unknown as { showInputBox: typeof originalInput }).showInputBox =
-				async () => {
-					inputCount += 1;
-					return inputCount === 1 ? 'reviewer' : 'new desc';
-				};
+				async () => 'new desc';
 			(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
 				async (items: any) =>
 					items.find((item: { label?: string }) => item.label === 'Workspace Agents') ?? items[0];
@@ -234,6 +347,7 @@ suite('Agent commands', () => {
 			try {
 				await vscode.commands.executeCommand('codex-workspace.addAgent');
 			} finally {
+				restoreQuickPickInput();
 				(vscode.window as unknown as { showInputBox: typeof originalInput }).showInputBox =
 					originalInput;
 				(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
@@ -270,13 +384,10 @@ suite('Agent commands', () => {
 			);
 			await activateExtension();
 
-			let inputCount = 0;
 			const originalInput = vscode.window.showInputBox;
+			const restoreQuickPickInput = mockQuickPickTextInputs(['new_name']);
 			(vscode.window as unknown as { showInputBox: typeof originalInput }).showInputBox =
-				async () => {
-					inputCount += 1;
-					return inputCount === 1 ? 'new_name' : 'new description';
-				};
+				async () => 'new description';
 
 			try {
 				await vscode.commands.executeCommand(
@@ -284,6 +395,7 @@ suite('Agent commands', () => {
 					createAgentItem(currentFilePath),
 				);
 			} finally {
+				restoreQuickPickInput();
 				(vscode.window as unknown as { showInputBox: typeof originalInput }).showInputBox =
 					originalInput;
 			}
