@@ -2,6 +2,16 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
+## 1.1.1
+
+Changes
+
+- Updated WebView styling to explicitly use the VS Code editor font.
+- Updated Markdown previews to render as HTML instead of showing raw Markdown.
+- Updated Feature Flags to match the latest Codex CLI feature set.
+- Updated the Skill Explore add flow with preview-based inputs and inline child add actions.
+- Refined explorer and manager UI spacing, icons, and layout consistency.
+
 ## 1.1.0
 
 Changes
