@@ -227,6 +227,11 @@
         "icon": "$(new-folder)"
       },
       {
+        "command": "codex-workspace.addSkillsRootFolder",
+        "title": "%command.addSkillFolder%",
+        "icon": "$(new-folder)"
+      },
+      {
         "command": "codex-workspace.addTemplatesFile",
         "title": "%command.addFile%",
         "icon": "$(new-file)"
@@ -312,14 +317,9 @@
           "group": "navigation@2"
         },
         {
-          "command": "codex-workspace.addSkillsFolder",
+          "command": "codex-workspace.addSkillsRootFolder",
           "when": "view == 'codex-workspace.skills'",
           "group": "navigation@1"
-        },
-        {
-          "command": "codex-workspace.addSkillsFile",
-          "when": "view == 'codex-workspace.skills'",
-          "group": "navigation@2"
         },
         {
           "command": "codex-workspace.addTemplatesFolder",
@@ -433,6 +433,16 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "codex-workspace.addSkillsFolder",
+          "when": "view == 'codex-workspace.skills' && (viewItem == 'codex-folder' || viewItem == 'codex-root')",
+          "group": "inline@1"
+        },
+        {
+          "command": "codex-workspace.addSkillsFile",
+          "when": "view == 'codex-workspace.skills' && (viewItem == 'codex-folder' || viewItem == 'codex-root')",
+          "group": "inline@2"
+        }
       ]
     }
   },

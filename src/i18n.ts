@@ -632,6 +632,10 @@ export const messages = {
 	dialogOk: localize('message.dialogOk', 'OK'),
 	file: {
 		inputFileName: localize('message.inputFileName', 'Enter a file name.'),
+		skillFileNamePlaceholder: localize(
+			'message.skillFileNamePlaceholder',
+			'Enter a file name. Leave blank to create SKILL.md.',
+		),
 		inputFolderName: localize(
 			'message.inputFolderName',
 			'Enter a folder name.',
@@ -693,6 +697,10 @@ export const messages = {
 		skillFileFolderRequired: localize(
 			'message.skillFileFolderRequired',
 			'Select a folder in Skills before adding a file.',
+		),
+		skillSubfolderPickPlaceholder: localize(
+			'message.skillSubfolderPickPlaceholder',
+			'Select a Skill subfolder to add.',
 		),
 		userSkillsDeleteWarning: localize(
 			'message.userSkillsDeleteWarning',

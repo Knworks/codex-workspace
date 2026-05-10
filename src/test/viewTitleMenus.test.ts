@@ -13,6 +13,8 @@ suite('View title menus', () => {
 
 		const viewTitle = menus['view/title'];
 		assert.ok(Array.isArray(viewTitle));
+		const itemContext = menus['view/item/context'];
+		assert.ok(Array.isArray(itemContext));
 
 		const commandDefinitions = packageJson?.contributes?.commands;
 		assert.ok(Array.isArray(commandDefinitions));
@@ -39,11 +41,7 @@ suite('View title menus', () => {
 				viewId: 'codex-workspace.prompts',
 			},
 			{
-				command: 'codex-workspace.addSkillsFolder',
-				viewId: 'codex-workspace.skills',
-			},
-			{
-				command: 'codex-workspace.addSkillsFile',
+				command: 'codex-workspace.addSkillsRootFolder',
 				viewId: 'codex-workspace.skills',
 			},
 			{
@@ -184,6 +182,15 @@ suite('View title menus', () => {
 			}
 		}
 
+		const addSkillsRootFolderCommand = commandDefinitions.find(
+			(item: { command?: string; title?: string }) =>
+				item.command === 'codex-workspace.addSkillsRootFolder',
+		);
+		assert.strictEqual(
+			addSkillsRootFolderCommand?.title,
+			'%command.addSkillFolder%',
+		);
+
 		for (const { command, configKey } of syncCommands) {
 			const entry = viewTitle.find(
 				(item: { command?: string }) => item.command === command,
@@ -209,6 +216,27 @@ suite('View title menus', () => {
 			assert.ok(
 				!when.includes("view == 'codex-workspace.templates'"),
 				`${command} should not target templates view`,
+			);
+		}
+
+		for (const command of ['codex-workspace.addSkillsFolder', 'codex-workspace.addSkillsFile']) {
+			assertCommandDefinition(command);
+			const entry = itemContext.find(
+				(item: { command?: string }) => item.command === command,
+			);
+			assert.ok(entry, `Missing view/item/context menu for ${command}`);
+			const when = entry.when ?? '';
+			assert.ok(
+				when.includes("view == 'codex-workspace.skills'"),
+				`${command} is missing skills view condition`,
+			);
+			assert.ok(
+				when.includes("viewItem == 'codex-folder'"),
+				`${command} should target codex-folder`,
+			);
+			assert.ok(
+				when.includes("viewItem == 'codex-root'"),
+				`${command} should target codex-root`,
 			);
 		}
 	});

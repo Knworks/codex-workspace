@@ -23,6 +23,7 @@ import {
 	listTemplateCandidates,
 	readTemplateContents,
 } from '../services/templateService';
+import { promptTextInputWithQuickPick } from '../services/textInputQuickPick';
 import { FileExplorerProvider } from '../views/fileExplorerProvider';
 import { runSafely } from '../services/errorHandling';
 import { expandParentFolder } from '../services/treeViewExpansion';
@@ -210,6 +211,21 @@ export function registerFileCommands(
 
 	disposables.push(
 		vscode.commands.registerCommand(
+			'codex-workspace.addSkillsRootFolder',
+			() =>
+				runSafely(async () => {
+					if (!ensureAvailable()) {
+						return;
+					}
+					const provider = providers.skills;
+					const selection = createRootItem('skills', provider.getRootPath());
+					await addFolderWithSelection(selection, provider, views);
+				}),
+		),
+	);
+
+	disposables.push(
+		vscode.commands.registerCommand(
 			'codex-workspace.rename',
 			(item?: CodexTreeItem) =>
 				runSafely(async () => {
@@ -350,6 +366,8 @@ export function isRootNode(item: CodexTreeItem): boolean {
 }
 
 const FILE_VIEW_KINDS: FileViewKind[] = ['prompts', 'skills', 'templates'];
+const SKILL_SUBFOLDER_OPTIONS = ['references', 'scripts', 'assets'] as const;
+const SKILL_MARKDOWN_FILE_NAME = 'SKILL.md';
 
 function resolveSelection(
 	item: CodexTreeItem | undefined,
@@ -491,14 +509,33 @@ async function addFileWithSelection(
 		return;
 	}
 
-	const fileNameInput = await vscode.window.showInputBox({
-		prompt: messages.file.inputFileName,
-	});
-	if (!fileNameInput) {
+	const fileNameInput =
+		selection.kind === 'skills'
+			? await promptTextInputWithQuickPick({
+					title: messages.file.inputFileName,
+					placeholder: messages.file.skillFileNamePlaceholder,
+					resolvePreviewValue: (value) => {
+						const normalized = sanitizeName(
+							!value.trim() ? SKILL_MARKDOWN_FILE_NAME : value,
+						);
+						return normalized ? applyDefaultExtension(normalized) : '';
+					},
+					resolveValue: (rawValue, previewValue) =>
+						rawValue.trim() ? rawValue : previewValue,
+					formatLabel: (value) => value,
+				})
+			: await vscode.window.showInputBox({
+					prompt: messages.file.inputFileName,
+				});
+	if (fileNameInput === undefined) {
 		return;
 	}
 
-	const normalizedName = sanitizeName(fileNameInput);
+	const normalizedName = sanitizeName(
+		selection.kind === 'skills' && !fileNameInput.trim()
+			? SKILL_MARKDOWN_FILE_NAME
+			: fileNameInput,
+	);
 	if (!normalizedName) {
 		vscode.window.showErrorMessage(messages.file.invalidName);
 		return;
@@ -541,9 +578,34 @@ async function addFolderWithSelection(
 		return;
 	}
 
-	const folderNameInput = await vscode.window.showInputBox({
-		prompt: messages.file.inputFolderName,
-	});
+	const selectedSkillSubfolder = await pickSkillSubfolderName(selection);
+	if (selectedSkillSubfolder === null) {
+		return;
+	}
+	if (selectedSkillSubfolder) {
+		const targetPath = path.join(targetDir, selectedSkillSubfolder);
+		if (pathExists(targetPath)) {
+			vscode.window.showErrorMessage(messages.file.renameFolderExists);
+			return;
+		}
+
+		createFolder(targetDir, selectedSkillSubfolder);
+		await expandParentFolder(selection, views);
+		provider.refresh();
+		return;
+	}
+
+	const folderNameInput =
+		selection.kind === 'skills'
+			? await promptTextInputWithQuickPick({
+					title: messages.file.inputFolderName,
+					placeholder: messages.file.inputFolderName,
+					resolvePreviewValue: (value) => sanitizeName(value.trim()),
+					formatLabel: (value) => value,
+				})
+			: await vscode.window.showInputBox({
+					prompt: messages.file.inputFolderName,
+				});
 	if (!folderNameInput) {
 		return;
 	}
@@ -563,6 +625,23 @@ async function addFolderWithSelection(
 	createFolder(targetDir, normalizedName);
 	await expandParentFolder(selection, views);
 	provider.refresh();
+}
+
+async function pickSkillSubfolderName(
+	selection: CodexTreeItem,
+): Promise<string | null | undefined> {
+	if (selection.kind !== 'skills' || selection.nodeType !== 'folder') {
+		return undefined;
+	}
+
+	const selected = await vscode.window.showQuickPick(
+		SKILL_SUBFOLDER_OPTIONS.map((name) => ({
+			label: `${name}/`,
+			name,
+		})),
+		{ placeHolder: messages.file.skillSubfolderPickPlaceholder },
+	);
+	return selected?.name ?? null;
 }
 
 async function pickTemplateContents(): Promise<string | null> {
