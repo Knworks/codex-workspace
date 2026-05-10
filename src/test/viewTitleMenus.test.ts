@@ -33,10 +33,6 @@ suite('View title menus', () => {
 
 		const perViewCommands = [
 			{
-				command: 'codex-workspace.addPromptsFolder',
-				viewId: 'codex-workspace.prompts',
-			},
-			{
 				command: 'codex-workspace.addPromptsFile',
 				viewId: 'codex-workspace.prompts',
 			},
@@ -45,7 +41,7 @@ suite('View title menus', () => {
 				viewId: 'codex-workspace.skills',
 			},
 			{
-				command: 'codex-workspace.addTemplatesFolder',
+				command: 'codex-workspace.addTemplatesRootFolder',
 				viewId: 'codex-workspace.templates',
 			},
 			{
@@ -219,7 +215,12 @@ suite('View title menus', () => {
 			);
 		}
 
-		for (const command of ['codex-workspace.addSkillsFolder', 'codex-workspace.addSkillsFile']) {
+		for (const command of [
+			'codex-workspace.addSkillsFolder',
+			'codex-workspace.addSkillsFile',
+			'codex-workspace.addTemplatesFolder',
+			'codex-workspace.addTemplatesFile',
+		]) {
 			assertCommandDefinition(command);
 			const entry = itemContext.find(
 				(item: { command?: string }) => item.command === command,
@@ -227,8 +228,12 @@ suite('View title menus', () => {
 			assert.ok(entry, `Missing view/item/context menu for ${command}`);
 			const when = entry.when ?? '';
 			assert.ok(
-				when.includes("view == 'codex-workspace.skills'"),
-				`${command} is missing skills view condition`,
+				when.includes(
+					command.includes('Templates')
+						? "view == 'codex-workspace.templates'"
+						: "view == 'codex-workspace.skills'",
+				),
+				`${command} is missing view condition`,
 			);
 			assert.ok(
 				when.includes("viewItem == 'codex-folder'"),

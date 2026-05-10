@@ -226,6 +226,21 @@ export function registerFileCommands(
 
 	disposables.push(
 		vscode.commands.registerCommand(
+			'codex-workspace.addTemplatesRootFolder',
+			() =>
+				runSafely(async () => {
+					if (!ensureAvailable()) {
+						return;
+					}
+					const provider = providers.templates;
+					const selection = createRootItem('templates', provider.getRootPath());
+					await addFolderWithSelection(selection, provider, views);
+				}),
+		),
+	);
+
+	disposables.push(
+		vscode.commands.registerCommand(
 			'codex-workspace.rename',
 			(item?: CodexTreeItem) =>
 				runSafely(async () => {
