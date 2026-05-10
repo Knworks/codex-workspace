@@ -8,7 +8,12 @@ import {
 } from './mcpManagerService';
 import { toggleMcpServer } from './mcpService';
 import { resolveCodexPaths } from './workspaceStatus';
-import { CODICON_RESOURCE_ROOTS, getCodiconCssHref, getCodiconIconPath } from './webviewAssets';
+import {
+	CODICON_RESOURCE_ROOTS,
+	getCodiconCssHref,
+	getCodiconIconPath,
+	getWebviewFontFamily,
+} from './webviewAssets';
 
 const MCP_MANAGER_VIEW_TYPE = 'codex-workspace.mcpManager';
 
@@ -163,6 +168,7 @@ function buildHtml(
 	const selected = models.find((model) => model.id === selectedId) ?? models[0] ?? emptyModel();
 	const selectedModelId = selected.id;
 	const codiconCssHref = getCodiconCssHref(webview);
+	const webviewFontFamily = getWebviewFontFamily();
 	const serializedModels = JSON.stringify(models);
 	const fieldDescriptions = JSON.stringify(
 		getMcpFieldDescriptions(),
@@ -185,7 +191,8 @@ function buildHtml(
 	${codiconLink}
 	<title>${escapeHtml(messages.mcpManagerTitle)}</title>
 	<style>
-		body { margin: 0; font-family: var(--vscode-font-family); color: var(--vscode-foreground); background: var(--vscode-editor-background); }
+		body { margin: 0; font-family: ${webviewFontFamily}; color: var(--vscode-foreground); background: var(--vscode-editor-background); }
+		button, input, textarea, select { font: inherit; }
 		.root { display: grid; grid-template-rows: auto 1fr; height: 100vh; min-width: 0; }
 		.panes { display: grid; grid-template-columns: 40% 60%; min-height: 0; }
 		.left { border-right: 1px solid var(--vscode-panel-border); display: grid; grid-template-rows: auto 1fr; min-width: 0; min-height: 0; }

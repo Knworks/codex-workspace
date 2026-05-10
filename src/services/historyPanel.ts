@@ -18,7 +18,12 @@ import {
 	setFeatureFlag,
 } from './coreManagerConfigService';
 import { getCoreWorkspaceStatus, resolveCodexPaths } from './workspaceStatus';
-import { CODICON_RESOURCE_ROOTS, getCodiconCssHref, getCodiconIconPath } from './webviewAssets';
+import {
+	CODICON_RESOURCE_ROOTS,
+	getCodiconCssHref,
+	getCodiconIconPath,
+	getWebviewFontFamily,
+} from './webviewAssets';
 
 const HISTORY_VIEW_TYPE = 'codex-workspace.coreView';
 export const HISTORY_MESSAGE_PREVIEW_MAX_CHARS = 100;
@@ -583,6 +588,7 @@ function buildHistoryWebviewHtml(
 	codiconCssHref: string | undefined,
 ): string {
 	const nonce = createNonce();
+	const webviewFontFamily = getWebviewFontFamily();
 	const labels = JSON.stringify({
 		conversationHistoryTab: messages.coreViewConversationHistoryTab,
 		agentsChainTab: messages.coreViewAgentsChainTab,
@@ -637,9 +643,15 @@ function buildHistoryWebviewHtml(
 		:root { color-scheme: light dark; }
 		body {
 			margin: 0;
-			font-family: var(--vscode-font-family);
+			font-family: ${webviewFontFamily};
 			color: var(--vscode-foreground);
 			background: var(--vscode-editor-background);
+		}
+		button, input, textarea, select {
+			font: inherit;
+		}
+		code, pre {
+			font-family: inherit;
 		}
 		.root {
 			display: grid;
