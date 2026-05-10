@@ -511,7 +511,6 @@ function buildHooksHtml(): string {
 							<p class="setting-card-subtitle">${escapeHtml(source.path)}</p>
 						</div>
 						<div class="feature-badges">
-							<span class="feature-badge ${source.active ? 'stable' : 'deprecated'}">${escapeHtml(source.active ? messages.hooksActive : messages.hooksInactive)}</span>
 							<span class="feature-badge subtle">${escapeHtml(messages.hooksEntryCount(source.entryCount))}</span>
 						</div>
 					</div>
@@ -535,7 +534,6 @@ function buildHooksHtml(): string {
 					<p class="setting-card-subtitle">${escapeHtml(entry.command ?? messages.hooksNoCommand)}</p>
 				</div>
 				<div class="feature-badges">
-					<span class="feature-badge ${entry.active ? 'stable' : 'deprecated'}">${escapeHtml(entry.active ? messages.hooksActive : messages.hooksInactive)}</span>
 					<span class="feature-badge subtle">${escapeHtml(entry.layer === 'user' ? messages.hooksLayerUser : messages.hooksLayerProject)} / ${escapeHtml(entry.format)}</span>
 				</div>
 			</div>
@@ -558,8 +556,14 @@ function buildHooksHtml(): string {
 		<div class="chain-toolbar-main">
 			<div class="chain-context">${buildWorkspaceContextHtml(diagnostics.workspaceRoot, messages.chainNoWorkspace)}</div>
 			<div class="chain-summary">
-				<span>${escapeHtml(messages.hooksFeatureStatus(diagnostics.hooksEnabled ? messages.hooksActive : messages.hooksInactive))}</span>
-				<span>${escapeHtml(messages.hooksProjectTrustLabel)}: ${escapeHtml(diagnostics.projectTrusted ? messages.hooksActive : messages.hooksInactive)}</span>
+				<span class="status-summary-item">
+					<span class="muted">${escapeHtml(messages.hooksFeatureStatus('')).replace(/:\s*$/, '')}</span>
+					<span class="feature-badge ${diagnostics.hooksEnabled ? 'stable' : 'deprecated'}">${escapeHtml(diagnostics.hooksEnabled ? messages.hooksActive : messages.hooksInactive)}</span>
+				</span>
+				<span class="status-summary-item">
+					<span class="muted">${escapeHtml(messages.hooksProjectTrustLabel)}</span>
+					<span class="feature-badge ${diagnostics.projectTrusted ? 'stable' : 'deprecated'}">${escapeHtml(diagnostics.projectTrusted ? messages.hooksActive : messages.hooksInactive)}</span>
+				</span>
 			</div>
 		</div>
 		${hookFeatureAction}
@@ -911,6 +915,11 @@ function buildHistoryWebviewHtml(
 			flex-wrap: wrap;
 			gap: 8px;
 			align-items: center;
+		}
+		.status-summary-item {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
 		}
 		.chain-toggle {
 			display: inline-flex;
