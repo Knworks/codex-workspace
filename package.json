@@ -343,8 +343,8 @@
         },
         {
           "command": "codex-workspace.refreshAll",
-          "when": "view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates' || view == 'codex-workspace.mcp' || view == 'codex-workspace.agents'",
-          "group": "navigation@5"
+          "when": "view == 'codex-workspace.core' || view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates' || view == 'codex-workspace.mcp' || view == 'codex-workspace.agents'",
+          "group": "navigation@99"
         },
         {
           "command": "codex-workspace.openMcpManager",
