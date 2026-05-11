@@ -2,6 +2,17 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
+## 1.1.2
+
+Changes
+
+- Updated Skill Manager so enabled skills remove their `[[skills.config]]` entry instead of writing `enabled = true`.
+- Added agent config repair so `config.toml` descriptions and `config_file` values can be corrected from agent files.
+
+Fixes
+
+- Fixed Agent sync so returning agent files no longer reset `[agents.<id>]` descriptions to an empty string.
+
 ## 1.1.1
 
 Changes
