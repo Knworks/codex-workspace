@@ -2,6 +2,16 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
+## 1.1.3
+
+Changes
+
+- Updated MCP Manager registration fields layout for Args, Enable Tools, Disabled Tools, and Env-style row editing.
+
+Fixes
+
+- Fixed Feature Flags tab extra bottom spacing and unintended downward scrolling when toggling flags.
+
 ## 1.1.2
 
 Changes
