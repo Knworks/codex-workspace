@@ -1,12 +1,19 @@
 import * as assert from 'assert';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import {
 	appendAgentConfigRawBlock,
 	appendAgentConfigBlock,
 	buildAgentConfigBlock,
 	extractAgentConfigBlock,
 	getAgentDescription,
+	getAgentConfigFile,
 	hasAgentConfigBlock,
+	readAgentTomlDescription,
+	toAgentConfigFilePath,
 	upsertAgentConfigBlock,
+	upsertAgentConfigMetadata,
 } from '../services/agentConfigService';
 
 suite('Agent config service', () => {
@@ -62,6 +69,48 @@ suite('Agent config service', () => {
 		].join('\n');
 		assert.strictEqual(hasAgentConfigBlock(contents, 'alpha'), true);
 		assert.strictEqual(getAgentDescription(contents, 'alpha'), 'Alpha reviewer');
+		assert.strictEqual(getAgentConfigFile(contents, 'alpha'), 'agents/alpha.toml');
+	});
+
+	test('upsertAgentConfigMetadata corrects description and config_file while preserving block comments', () => {
+		const original = [
+			'[agents.alpha]',
+			'description = "Old" # keep',
+			'# keep this comment',
+			'config_file = "agents/old.toml" # keep',
+			'',
+		].join('\n');
+		const updated = upsertAgentConfigMetadata(
+			original,
+			'alpha',
+			'New',
+			'../project/.codex/agents/alpha.toml',
+		);
+		assert.ok(updated.includes('description = "New" # keep'));
+		assert.ok(updated.includes('# keep this comment'));
+		assert.ok(updated.includes('config_file = "../project/.codex/agents/alpha.toml" # keep'));
+	});
+
+	test('reads description from agent toml and derives relative config path', () => {
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-config-service-'));
+		try {
+			const configPath = path.join(tempDir, '.codex', 'config.toml');
+			const agentPath = path.join(tempDir, 'project', '.codex', 'agents', 'planner.toml');
+			fs.mkdirSync(path.dirname(agentPath), { recursive: true });
+			fs.mkdirSync(path.dirname(configPath), { recursive: true });
+			fs.writeFileSync(
+				agentPath,
+				'description = "Planner"\nmodel = "gpt-5.4"\n',
+				'utf8',
+			);
+			assert.strictEqual(readAgentTomlDescription(agentPath), 'Planner');
+			assert.strictEqual(
+				toAgentConfigFilePath(configPath, agentPath),
+				path.relative(path.dirname(configPath), agentPath),
+			);
+		} finally {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
 	});
 
 	test('buildAgentConfigBlock quotes special agent names', () => {

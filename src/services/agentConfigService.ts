@@ -1,16 +1,21 @@
+import fs from 'fs';
+import path from 'path';
+
 const AGENT_CONFIG_HEADER_PATTERN = /^\s*\[agents\.(?:"([^"]+)"|([A-Za-z0-9_-]+))\]\s*$/;
 const AGENT_DESCRIPTION_PATTERN =
-	/^\s*description\s*=\s*"((?:[^"\\]|\\.)*)"\s*(?:#.*)?$/;
+	/^(\s*description\s*=\s*")((?:[^"\\]|\\.)*)(")(\s*#.*)?$/;
 
 type AgentBlock = {
 	id: string;
 	startLine: number;
 	endLine: number;
 	description?: string;
+	descriptionLineIndex?: number;
 	configFile?: string;
+	configFileLineIndex?: number;
 };
 const AGENT_CONFIG_FILE_PATTERN =
-	/^\s*config_file\s*=\s*"((?:[^"\\]|\\.)*)"\s*(?:#.*)?$/;
+	/^(\s*config_file\s*=\s*")((?:[^"\\]|\\.)*)(")(\s*#.*)?$/;
 
 /**
  * Returns true when config.toml already has an `[agents.<agentId>]` block.
@@ -103,16 +108,101 @@ export function extractAgentConfigBlock(
  * Builds the minimal agent block required by the spec.
  */
 export function buildAgentConfigBlock(agentId: string, description: string): string {
+	return buildAgentConfigBlockWithPath(
+		agentId,
+		description,
+		`agents/${agentId}.toml`,
+	);
+}
+
+export function buildAgentConfigBlockWithPath(
+	agentId: string,
+	description: string,
+	configFile: string,
+): string {
 	const quotedAgentId = isUnquotedHeaderKey(agentId)
 		? agentId
 		: `"${escapeTomlString(agentId)}"`;
 	const escapedDescription = escapeTomlString(description);
-	const escapedConfigPath = escapeTomlString(`agents/${agentId}.toml`);
+	const escapedConfigPath = escapeTomlString(configFile);
 	return [
 		`[agents.${quotedAgentId}]`,
 		`description = "${escapedDescription}"`,
 		`config_file = "${escapedConfigPath}"`,
 	].join('\n');
+}
+
+export function upsertAgentConfigMetadata(
+	contents: string,
+	agentId: string,
+	description: string | undefined,
+	configFile: string,
+): string {
+	const lines = contents.split(/\r?\n/);
+	const target = parseAgentBlocks(contents).find((block) => block.id === agentId);
+	if (!target) {
+		return appendAgentConfigRawBlock(
+			contents,
+			buildAgentConfigBlockWithPath(agentId, description ?? '', configFile),
+		);
+	}
+
+	const blockLines = lines.slice(target.startLine, target.endLine + 1);
+	const nextDescription = description ?? target.description ?? '';
+	const descriptionLine = `description = "${escapeTomlString(nextDescription)}"`;
+	const configFileLine = `config_file = "${escapeTomlString(configFile)}"`;
+	const descriptionIndex =
+		target.descriptionLineIndex !== undefined
+			? target.descriptionLineIndex - target.startLine
+			: undefined;
+	const configFileIndex =
+		target.configFileLineIndex !== undefined
+			? target.configFileLineIndex - target.startLine
+			: undefined;
+
+	if (descriptionIndex !== undefined) {
+		const match = blockLines[descriptionIndex]?.match(AGENT_DESCRIPTION_PATTERN);
+		if (match) {
+			blockLines[descriptionIndex] =
+				`${match[1]}${escapeTomlString(nextDescription)}${match[3]}${match[4] ?? ''}`;
+		}
+	} else {
+		blockLines.splice(1, 0, descriptionLine);
+	}
+
+	const insertionBaseIndex =
+		descriptionIndex !== undefined
+			? descriptionIndex + 1
+			: 2;
+	if (configFileIndex !== undefined) {
+		const match = blockLines[configFileIndex]?.match(AGENT_CONFIG_FILE_PATTERN);
+		if (match) {
+			blockLines[configFileIndex] =
+				`${match[1]}${escapeTomlString(configFile)}${match[3]}${match[4] ?? ''}`;
+		}
+	} else {
+		blockLines.splice(insertionBaseIndex, 0, configFileLine);
+	}
+
+	lines.splice(
+		target.startLine,
+		target.endLine - target.startLine + 1,
+		...blockLines,
+	);
+	return normalizeTomlContents(lines);
+}
+
+export function readAgentTomlDescription(agentFilePath: string): string | undefined {
+	if (!fs.existsSync(agentFilePath)) {
+		return undefined;
+	}
+	const contents = fs.readFileSync(agentFilePath, 'utf8');
+	const match = contents.match(/^description\s*=\s*"((?:[^"\\]|\\.)*)"\s*(?:#.*)?$/m);
+	return match ? unescapeTomlString(match[1]) : undefined;
+}
+
+export function toAgentConfigFilePath(configPath: string, agentFilePath: string): string {
+	return path.relative(path.dirname(configPath), agentFilePath);
 }
 
 /**
@@ -178,17 +268,15 @@ function parseAgentBlocks(contents: string): AgentBlock[] {
 			continue;
 		}
 
-		if (current.description !== undefined) {
-			continue;
-		}
-
 		const descriptionMatch = lines[i].match(AGENT_DESCRIPTION_PATTERN);
 		if (descriptionMatch && current.description === undefined) {
-			current.description = unescapeTomlString(descriptionMatch[1]);
+			current.description = unescapeTomlString(descriptionMatch[2]);
+			current.descriptionLineIndex = i;
 		}
 		const configFileMatch = lines[i].match(AGENT_CONFIG_FILE_PATTERN);
 		if (configFileMatch && current.configFile === undefined) {
-			current.configFile = unescapeTomlString(configFileMatch[1]);
+			current.configFile = unescapeTomlString(configFileMatch[2]);
+			current.configFileLineIndex = i;
 		}
 	}
 

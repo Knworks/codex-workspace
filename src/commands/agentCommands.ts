@@ -18,7 +18,10 @@ import {
 	extractAgentConfigBlock,
 	getAgentDescription,
 	hasAgentConfigBlock,
+	readAgentTomlDescription,
+	toAgentConfigFilePath,
 	upsertAgentConfigBlock,
+	upsertAgentConfigMetadata,
 } from '../services/agentConfigService';
 import {
 	getDisabledAgentsStorePath,
@@ -153,8 +156,7 @@ async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
 	fs.writeFileSync(agentFilePath, templateContent, 'utf8');
 
 	const configContents = fs.readFileSync(configPath, 'utf8');
-	const appendResult = appendAgentConfigBlock(configContents, agentName, description);
-	if (!appendResult.appended) {
+	if (hasAgentConfigBlock(configContents, agentName)) {
 		vscode.window.showWarningMessage(messages.agent.configExists(agentName));
 		agentProvider.refresh();
 		return;
@@ -162,7 +164,14 @@ async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
 
 	fs.writeFileSync(
 		configPath,
-		stabilizeManagedConfigToml(appendResult.contents),
+		stabilizeManagedConfigToml(
+			upsertAgentConfigMetadata(
+				configContents,
+				agentName,
+				description,
+				toAgentConfigFilePath(configPath, agentFilePath),
+			),
+		),
 		'utf8',
 	);
 	agentProvider.refresh();
@@ -212,9 +221,15 @@ async function editAgent(
 		nextName,
 		nextDescription,
 	);
+	const repairedConfig = upsertAgentConfigMetadata(
+		updatedConfig,
+		nextName,
+		nextDescription,
+		toAgentConfigFilePath(configPath, nextFilePath),
+	);
 	fs.writeFileSync(
 		configPath,
-		stabilizeManagedConfigToml(updatedConfig),
+		stabilizeManagedConfigToml(repairedConfig),
 		'utf8',
 	);
 	agentProvider.refresh();
@@ -293,9 +308,15 @@ async function enableAgent(
 	}
 
 	const stashedBlock = takeDisabledAgentBlock(storePath, agentId);
-	const nextContents = stashedBlock
+	const restoredContents = stashedBlock
 		? appendAgentConfigRawBlock(configContents, stashedBlock)
-		: appendAgentConfigBlock(configContents, agentId, '').contents;
+		: configContents;
+	const nextContents = upsertAgentConfigMetadata(
+		restoredContents,
+		agentId,
+		readAgentTomlDescription(agentFilePath),
+		toAgentConfigFilePath(configPath, agentFilePath),
+	);
 	fs.writeFileSync(
 		configPath,
 		stabilizeManagedConfigToml(nextContents),

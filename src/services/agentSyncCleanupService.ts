@@ -6,6 +6,7 @@ import {
 	extractAgentConfigBlock,
 	listConfiguredAgentIds,
 } from './agentConfigService';
+import { repairAgentConfigContents } from './agentConfigRepairService';
 import {
 	getDisabledAgentEntry,
 	getDisabledAgentsStorePath,
@@ -83,6 +84,15 @@ export function reconcileAgentConfigAfterSync(
 	}
 
 	if (removedAgentIds.length > 0 || addedAgentIds.length > 0) {
+		configContents = stabilizeManagedConfigToml(configContents);
+	}
+
+	const repaired = repairAgentConfigContents(configContents, configPath);
+	if (repaired.changed) {
+		configContents = repaired.contents;
+	}
+
+	if (removedAgentIds.length > 0 || addedAgentIds.length > 0 || repaired.changed) {
 		fs.writeFileSync(
 			configPath,
 			stabilizeManagedConfigToml(configContents),

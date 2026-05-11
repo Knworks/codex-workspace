@@ -33,7 +33,11 @@ import {
 	syncDirectoryBidirectional,
 } from './services/syncService';
 import { reconcileAgentConfigAfterSync } from './services/agentSyncCleanupService';
-import { organizeConfigToml } from './services/configTomlOrganizerService';
+import {
+	getConfigTomlBackupPath,
+	organizeConfigTomlContents,
+} from './services/configTomlOrganizerService';
+import { repairAgentConfigEntries } from './services/agentConfigRepairService';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -310,11 +314,19 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 				const configPath = resolveCodexPaths().configPath;
 				try {
-					const result = organizeConfigToml(configPath);
+					const original = fs.readFileSync(configPath, 'utf8');
+					const backupPath = getConfigTomlBackupPath(configPath);
+					fs.mkdirSync(path.dirname(backupPath), { recursive: true });
+					fs.writeFileSync(backupPath, original, 'utf8');
+					const repaired = repairAgentConfigEntries(configPath);
+					const nextContents = organizeConfigTomlContents(repaired.contents);
+					if (nextContents !== original) {
+						fs.writeFileSync(configPath, nextContents, 'utf8');
+					}
 					vscode.window.showInformationMessage(
-						result.changed
-							? messages.configTomlOrganized(result.backupPath)
-							: messages.configTomlAlreadyOrganized(result.backupPath),
+						nextContents !== original
+							? messages.configTomlOrganized(backupPath)
+							: messages.configTomlAlreadyOrganized(backupPath),
 					);
 					coreProvider.refresh();
 					mcpProvider.refresh();
