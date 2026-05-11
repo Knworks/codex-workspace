@@ -3,7 +3,7 @@ import * as path from 'path';
 
 export type DisabledAgentEntry = {
 	disabledAt: string;
-	source: 'config.toml';
+	source: 'config.toml' | 'sync-reconcile';
 	block: string;
 };
 
@@ -28,12 +28,13 @@ export function saveDisabledAgentBlock(
 	storePath: string,
 	agentId: string,
 	block: string,
-	nowIso: string = new Date().toISOString(),
+	nowIso?: string,
+	source: DisabledAgentEntry['source'] = 'config.toml',
 ): void {
 	const store = readDisabledAgentsStore(storePath);
 	store.disabledAgents[agentId] = {
-		disabledAt: nowIso,
-		source: 'config.toml',
+		disabledAt: nowIso ?? new Date().toISOString(),
+		source,
 		block,
 	};
 	writeDisabledAgentsStore(storePath, store);
@@ -70,6 +71,14 @@ export function getDisabledAgentBlock(
 ): string | undefined {
 	const store = readDisabledAgentsStore(storePath);
 	return store.disabledAgents[agentId]?.block;
+}
+
+export function getDisabledAgentEntry(
+	storePath: string,
+	agentId: string,
+): DisabledAgentEntry | undefined {
+	const store = readDisabledAgentsStore(storePath);
+	return store.disabledAgents[agentId];
 }
 
 function readDisabledAgentsStore(storePath: string): DisabledAgentsStore {

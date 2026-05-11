@@ -2,12 +2,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
 	appendAgentConfigBlock,
+	appendAgentConfigRawBlock,
 	extractAgentConfigBlock,
 	listConfiguredAgentIds,
 } from './agentConfigService';
 import {
+	getDisabledAgentEntry,
 	getDisabledAgentsStorePath,
 	listDisabledAgentIds,
+	saveDisabledAgentBlock,
 	takeDisabledAgentBlock,
 } from './disabledAgentsStore';
 import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
@@ -46,11 +49,28 @@ export function reconcileAgentConfigAfterSync(
 		}
 		configContents = extracted.contents;
 		removedAgentIds.push(agentId);
+		if (extracted.block) {
+			saveDisabledAgentBlock(
+				storePath,
+				agentId,
+				extracted.block,
+				undefined,
+				'sync-reconcile',
+			);
+		}
 	}
 
 	configuredAgentIds = new Set(listConfiguredAgentIds(configContents));
 	for (const agentId of existingAgentIds) {
 		if (existingAgentIdsBeforeSync.has(agentId) || configuredAgentIds.has(agentId)) {
+			continue;
+		}
+		const stashedBlock = getDisabledAgentEntry(storePath, agentId);
+		if (stashedBlock) {
+			configContents = appendAgentConfigRawBlock(configContents, stashedBlock.block);
+			configuredAgentIds.add(agentId);
+			addedAgentIds.push(agentId);
+			takeDisabledAgentBlock(storePath, agentId);
 			continue;
 		}
 		const appended = appendAgentConfigBlock(configContents, agentId, '');
@@ -71,10 +91,15 @@ export function reconcileAgentConfigAfterSync(
 	}
 
 	const staleDisabledIds = listDisabledAgentIds(storePath).filter(
-		(agentId) => !existingAgentIds.has(agentId),
+		(agentId) =>
+			!existingAgentIds.has(agentId) &&
+			getDisabledAgentEntry(storePath, agentId)?.source === 'config.toml',
 	);
-	const cleanupIds = new Set<string>([...removedAgentIds, ...staleDisabledIds]);
-	for (const agentId of cleanupIds) {
+	for (const agentId of removedAgentIds) {
+		removeSyncStateEntry(codexDir, 'agents', `${agentId}.toml`);
+	}
+
+	for (const agentId of staleDisabledIds) {
 		// Remove stale disabled stash and sync metadata for deleted agents.
 		takeDisabledAgentBlock(storePath, agentId);
 		removeSyncStateEntry(codexDir, 'agents', `${agentId}.toml`);

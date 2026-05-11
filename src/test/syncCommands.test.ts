@@ -301,6 +301,58 @@ suite('Sync commands', () => {
 		});
 	});
 
+	test('syncAgents restores previous description when a tracked agent file returns', async () => {
+		await withTempHome(async (homeDir) => {
+			await activateExtension();
+
+			const codexDir = path.join(homeDir, '.codex');
+			const agentsDir = path.join(codexDir, 'agents');
+			const configPath = path.join(codexDir, 'config.toml');
+			fs.mkdirSync(agentsDir, { recursive: true });
+			fs.writeFileSync(
+				configPath,
+				[
+					'title = "ok"',
+					'',
+					'[agents.reviewer]',
+					'description = "Original description"',
+					'config_file = "agents/reviewer.toml"',
+					'',
+				].join('\n'),
+				'utf8',
+			);
+			fs.writeFileSync(path.join(agentsDir, 'reviewer.toml'), 'mode = "review"', 'utf8');
+
+			const targetDir = path.join(homeDir, 'sync-agents-restore');
+			const originalWarning = vscode.window.showWarningMessage;
+			(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+				.showWarningMessage = async () => 'OK';
+
+			try {
+				await withSyncFolderSetting('agentFolder', targetDir, async () => {
+					await vscode.commands.executeCommand('codex-workspace.syncAgents');
+					fs.rmSync(path.join(targetDir, 'reviewer.toml'));
+					await vscode.commands.executeCommand('codex-workspace.syncAgents');
+					fs.writeFileSync(path.join(targetDir, 'reviewer.toml'), 'mode = "review"', 'utf8');
+					await vscode.commands.executeCommand('codex-workspace.syncAgents');
+				});
+			} finally {
+				(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+					.showWarningMessage = originalWarning;
+			}
+
+			const configContents = fs.readFileSync(configPath, 'utf8');
+			assert.ok(configContents.includes('[agents.reviewer]'));
+			assert.ok(configContents.includes('description = "Original description"'));
+			assert.ok(!configContents.includes('description = ""'));
+			const storePath = getDisabledAgentsStorePath(codexDir);
+			const store = JSON.parse(fs.readFileSync(storePath, 'utf8')) as {
+				disabledAgents?: Record<string, unknown>;
+			};
+			assert.strictEqual(store.disabledAgents?.reviewer, undefined);
+		});
+	});
+
 	test('syncAgents deletes disabled-store entry when disabled agent file is deleted by sync', async () => {
 		await withTempHome(async (homeDir) => {
 			await activateExtension();
