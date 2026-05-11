@@ -462,12 +462,12 @@ function buildFeatureFlagsHtml(): string {
 						</div>
 						<div class="feature-badges">
 							<span class="feature-badge ${escapeHtml(flag.maturityClass)}">${escapeHtml(flag.maturity)}</span>
-							<span class="feature-badge subtle">${escapeHtml(configuredLabel)}</span>
+							<span class="feature-badge subtle" data-feature-source="${escapeHtml(flag.key)}">${escapeHtml(configuredLabel)}</span>
 						</div>
 					</div>
 					<div class="setting-card-meta muted">
 						<span>${escapeHtml(messages.featureFlagDefaultLabel)}: ${flag.defaultEnabled ? 'true' : 'false'}</span>
-						<span>${escapeHtml(messages.featureFlagEffectiveLabel)}: ${flag.enabled ? 'true' : 'false'}</span>
+						<span data-feature-effective="${escapeHtml(flag.key)}">${escapeHtml(messages.featureFlagEffectiveLabel)}: ${flag.enabled ? 'true' : 'false'}</span>
 					</div>
 				</div>
 				<label class="setting-toggle">
@@ -614,6 +614,8 @@ function buildHistoryWebviewHtml(
 		agentsChainTab: messages.coreViewAgentsChainTab,
 		trustedDirectoriesTab: messages.coreViewTrustedDirectoriesTab,
 		featureFlagsTab: messages.coreViewFeatureFlagsTab,
+		featureFlagEffectiveLabel: messages.featureFlagEffectiveLabel,
+		featureFlagSourceConfig: messages.featureFlagSourceConfig,
 		hooksTab: messages.coreViewHooksTab,
 		searchPlaceholder: messages.historySearchPlaceholder,
 		clear: messages.historyClear,
@@ -660,9 +662,17 @@ function buildHistoryWebviewHtml(
 	${codiconLink}
 	<title>${messages.coreViewPanelTitle}</title>
 	<style>
-		:root { color-scheme: light dark; }
+		:root {
+			color-scheme: light dark;
+		}
+		html {
+			height: 100%;
+			overflow: hidden;
+		}
 		body {
+			height: 100%;
 			margin: 0;
+			overflow: hidden;
 			font-family: ${webviewFontFamily};
 			color: var(--vscode-foreground);
 			background: var(--vscode-editor-background);
@@ -675,8 +685,16 @@ function buildHistoryWebviewHtml(
 		}
 		.root {
 			display: grid;
-			grid-template-rows: auto auto 1fr;
-			height: 100vh;
+			grid-template-rows: auto minmax(0, 1fr);
+			height: 100%;
+			min-height: 0;
+			overflow: hidden;
+		}
+		.tab-panels {
+			display: grid;
+			grid-template-rows: minmax(0, 1fr);
+			min-height: 0;
+			overflow: hidden;
 		}
 		.top-pane {
 			padding: 10px 12px;
@@ -919,8 +937,17 @@ function buildHistoryWebviewHtml(
 		#trustedTab.active,
 		#featuresTab.active,
 		#hooksTab.active {
-			display: block;
+			display: grid;
+			grid-template-rows: 1fr;
 			height: 100%;
+			min-height: 0;
+			overflow: hidden;
+		}
+		#trustedContent,
+		#featuresContent,
+		#hooksContent {
+			height: 100%;
+			min-height: 0;
 			overflow: auto;
 		}
 		.chain-summary {
@@ -938,6 +965,7 @@ function buildHistoryWebviewHtml(
 			gap: 6px;
 		}
 		.chain-toggle {
+			position: relative;
 			display: inline-flex;
 			align-items: center;
 			gap: 6px;
@@ -948,10 +976,12 @@ function buildHistoryWebviewHtml(
 		}
 		.chain-toggle input {
 			position: absolute;
+			inset: 0;
 			opacity: 0;
-			width: 1px;
-			height: 1px;
-			pointer-events: none;
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			cursor: pointer;
 		}
 		.chain-toggle-switch {
 			position: relative;
@@ -1151,9 +1181,9 @@ function buildHistoryWebviewHtml(
 			justify-content: flex-end;
 			border-bottom: 1px solid var(--vscode-panel-border);
 		}
-		.trusted-list { padding: 10px 8px; }
+		.trusted-list { padding: 10px 8px 0; }
 		.settings-list {
-			padding: 10px 8px;
+			padding: 10px 8px 0;
 			display: grid;
 			gap: 8px;
 		}
@@ -1240,16 +1270,19 @@ function buildHistoryWebviewHtml(
 			flex-wrap: wrap;
 		}
 		.setting-toggle {
+			position: relative;
 			display: inline-flex;
 			align-items: center;
 			cursor: pointer;
 		}
 		.setting-toggle input {
 			position: absolute;
+			inset: 0;
 			opacity: 0;
-			width: 1px;
-			height: 1px;
-			pointer-events: none;
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			cursor: pointer;
 		}
 		.setting-toggle input:checked + .chain-toggle-switch {
 			background: var(--vscode-button-background);
@@ -1354,6 +1387,7 @@ function buildHistoryWebviewHtml(
 			<button class="tab" data-tab="features" type="button"><span class="codicon codicon-settings-gear" aria-hidden="true"></span>${messages.coreViewFeatureFlagsTab}</button>
 			<button class="tab" data-tab="hooks" type="button"><span class="codicon codicon-symbol-event" aria-hidden="true"></span>${messages.coreViewHooksTab}</button>
 		</nav>
+		<div class="tab-panels">
 		<section id="historyTab" class="diag-tab active">
 			<section class="top-pane">
 				<div class="search-box">
@@ -1394,6 +1428,7 @@ function buildHistoryWebviewHtml(
 		<section id="hooksTab" class="diag-tab">
 			<div id="hooksContent"></div>
 		</section>
+		</div>
 	</div>
 	<script nonce="${nonce}">
 		const vscode = acquireVsCodeApi();
@@ -1473,9 +1508,23 @@ function buildHistoryWebviewHtml(
 		document.addEventListener('change', (event) => {
 			const target = event.target instanceof HTMLInputElement ? event.target : null;
 			if (target?.dataset?.featureToggle) {
+				const featureKey = target.dataset.featureToggle;
+				try {
+					const settingCard = target.closest('.setting-card');
+					const effectiveLabel = settingCard?.querySelector('[data-feature-effective]');
+					if (effectiveLabel) {
+						effectiveLabel.textContent = labels.featureFlagEffectiveLabel + ': ' + (target.checked ? 'true' : 'false');
+					}
+					const sourceBadge = settingCard?.querySelector('[data-feature-source]');
+					if (sourceBadge) {
+						sourceBadge.textContent = labels.featureFlagSourceConfig;
+					}
+				} catch (error) {
+					console.error('Failed to update feature flag row inline', error);
+				}
 				vscode.postMessage({
 					type: 'setFeatureFlag',
-					featureKey: target.dataset.featureToggle,
+					featureKey,
 					enabled: target.checked,
 				});
 			}
@@ -1869,7 +1918,9 @@ function buildHistoryWebviewHtml(
 					loadedTabs.add('features');
 					const featuresContent = document.getElementById('featuresContent');
 					if (featuresContent) {
+						const previousScrollTop = featuresContent.scrollTop;
 						featuresContent.innerHTML = message.html;
+						featuresContent.scrollTop = previousScrollTop;
 					}
 				}
 				if (message.tab === 'hooks') {
@@ -2070,9 +2121,7 @@ export class HistoryPanelManager implements vscode.Disposable {
 
 	private async setFeatureFlag(featureKey: string, enabled: boolean): Promise<void> {
 		setFeatureFlag(resolveCodexPaths().configPath, featureKey, enabled);
-		vscode.window.showInformationMessage(messages.mcpToggleUpdated);
-		this.refreshTab('features');
-		if (featureKey === 'codex_hooks') {
+		if (featureKey === 'hooks' || featureKey === 'codex_hooks') {
 			this.refreshTab('hooks');
 		}
 	}

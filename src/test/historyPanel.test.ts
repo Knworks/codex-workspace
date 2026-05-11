@@ -1,4 +1,6 @@
 import * as assert from 'assert';
+import fs from 'fs';
+import path from 'path';
 import * as vscode from 'vscode';
 import { HistoryPanelManager } from '../services/historyPanel';
 import { HistoryIndex } from '../services/historyService';
@@ -52,6 +54,42 @@ function createFakePanel(): FakePanelHandle {
 }
 
 suite('History panel manager', () => {
+	test('feature flag toggles update inline without refreshing the feature list', () => {
+		const sourcePath = path.resolve(
+			__dirname,
+			'..',
+			'..',
+			'src',
+			'services',
+			'historyPanel.ts',
+		);
+		const source = fs.readFileSync(sourcePath, 'utf8');
+
+		assert.ok(source.includes('data-feature-effective='));
+		assert.ok(source.includes('data-feature-source='));
+		assert.ok(source.includes('labels.featureFlagEffectiveLabel'));
+		assert.ok(source.includes('labels.featureFlagSourceConfig'));
+		assert.ok(source.includes("target.closest('.setting-card')"));
+		assert.ok(source.includes("querySelector('[data-feature-effective]')"));
+		assert.ok(source.includes("querySelector('[data-feature-source]')"));
+		assert.ok(source.includes('Failed to update feature flag row inline'));
+		assert.ok(source.includes('.setting-toggle {\n\t\t\tposition: relative;'));
+		assert.ok(source.includes('.setting-toggle input {\n\t\t\tposition: absolute;\n\t\t\tinset: 0;'));
+		assert.ok(source.includes('.chain-toggle {\n\t\t\tposition: relative;'));
+		assert.ok(source.includes('.chain-toggle input {\n\t\t\tposition: absolute;\n\t\t\tinset: 0;'));
+		assert.ok(source.includes('html {'));
+		assert.ok(source.includes('height: 100%;'));
+		assert.ok(source.includes('grid-template-rows: auto minmax(0, 1fr);'));
+		assert.ok(source.includes('grid-template-rows: minmax(0, 1fr);'));
+		assert.ok(source.includes('class="tab-panels"'));
+		assert.ok(source.includes('#featuresContent'));
+		assert.ok(source.includes('const previousScrollTop = featuresContent.scrollTop;'));
+		assert.ok(source.includes('featuresContent.scrollTop = previousScrollTop;'));
+		assert.ok(!source.includes("this.refreshTab('features');"));
+		assert.ok(!source.includes("document.querySelector('[data-feature-effective=\"' + featureKey + '\"]')"));
+		assert.ok(!source.includes('vscode.window.showInformationMessage(messages.mcpToggleUpdated);\n\t\tif (featureKey ==='));
+	});
+
 	test('show reuses a single panel instance and reveals it', () => {
 		const fakePanel = createFakePanel();
 		let createCount = 0;
