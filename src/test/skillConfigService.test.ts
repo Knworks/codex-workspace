@@ -80,6 +80,19 @@ suite('Skill config service', () => {
 		});
 	});
 
+	test('setSkillEnabled does not append config block when enabling a missing skill entry', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			const skillPath = path.join(root, 'skills', 'reviewer', 'SKILL.md');
+			const original = 'model = "gpt"\n';
+			fs.writeFileSync(configPath, original, 'utf8');
+
+			setSkillEnabled(configPath, skillPath, true);
+
+			assert.strictEqual(fs.readFileSync(configPath, 'utf8'), original);
+		});
+	});
+
 	test('setSkillEnabled keeps skills blocks grouped before later project blocks', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, 'config.toml');
@@ -111,20 +124,30 @@ suite('Skill config service', () => {
 		});
 	});
 
-	test('setSkillEnabled updates existing enabled value and preserves comments', () => {
+	test('setSkillEnabled removes existing skill config block when enabling', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, 'config.toml');
 			const skillPath = path.join(root, 'skills', 'reviewer', 'SKILL.md');
 			fs.writeFileSync(
 				configPath,
-				`[[skills.config]]\npath = '${skillPath}'\nenabled = false # keep\n`,
+				[
+					`[[skills.config]]`,
+					`path = '${skillPath}'`,
+					'enabled = false # keep',
+					'',
+					'[projects."/tmp/workspace"]',
+					'trust_level = "trusted"',
+					'',
+				].join('\n'),
 				'utf8',
 			);
 
 			setSkillEnabled(configPath, skillPath, true);
 
 			const contents = fs.readFileSync(configPath, 'utf8');
-			assert.ok(contents.includes('enabled = true # keep'));
+			assert.ok(!contents.includes(`path = '${skillPath}'`));
+			assert.ok(!contents.includes('enabled = false # keep'));
+			assert.ok(contents.includes('[projects."/tmp/workspace"]'));
 		});
 	});
 });

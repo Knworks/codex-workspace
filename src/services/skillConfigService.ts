@@ -117,15 +117,31 @@ export function setSkillEnabled(
 	);
 
 	if (!existing) {
+		if (enabled) {
+			return;
+		}
 		const separator = contents.trim().length > 0 ? '\n\n' : '';
 		const nextBlock = [
 			'[[skills.config]]',
 			`path = '${escapeTomlSingleQuotedString(skillPath)}'`,
-			`enabled = ${enabled ? 'true' : 'false'}`,
+			'enabled = false',
 		].join('\n');
 		fs.writeFileSync(
 			configPath,
 			stabilizeManagedConfigToml(`${contents}${separator}${nextBlock}\n`),
+			'utf8',
+		);
+		return;
+	}
+
+	if (enabled) {
+		const nextLines = [
+			...lines.slice(0, existing.startLineIndex),
+			...lines.slice(existing.endLineIndex + 1),
+		];
+		fs.writeFileSync(
+			configPath,
+			stabilizeManagedConfigToml(nextLines.join('\n')),
 			'utf8',
 		);
 		return;
@@ -136,7 +152,7 @@ export function setSkillEnabled(
 		const match = line.match(ENABLED_PATTERN);
 		if (match) {
 			lines[existing.enabledLineIndex] =
-				`${match[1]}${enabled ? 'true' : 'false'}${match[3] ?? ''}`;
+				`${match[1]}false${match[3] ?? ''}`;
 			fs.writeFileSync(
 				configPath,
 				stabilizeManagedConfigToml(lines.join('\n')),
@@ -146,7 +162,7 @@ export function setSkillEnabled(
 		}
 	}
 
-	lines.splice(existing.endLineIndex + 1, 0, `enabled = ${enabled ? 'true' : 'false'}`);
+	lines.splice(existing.endLineIndex + 1, 0, 'enabled = false');
 	fs.writeFileSync(
 		configPath,
 		stabilizeManagedConfigToml(lines.join('\n')),
