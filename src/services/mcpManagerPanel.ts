@@ -128,21 +128,43 @@ function buildForm(model: McpFormModel | undefined, previousId?: string): string
 			<option value="http" ${current.transport === 'http' ? 'selected' : ''}>http</option>
 		</select></label>
 		<label>${buildFieldLabel(messages.mcpManagerCommandLabel, descriptions.command)}<input name="command" value="${escapeHtml(current.command)}" /></label>
-		<label>${buildFieldLabel(messages.mcpManagerArgsLabel, descriptions.args)}<textarea class="textarea-args" name="args">${escapeHtml(current.args.join('\n'))}</textarea></label>
+		${buildListField(
+			'args',
+			messages.mcpManagerArgsLabel,
+			descriptions.args,
+			current.args,
+			messages.mcpManagerAdd,
+		)}
 		<label>${buildFieldLabel(messages.mcpManagerUrlLabel, descriptions.url)}<input name="url" value="${escapeHtml(current.url)}" /></label>
-		<div class="env-field">
-			<span class="field-label-row">
-				${buildFieldLabel(messages.mcpManagerEnvLabel, descriptions.env)}
-				<button id="addEnvRow" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerAddEnv)}" aria-label="${escapeHtml(messages.mcpManagerAddEnv)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>
-			</span>
-			<div id="envRows" class="env-rows">${buildEnvRows(current.env)}</div>
-		</div>
+		${buildEnvField(current.env, descriptions.env)}
 		<label class="required-field">${buildFieldLabel(messages.mcpManagerRequiredLabel, descriptions.required)}<span class="required-switch"><input name="required" type="checkbox" ${current.required ? 'checked' : ''} /><span></span></span></label>
 		<label>${buildFieldLabel(messages.mcpManagerStartupTimeoutLabel, descriptions.startupTimeoutSec)}<input name="startupTimeoutSec" value="${current.startupTimeoutSec ?? ''}" /></label>
 		<label>${buildFieldLabel(messages.mcpManagerToolTimeoutLabel, descriptions.toolTimeoutSec)}<input name="toolTimeoutSec" value="${current.toolTimeoutSec ?? ''}" /></label>
-		<label>${buildFieldLabel(messages.mcpManagerEnabledToolsLabel, descriptions.enabledTools)}<textarea name="enabledTools">${escapeHtml(current.enabledTools.join('\n'))}</textarea></label>
-		<label>${buildFieldLabel(messages.mcpManagerDisabledToolsLabel, descriptions.disabledTools)}<textarea name="disabledTools">${escapeHtml(current.disabledTools.join('\n'))}</textarea></label>
+		${buildListField(
+			'enabledTools',
+			messages.mcpManagerEnabledToolsLabel,
+			descriptions.enabledTools,
+			current.enabledTools,
+			messages.mcpManagerAdd,
+		)}
+		${buildListField(
+			'disabledTools',
+			messages.mcpManagerDisabledToolsLabel,
+			descriptions.disabledTools,
+			current.disabledTools,
+			messages.mcpManagerAdd,
+		)}
 	</form></div>`;
+}
+
+function buildEnvField(entries: McpFormModel['env'], description: string): string {
+	return `<div class="env-field">
+		<span class="field-label-row">
+			${buildFieldLabel(messages.mcpManagerEnvLabel, description)}
+			<button id="addEnvRow" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerAddEnv)}" aria-label="${escapeHtml(messages.mcpManagerAddEnv)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>
+		</span>
+		<div id="envRows" class="env-rows">${buildEnvRows(entries)}</div>
+	</div>`;
 }
 
 function buildEnvRows(entries: McpFormModel['env']): string {
@@ -153,6 +175,37 @@ function buildEnvRows(entries: McpFormModel['env']): string {
 				<input name="envKey" value="${escapeHtml(entry.key)}" placeholder="${escapeHtml(messages.mcpManagerEnvKeyPlaceholder)}" />
 				<input name="envValue" value="${escapeHtml(entry.value)}" placeholder="${escapeHtml(messages.mcpManagerEnvValuePlaceholder)}" />
 				<button class="icon-button env-remove" type="button" title="${escapeHtml(messages.mcpManagerRemoveEnv)}" aria-label="${escapeHtml(messages.mcpManagerRemoveEnv)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>
+			</div>`,
+		)
+		.join('');
+}
+
+function buildListField(
+	fieldKey: 'args' | 'enabledTools' | 'disabledTools',
+	label: string,
+	description: string,
+	values: string[],
+	addLabel: string,
+): string {
+	return `<div class="list-field">
+		<span class="field-label-row">
+			${buildFieldLabel(label, description)}
+			<button class="icon-button" type="button" data-add-list-row="${escapeHtml(fieldKey)}" title="${escapeHtml(addLabel)}" aria-label="${escapeHtml(addLabel)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>
+		</span>
+		<div data-list-rows="${escapeHtml(fieldKey)}" class="list-rows">${buildListRows(fieldKey, values)}</div>
+	</div>`;
+}
+
+function buildListRows(
+	fieldKey: 'args' | 'enabledTools' | 'disabledTools',
+	values: string[],
+): string {
+	const resolvedValues = values.length > 0 ? values : [''];
+	return resolvedValues
+		.map(
+			(value) => `<div class="list-row">
+				<input name="${escapeHtml(fieldKey)}Item" value="${escapeHtml(value)}" />
+				<button class="icon-button list-remove" type="button" data-remove-list-row="${escapeHtml(fieldKey)}" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>
 			</div>`,
 		)
 		.join('');
@@ -216,12 +269,12 @@ function buildHtml(
 		.field-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 		.info-icon { color: var(--vscode-descriptionForeground); }
 		.required-field { justify-items: start; }
-		.env-field { display: grid; gap: 6px; }
-		.env-rows { display: grid; gap: 8px; }
+		.env-field, .list-field { display: grid; gap: 6px; }
+		.env-rows, .list-rows { display: grid; gap: 8px; }
 		.env-row { display: grid; grid-template-columns: minmax(120px, 0.9fr) minmax(0, 1.1fr) auto; gap: 8px; align-items: center; }
+		.list-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 		input, textarea, select { width: 100%; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); border-radius: 6px; padding: 6px 8px; }
 		textarea { min-height: 70px; }
-		.textarea-args { min-height: 120px; }
 		.icon-button { width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--vscode-panel-border); border-radius: 4px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); cursor: pointer; }
 		.switch input { display: none; }
 		.switch span { display: inline-block; width: 34px; height: 18px; border-radius: 999px; background: #d85b74; position: relative; vertical-align: middle; }
@@ -290,6 +343,15 @@ function buildHtml(
 				'</div>'
 			).join('');
 		};
+		const buildListRowsHtml = (name, values) => {
+			const resolvedValues = values && values.length > 0 ? values : [''];
+			return resolvedValues.map((value) =>
+				'<div class="list-row">' +
+				'<input name="' + escapeHtml(name) + 'Item" value="' + escapeHtml(value || '') + '" />' +
+				'<button class="icon-button list-remove" type="button" data-remove-list-row="' + escapeHtml(name) + '" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>' +
+				'</div>'
+			).join('');
+		};
 		const renderForm = (model) => {
 			const current = model || {
 				id: '',
@@ -310,7 +372,13 @@ function buildHtml(
 				'<option value="http" ' + (current.transport === 'http' ? 'selected' : '') + '>http</option>' +
 				'</select></label>' +
 				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerCommandLabel)}, descriptions.command) + '<input name="command" value="' + escapeHtml(current.command) + '" /></label>' +
-				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerArgsLabel)}, descriptions.args) + '<textarea class="textarea-args" name="args">' + escapeHtml((current.args || []).join('\\n')) + '</textarea></label>' +
+				'<div class="list-field">' +
+				'<span class="field-label-row">' +
+				fieldLabel(${JSON.stringify(messages.mcpManagerArgsLabel)}, descriptions.args) +
+				'<button class="icon-button" type="button" data-add-list-row="args" title="${escapeHtml(messages.mcpManagerAdd)}" aria-label="${escapeHtml(messages.mcpManagerAdd)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>' +
+				'</span>' +
+				'<div data-list-rows="args" class="list-rows">' + buildListRowsHtml('args', current.args || []) + '</div>' +
+				'</div>' +
 				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerUrlLabel)}, descriptions.url) + '<input name="url" value="' + escapeHtml(current.url) + '" /></label>' +
 				'<div class="env-field">' +
 				'<span class="field-label-row">' +
@@ -322,8 +390,20 @@ function buildHtml(
 				'<label class="required-field">' + fieldLabel(${JSON.stringify(messages.mcpManagerRequiredLabel)}, descriptions.required) + '<span class="required-switch"><input name="required" type="checkbox" ' + (current.required ? 'checked' : '') + ' /><span></span></span></label>' +
 				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerStartupTimeoutLabel)}, descriptions.startupTimeoutSec) + '<input name="startupTimeoutSec" value="' + escapeHtml(current.startupTimeoutSec ?? '') + '" /></label>' +
 				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerToolTimeoutLabel)}, descriptions.toolTimeoutSec) + '<input name="toolTimeoutSec" value="' + escapeHtml(current.toolTimeoutSec ?? '') + '" /></label>' +
-				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerEnabledToolsLabel)}, descriptions.enabledTools) + '<textarea name="enabledTools">' + escapeHtml((current.enabledTools || []).join('\\n')) + '</textarea></label>' +
-				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerDisabledToolsLabel)}, descriptions.disabledTools) + '<textarea name="disabledTools">' + escapeHtml((current.disabledTools || []).join('\\n')) + '</textarea></label>' +
+				'<div class="list-field">' +
+				'<span class="field-label-row">' +
+				fieldLabel(${JSON.stringify(messages.mcpManagerEnabledToolsLabel)}, descriptions.enabledTools) +
+				'<button class="icon-button" type="button" data-add-list-row="enabledTools" title="${escapeHtml(messages.mcpManagerAdd)}" aria-label="${escapeHtml(messages.mcpManagerAdd)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>' +
+				'</span>' +
+				'<div data-list-rows="enabledTools" class="list-rows">' + buildListRowsHtml('enabledTools', current.enabledTools || []) + '</div>' +
+				'</div>' +
+				'<div class="list-field">' +
+				'<span class="field-label-row">' +
+				fieldLabel(${JSON.stringify(messages.mcpManagerDisabledToolsLabel)}, descriptions.disabledTools) +
+				'<button class="icon-button" type="button" data-add-list-row="disabledTools" title="${escapeHtml(messages.mcpManagerAdd)}" aria-label="${escapeHtml(messages.mcpManagerAdd)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>' +
+				'</span>' +
+				'<div data-list-rows="disabledTools" class="list-rows">' + buildListRowsHtml('disabledTools', current.disabledTools || []) + '</div>' +
+				'</div>' +
 				'</form></div>';
 			bindForm();
 		};
@@ -337,6 +417,14 @@ function buildHtml(
 				'<button class="icon-button env-remove" type="button" title="${escapeHtml(messages.mcpManagerRemoveEnv)}" aria-label="${escapeHtml(messages.mcpManagerRemoveEnv)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>';
 			return row;
 		};
+		const createListRow = (name, value = '') => {
+			const row = document.createElement('div');
+			row.className = 'list-row';
+			row.innerHTML =
+				'<input name="' + escapeHtml(name) + 'Item" value="' + escapeHtml(value) + '" />' +
+				'<button class="icon-button list-remove" type="button" data-remove-list-row="' + escapeHtml(name) + '" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>';
+			return row;
+		};
 		const collectEnvEntries = () => {
 			const keys = Array.from(document.querySelectorAll('input[name="envKey"]'));
 			const values = Array.from(document.querySelectorAll('input[name="envValue"]'));
@@ -345,6 +433,10 @@ function buildHtml(
 				value: String(values[index]?.value || '').trim(),
 			})).filter((entry) => entry.key.length > 0 || entry.value.length > 0);
 		};
+		const collectListEntries = (name) =>
+			Array.from(document.querySelectorAll('input[name="' + name + 'Item"]'))
+				.map((input) => String(input.value || '').trim())
+				.filter(Boolean);
 		const bindForm = () => {
 			const form = getForm();
 			const envRows = document.getElementById('envRows');
@@ -369,11 +461,42 @@ function buildHtml(
 				}
 				dirty = true;
 			});
+			form?.querySelectorAll('[data-add-list-row]').forEach((button) => {
+				button.addEventListener('click', () => {
+					const key = button.getAttribute('data-add-list-row');
+					const rows = key ? form.querySelector('[data-list-rows="' + key + '"]') : null;
+					if (!key || !rows) {
+						return;
+					}
+					rows.appendChild(createListRow(key));
+					dirty = true;
+				});
+			});
+			form?.addEventListener('click', (event) => {
+				const target = event.target instanceof Element ? event.target : null;
+				const removeButton = target?.closest?.('[data-remove-list-row]');
+				if (!removeButton) {
+					return;
+				}
+				const key = removeButton.getAttribute('data-remove-list-row');
+				const rows = key ? form.querySelector('[data-list-rows="' + key + '"]') : null;
+				if (!key || !rows) {
+					return;
+				}
+				const rowItems = rows.querySelectorAll('.list-row');
+				if (rowItems.length === 1) {
+					rowItems[0].querySelectorAll('input').forEach((input) => {
+						input.value = '';
+					});
+				} else {
+					removeButton.closest('.list-row')?.remove();
+				}
+				dirty = true;
+			});
 			form?.addEventListener('input', () => { dirty = true; });
 			form?.addEventListener('submit', (event) => {
 				event.preventDefault();
 				const data = new FormData(form);
-				const lines = (name) => String(data.get(name) ?? '').split(/\\r?\\n/).map((item) => item.trim()).filter(Boolean);
 				const numberValue = (name) => {
 					const value = String(data.get(name) ?? '').trim();
 					return value ? Number(value) : undefined;
@@ -385,14 +508,14 @@ function buildHtml(
 						id: String(data.get('id') ?? '').trim(),
 						transport: data.get('transport'),
 						command: String(data.get('command') ?? ''),
-						args: lines('args'),
+						args: collectListEntries('args'),
 						url: String(data.get('url') ?? ''),
 						env: collectEnvEntries(),
 						required: data.get('required') === 'on',
 						startupTimeoutSec: numberValue('startupTimeoutSec'),
 						toolTimeoutSec: numberValue('toolTimeoutSec'),
-						enabledTools: lines('enabledTools'),
-						disabledTools: lines('disabledTools'),
+						enabledTools: collectListEntries('enabledTools'),
+						disabledTools: collectListEntries('disabledTools'),
 						enabled: form.dataset.enabled !== 'false',
 					},
 				});
