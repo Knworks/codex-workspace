@@ -4,7 +4,7 @@ import path from 'path';
 import * as vscode from 'vscode';
 import { resolveCodexPaths } from './workspaceStatus';
 
-export type SkillLocationKind = 'project' | 'workspace' | 'user' | 'system';
+export type SkillLocationKind = 'project' | 'workspace' | 'user' | 'system' | 'plugin';
 
 export type SkillLocation = {
 	kind: SkillLocationKind;

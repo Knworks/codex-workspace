@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import * as vscode from 'vscode';
 import { messages } from '../i18n';
@@ -25,6 +26,11 @@ import {
 	getWebviewImageHref,
 	getWebviewFontFamily,
 } from './webviewAssets';
+import {
+	listPluginRecords,
+	PluginRecord,
+	setPluginEnabled,
+} from './pluginService';
 
 const HISTORY_VIEW_TYPE = 'codex-workspace.coreView';
 export const HISTORY_MESSAGE_PREVIEW_MAX_CHARS = 100;
@@ -39,11 +45,14 @@ type HistoryPanelInboundMessage =
 	| { type: 'addTrustedDirectory' }
 	| { type: 'removeTrustedDirectory'; targetPath: string }
 	| { type: 'setFeatureFlag'; featureKey: string; enabled: boolean }
+	| { type: 'togglePlugin'; pluginId: string; enabled: boolean }
 	| { type: 'openPath'; targetPath: string }
+	| { type: 'openFolder'; targetPath: string }
+	| { type: 'openExternal'; targetUrl: string }
 	| { type: 'createHooksFile'; targetPath: string }
 	| { type: 'createEmptyFile'; targetPath: string };
 
-type CoreViewTab = 'history' | 'chain' | 'trusted' | 'features' | 'hooks';
+type CoreViewTab = 'history' | 'chain' | 'trusted' | 'features' | 'hooks' | 'plugins';
 
 type HistoryTurnSummary = {
 	turnId: string;
@@ -287,7 +296,8 @@ function isCoreViewTab(value: unknown): value is CoreViewTab {
 		value === 'chain' ||
 		value === 'trusted' ||
 		value === 'features' ||
-		value === 'hooks'
+		value === 'hooks' ||
+		value === 'plugins'
 	);
 }
 
@@ -593,6 +603,193 @@ function buildHooksHtml(): string {
 		</section>
 		<section class="settings-list">
 			${entryPanels || `<p class="muted">${messages.hooksNoEntries}</p>`}
+		</section>
+	</div>`;
+}
+
+function statusLabel(status: PluginRecord['status']): string {
+	if (status === 'disabled') {
+		return messages.pluginStatusDisabled;
+	}
+	if (status === 'readonly') {
+		return messages.pluginStatusReadonly;
+	}
+	if (status === 'needs-review') {
+		return messages.pluginStatusNeedsReview;
+	}
+	return messages.pluginStatusEnabled;
+}
+
+function buildPluginFeatureRows(
+	rows: Array<{ name: string; description?: string; path?: string; extra?: string; unsafePath?: boolean; error?: string }>,
+	emptyLabel: string,
+): string {
+	if (rows.length === 0) {
+		return `<p class="muted">${escapeHtml(emptyLabel)}</p>`;
+	}
+	return rows.map((row) => {
+		const action = row.path && !row.unsafePath
+			? `<button class="icon-button" type="button" data-open-path="${escapeHtml(row.path)}" title="${escapeHtml(messages.skillManagerOpen)}" aria-label="${escapeHtml(messages.skillManagerOpen)}"><span class="codicon codicon-go-to-file" aria-hidden="true"></span></button>`
+			: `<span class="readonly-lock" title="${escapeHtml(messages.pluginReadonlyTooltip)}"><span class="codicon codicon-lock" aria-hidden="true"></span></span>`;
+		return `<article class="plugin-feature-row ${row.error ? 'needs-review' : ''}">
+			<div>
+				<div class="plugin-feature-title">${escapeHtml(row.name)}</div>
+				${row.description ? `<p class="muted">${escapeHtml(row.description)}</p>` : ''}
+				${row.extra ? `<p class="muted">${escapeHtml(row.extra)}</p>` : ''}
+				${row.path ? `<p class="plugin-path">${escapeHtml(row.path)}</p>` : ''}
+				${row.error ? `<p class="plugin-error">${escapeHtml(row.error)}</p>` : ''}
+			</div>
+			${action}
+		</article>`;
+	}).join('');
+}
+
+function buildPluginsHtml(webview: vscode.Webview): string {
+	const configPath = resolveCodexPaths().configPath;
+	const plugins = listPluginRecords({ configPath });
+	const defaultIcon = getWebviewImageHref(webview, 'settingsfile32.png') ?? '';
+	const cards = plugins.map((plugin) => {
+		const logo = plugin.logoPath && typeof webview.asWebviewUri === 'function'
+			? webview.asWebviewUri(vscode.Uri.file(plugin.logoPath)).toString()
+			: defaultIcon;
+		const disabledClass = plugin.enabled ? '' : ' disabled';
+		const reviewClass = plugin.status === 'needs-review' ? ' needs-review' : '';
+		const brandStyle = plugin.brandColor ? ` style="--plugin-brand:${escapeHtml(plugin.brandColor)}"` : '';
+		return `<article class="plugin-card${disabledClass}${reviewClass}" data-plugin-id="${escapeHtml(plugin.id)}" data-filter-text="${escapeHtml(plugin.searchText)}"${brandStyle}>
+			<img class="plugin-logo" src="${escapeHtml(logo)}" alt="" />
+			<div class="plugin-card-main">
+				<div class="plugin-title">${escapeHtml(plugin.displayName)}</div>
+				<p class="muted">${escapeHtml(plugin.description)}</p>
+				<div class="plugin-meta">
+					<span>${escapeHtml(plugin.version)}</span>
+					<span>${escapeHtml(plugin.developer || plugin.marketplace)}</span>
+					<span class="plugin-status ${escapeHtml(plugin.status)}">${escapeHtml(statusLabel(plugin.status))}</span>
+				</div>
+			</div>
+			<label class="chain-toggle plugin-toggle" title="${escapeHtml(plugin.toggleDisabled ? messages.pluginStatusNeedsReview : messages.pluginReadonlyTooltip)}">
+				<input type="checkbox" data-plugin-toggle="${escapeHtml(plugin.id)}" ${plugin.enabled ? 'checked' : ''} ${plugin.toggleDisabled ? 'disabled' : ''} />
+				<span class="chain-toggle-switch" aria-hidden="true"></span>
+			</label>
+		</article>`;
+	}).join('');
+	const details = plugins.map((plugin) => {
+		const detailValues: Array<[string, string | undefined]> = [
+			['Version', plugin.version],
+			['Developer', plugin.developer],
+			['Marketplace', plugin.marketplace],
+			['Homepage', plugin.homepage],
+			['Repository', plugin.repository],
+			['License', plugin.license],
+			['Keywords', plugin.keywords.join(', ')],
+			['Capabilities', plugin.capabilities.map((capability) => capability.name).join(', ')],
+			['Default Prompt', plugin.defaultPrompt],
+			['Manifest Path', plugin.manifestPath],
+			['Installed Path', plugin.installedPath],
+			['Source', plugin.source ? JSON.stringify(plugin.source) : ''],
+			];
+		const detailRows = detailValues
+				.filter(([, value]) => value)
+				.map(([label, value]) => {
+					const displayValue = value ?? '';
+					const valueHtml = /^https?:\/\//i.test(displayValue)
+						? `<button class="link-button" type="button" data-open-external="${escapeHtml(displayValue)}">${escapeHtml(displayValue)}</button>`
+						: escapeHtml(displayValue);
+					return `<div class="chain-detail-label">${escapeHtml(label)}</div><div>${valueHtml}</div>`;
+				})
+				.join('');
+		const errorHtml = [...plugin.errors, ...plugin.warnings].map((error) =>
+			`<p class="plugin-error">${escapeHtml(error)}</p>`,
+		).join('');
+		const skills = buildPluginFeatureRows(
+			plugin.skills.map((skill) => ({
+				name: skill.name,
+				description: skill.description,
+				path: skill.skillPath,
+				unsafePath: skill.unsafePath,
+				extra: messages.pluginSkillBadge,
+			})),
+			messages.skillManagerNoResult,
+		);
+		const mcps = buildPluginFeatureRows(
+			plugin.mcpServers.map((server) => ({
+				name: server.name,
+				path: server.definitionPath,
+				unsafePath: server.unsafePath,
+				extra: [
+					messages.pluginMcpBadge,
+					server.type,
+					server.command ? `command: ${server.command}` : '',
+					server.url ? `url: ${server.url}` : '',
+					server.envKeys.length > 0 ? `env: ${server.envKeys.join(', ')}` : '',
+					server.hasToolFilters ? 'tools configured' : '',
+					server.conflict ? messages.pluginStatusNeedsReview : '',
+				].filter(Boolean).join(' / '),
+			})),
+			messages.mcpManagerNoResult,
+		);
+		const apps = buildPluginFeatureRows(
+			plugin.apps.map((app) => ({
+				name: app.name,
+				description: app.description,
+				path: app.definitionPath,
+				unsafePath: app.unsafePath,
+				extra: messages.pluginAppBadge,
+			})),
+			messages.pluginsNoResult,
+		);
+		const agents = buildPluginFeatureRows(
+			plugin.agents.map((agent) => ({
+				name: agent.name,
+				description: agent.description,
+				path: agent.definitionPath,
+				unsafePath: agent.unsafePath,
+				error: agent.error,
+				extra: [
+					messages.pluginAgentBadge,
+					agent.model ? `model: ${agent.model}` : '',
+					agent.reasoning ? `reasoning: ${agent.reasoning}` : '',
+					agent.sandbox ? `sandbox: ${agent.sandbox}` : '',
+					agent.mcpServers.length > 0 ? `mcp: ${agent.mcpServers.join(', ')}` : '',
+				].filter(Boolean).join(' / '),
+			})),
+			messages.agentManagerNoResult,
+		);
+		return `<section class="plugin-detail" data-plugin-detail="${escapeHtml(plugin.id)}">
+			<div class="plugin-detail-header">
+				<div>
+					<h2>${escapeHtml(plugin.displayName)}</h2>
+					<p>${escapeHtml(plugin.longDescription)}</p>
+					<p class="muted">${escapeHtml(messages.pluginCacheEditWarning)}</p>
+				</div>
+				<span class="plugin-status ${escapeHtml(plugin.status)}">${escapeHtml(statusLabel(plugin.status))}</span>
+			</div>
+			<div class="plugin-actions">
+				<button class="icon-text-button" type="button" data-open-path="${escapeHtml(plugin.manifestPath)}"><span class="codicon codicon-json" aria-hidden="true"></span>${escapeHtml(messages.pluginOpenManifest)}</button>
+				<button class="icon-text-button" type="button" data-open-folder="${escapeHtml(plugin.installedPath)}"><span class="codicon codicon-folder-opened" aria-hidden="true"></span>${escapeHtml(messages.pluginOpenFolder)}</button>
+				${plugin.marketplacePath ? `<button class="icon-text-button" type="button" data-open-path="${escapeHtml(plugin.marketplacePath)}"><span class="codicon codicon-go-to-file" aria-hidden="true"></span>Marketplace</button>` : ''}
+			</div>
+			${errorHtml}
+			<div class="chain-detail-grid plugin-detail-grid">${detailRows}</div>
+			<h3 class="section-heading">${escapeHtml(messages.pluginSkillBadge)}</h3>${skills}
+			<h3 class="section-heading">${escapeHtml(messages.pluginMcpBadge)}</h3>${mcps}
+			<h3 class="section-heading">${escapeHtml(messages.pluginAppBadge)}</h3>${apps}
+			<h3 class="section-heading">${escapeHtml(messages.pluginAgentBadge)}</h3>${agents}
+		</section>`;
+	}).join('');
+	return `<div class="plugin-tab">
+		<div class="tab-toolbar">
+			<div class="search-box">
+				<input id="pluginSearchInput" type="text" placeholder="${escapeHtml(messages.pluginsSearchPlaceholder)}" />
+				<button id="pluginClearSearch" class="icon-button" type="button" title="${escapeHtml(messages.historyClear)}" aria-label="${escapeHtml(messages.historyClear)}"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
+			</div>
+			${buildRefreshButtonHtml('plugins')}
+		</div>
+		<section class="bottom-pane">
+			<aside id="pluginList" class="left-pane">${cards || `<p class="muted">${escapeHtml(messages.pluginsNoResult)}</p>`}</aside>
+			<main id="pluginDetails" class="right-pane">
+				<div id="pluginEmpty" class="preview-empty">${escapeHtml(messages.pluginsSelectPlaceholder)}</div>
+				${details}
+			</main>
 		</section>
 	</div>`;
 }
@@ -936,7 +1133,8 @@ function buildHistoryWebviewHtml(
 		}
 		#trustedTab.active,
 		#featuresTab.active,
-		#hooksTab.active {
+		#hooksTab.active,
+		#pluginsTab.active {
 			display: grid;
 			grid-template-rows: 1fr;
 			height: 100%;
@@ -945,7 +1143,8 @@ function buildHistoryWebviewHtml(
 		}
 		#trustedContent,
 		#featuresContent,
-		#hooksContent {
+		#hooksContent,
+		#pluginsContent {
 			height: 100%;
 			min-height: 0;
 			overflow: auto;
@@ -1376,6 +1575,135 @@ function buildHistoryWebviewHtml(
 			border-radius: 4px;
 			overflow: auto;
 		}
+		.plugin-tab {
+			height: 100%;
+			display: grid;
+			grid-template-rows: auto minmax(0, 1fr);
+			min-height: 0;
+		}
+		.plugin-tab .tab-toolbar {
+			justify-content: stretch;
+		}
+		.plugin-tab .search-box {
+			flex: 1;
+			min-width: 0;
+		}
+		.plugin-tab .search-box input {
+			width: 100%;
+		}
+		.plugin-card {
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr) auto;
+			gap: 10px;
+			align-items: center;
+			padding: 8px;
+			margin-bottom: 8px;
+			border: 1px solid var(--vscode-panel-border);
+			border-left: 3px solid var(--plugin-brand, var(--vscode-focusBorder));
+			border-radius: 6px;
+			background: var(--vscode-editorWidget-background);
+			cursor: pointer;
+		}
+		.plugin-card.active {
+			border-color: var(--vscode-focusBorder);
+			background: var(--vscode-list-activeSelectionBackground);
+			color: var(--vscode-list-activeSelectionForeground);
+		}
+		.plugin-card.disabled {
+			opacity: 0.55;
+		}
+		.plugin-logo {
+			width: 32px;
+			height: 32px;
+			object-fit: contain;
+		}
+		.plugin-title,
+		.plugin-feature-title {
+			font-weight: 600;
+		}
+		.plugin-meta {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+			font-size: 12px;
+			color: var(--vscode-descriptionForeground);
+		}
+		.plugin-status {
+			display: inline-flex;
+			align-items: center;
+			width: fit-content;
+			border: 1px solid var(--vscode-panel-border);
+			border-radius: 999px;
+			padding: 1px 7px;
+			font-size: 12px;
+		}
+		.plugin-status.enabled {
+			color: var(--vscode-testing-iconPassed);
+		}
+		.plugin-status.disabled {
+			color: var(--vscode-disabledForeground);
+		}
+		.plugin-status.needs-review,
+		.plugin-error {
+			color: var(--vscode-editorWarning-foreground);
+		}
+		.plugin-detail {
+			display: none;
+		}
+		.plugin-detail.active {
+			display: block;
+		}
+		.plugin-detail-header {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 12px;
+		}
+		.plugin-actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin: 8px 0 12px;
+		}
+		.icon-text-button {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			border: 1px solid var(--vscode-panel-border);
+			border-radius: 4px;
+			background: var(--vscode-button-secondaryBackground);
+			color: var(--vscode-button-secondaryForeground);
+			padding: 4px 8px;
+			cursor: pointer;
+		}
+		.link-button {
+			padding: 0;
+			border: 0;
+			background: transparent;
+			color: var(--vscode-textLink-foreground);
+			text-decoration: underline;
+			cursor: pointer;
+			word-break: break-all;
+			text-align: left;
+		}
+		.plugin-feature-row {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			gap: 10px;
+			align-items: center;
+			border: 1px solid var(--vscode-panel-border);
+			border-radius: 6px;
+			padding: 8px;
+			margin: 6px 0;
+		}
+		.plugin-path {
+			color: var(--vscode-descriptionForeground);
+			font-size: 12px;
+			word-break: break-all;
+		}
+		.readonly-lock {
+			color: var(--vscode-descriptionForeground);
+		}
 	</style>
 </head>
 <body>
@@ -1386,6 +1714,7 @@ function buildHistoryWebviewHtml(
 			<button class="tab" data-tab="trusted" type="button"><span class="codicon codicon-shield" aria-hidden="true"></span>${messages.coreViewTrustedDirectoriesTab}</button>
 			<button class="tab" data-tab="features" type="button"><span class="codicon codicon-settings-gear" aria-hidden="true"></span>${messages.coreViewFeatureFlagsTab}</button>
 			<button class="tab" data-tab="hooks" type="button"><span class="codicon codicon-symbol-event" aria-hidden="true"></span>${messages.coreViewHooksTab}</button>
+			<button class="tab" data-tab="plugins" type="button"><span class="codicon codicon-plug" aria-hidden="true"></span>${messages.pluginsTab}</button>
 		</nav>
 		<div class="tab-panels">
 		<section id="historyTab" class="diag-tab active">
@@ -1427,6 +1756,9 @@ function buildHistoryWebviewHtml(
 		</section>
 		<section id="hooksTab" class="diag-tab">
 			<div id="hooksContent"></div>
+		</section>
+		<section id="pluginsTab" class="diag-tab">
+			<div id="pluginsContent"></div>
 		</section>
 		</div>
 	</div>
@@ -1490,6 +1822,21 @@ function buildHistoryWebviewHtml(
 				vscode.postMessage({ type: 'openPath', targetPath: openPathButton.dataset.openPath });
 				return;
 			}
+			const openFolderButton = target?.closest('[data-open-folder]');
+			if (openFolderButton?.dataset?.openFolder) {
+				vscode.postMessage({ type: 'openFolder', targetPath: openFolderButton.dataset.openFolder });
+				return;
+			}
+			const openExternalButton = target?.closest('[data-open-external]');
+			if (openExternalButton?.dataset?.openExternal) {
+				vscode.postMessage({ type: 'openExternal', targetUrl: openExternalButton.dataset.openExternal });
+				return;
+			}
+			const pluginCard = target?.closest('[data-plugin-id]');
+			if (pluginCard?.dataset?.pluginId && !target?.closest('[data-plugin-toggle]')) {
+				selectPlugin(pluginCard.dataset.pluginId);
+				return;
+			}
 			const createHooksFileButton = target?.closest('[data-create-hooks-file]');
 			if (createHooksFileButton?.dataset?.createHooksFile) {
 				vscode.postMessage({ type: 'createHooksFile', targetPath: createHooksFileButton.dataset.createHooksFile });
@@ -1527,6 +1874,14 @@ function buildHistoryWebviewHtml(
 					featureKey,
 					enabled: target.checked,
 				});
+				return;
+			}
+			if (target?.dataset?.pluginToggle) {
+				vscode.postMessage({
+					type: 'togglePlugin',
+					pluginId: target.dataset.pluginToggle,
+					enabled: target.checked,
+				});
 			}
 		});
 		searchInput.placeholder = labels.searchPlaceholder;
@@ -1545,6 +1900,50 @@ function buildHistoryWebviewHtml(
 				.replaceAll("'", '&#39;');
 
 		const escapeRegExp = (value) => value.replace(/[.*+?^$()|[\\]{}\\\\]/g, '\\\\$&');
+
+		const selectPlugin = (pluginId) => {
+			document.querySelectorAll('[data-plugin-id]').forEach((item) => {
+				item.classList.toggle('active', item.dataset?.pluginId === pluginId);
+			});
+			document.querySelectorAll('[data-plugin-detail]').forEach((item) => {
+				item.classList.toggle('active', item.dataset?.pluginDetail === pluginId);
+			});
+			const empty = document.getElementById('pluginEmpty');
+			if (empty) {
+				empty.style.display = pluginId ? 'none' : '';
+			}
+		};
+
+		const applyPluginFilter = () => {
+			const input = document.getElementById('pluginSearchInput');
+			const query = input?.value?.trim().toLocaleLowerCase() || '';
+			let firstVisibleId = '';
+			document.querySelectorAll('[data-plugin-id]').forEach((item) => {
+				const visible = !query || (item.dataset?.filterText || '').includes(query);
+				item.style.display = visible ? '' : 'none';
+				if (visible && !firstVisibleId) {
+					firstVisibleId = item.dataset?.pluginId || '';
+				}
+			});
+			const active = document.querySelector('[data-plugin-id].active');
+			if (!active || active.style.display === 'none') {
+				selectPlugin(firstVisibleId);
+			}
+		};
+
+		const wirePluginsTab = () => {
+			const input = document.getElementById('pluginSearchInput');
+			input?.addEventListener('input', applyPluginFilter);
+			document.getElementById('pluginClearSearch')?.addEventListener('click', () => {
+				if (input instanceof HTMLInputElement) {
+					input.value = '';
+					applyPluginFilter();
+					input.focus();
+				}
+			});
+			const first = document.querySelector('[data-plugin-id]');
+			selectPlugin(first?.dataset?.pluginId || '');
+		};
 
 		const highlightTitle = (text, query) => {
 			const escapedText = escapeHtml(text);
@@ -1930,6 +2329,14 @@ function buildHistoryWebviewHtml(
 						hooksContent.innerHTML = message.html;
 					}
 				}
+				if (message.tab === 'plugins') {
+					loadedTabs.add('plugins');
+					const pluginsContent = document.getElementById('pluginsContent');
+					if (pluginsContent) {
+						pluginsContent.innerHTML = message.html;
+						wirePluginsTab();
+					}
+				}
 				return;
 			}
 			if (message?.type !== 'state') {
@@ -1947,12 +2354,11 @@ function buildHistoryWebviewHtml(
 }
 
 export function createHistoryWebviewPanel(): vscode.WebviewPanel {
+	const pluginCacheRoot = vscode.Uri.file(path.join(os.homedir(), '.codex', 'plugins', 'cache'));
 	const panelOptions: vscode.WebviewPanelOptions & vscode.WebviewOptions = {
 		enableScripts: true,
 		retainContextWhenHidden: true,
-		...(CODICON_RESOURCE_ROOTS.length > 0
-			? { localResourceRoots: CODICON_RESOURCE_ROOTS }
-			: {}),
+		localResourceRoots: [...CODICON_RESOURCE_ROOTS, pluginCacheRoot],
 	};
 	const panel = vscode.window.createWebviewPanel(
 		HISTORY_VIEW_TYPE,
@@ -1983,6 +2389,7 @@ export class HistoryPanelManager implements vscode.Disposable {
 			panel: vscode.WebviewPanel,
 			listener: () => void,
 		) => vscode.Disposable | void = (panel, listener) => panel.onDidDispose(listener),
+		private readonly onDidChangePlugins: () => void = () => {},
 	) {}
 
 	show(): vscode.WebviewPanel {
@@ -2071,8 +2478,24 @@ export class HistoryPanelManager implements vscode.Disposable {
 			void this.setFeatureFlag(incoming.featureKey, incoming.enabled);
 			return;
 		}
+		if (
+			incoming.type === 'togglePlugin' &&
+			typeof incoming.pluginId === 'string' &&
+			typeof incoming.enabled === 'boolean'
+		) {
+			void this.togglePlugin(incoming.pluginId, incoming.enabled);
+			return;
+		}
 		if (incoming.type === 'openPath' && typeof incoming.targetPath === 'string') {
 			void this.openPath(incoming.targetPath);
+			return;
+		}
+		if (incoming.type === 'openFolder' && typeof incoming.targetPath === 'string') {
+			void this.openFolder(incoming.targetPath);
+			return;
+		}
+		if (incoming.type === 'openExternal' && typeof incoming.targetUrl === 'string') {
+			void this.openExternal(incoming.targetUrl);
 			return;
 		}
 		if (
@@ -2126,9 +2549,28 @@ export class HistoryPanelManager implements vscode.Disposable {
 		}
 	}
 
+	private async togglePlugin(pluginId: string, enabled: boolean): Promise<void> {
+		setPluginEnabled(resolveCodexPaths().configPath, pluginId, enabled);
+		vscode.window.showInformationMessage(messages.pluginToggleUpdated);
+		this.onDidChangePlugins();
+		this.refreshTab('plugins');
+	}
+
 	private async openPath(targetPath: string): Promise<void> {
 		const targetUri = vscode.Uri.file(targetPath);
 		await vscode.commands.executeCommand('vscode.open', targetUri);
+	}
+
+	private async openFolder(targetPath: string): Promise<void> {
+		await vscode.env.openExternal(vscode.Uri.file(targetPath));
+	}
+
+	private async openExternal(targetUrl: string): Promise<void> {
+		const targetUri = vscode.Uri.parse(targetUrl, true);
+		if (targetUri.scheme !== 'http' && targetUri.scheme !== 'https') {
+			return;
+		}
+		await vscode.env.openExternal(targetUri);
 	}
 
 	private async createHooksFile(targetPath: string): Promise<void> {
@@ -2179,6 +2621,14 @@ export class HistoryPanelManager implements vscode.Disposable {
 				type: 'tabContent',
 				tab,
 				html: buildHooksHtml(),
+			});
+			return;
+		}
+		if (tab === 'plugins') {
+			void this.panel.webview.postMessage({
+				type: 'tabContent',
+				tab,
+				html: buildPluginsHtml(this.panel.webview),
 			});
 			return;
 		}

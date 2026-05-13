@@ -9,6 +9,7 @@ import {
 	findAgentLocationForPath,
 	getAgentLocations,
 } from '../services/agentLocations';
+import { listPluginAgentRecords } from '../services/pluginService';
 
 type AgentEntry = {
 	name: string;
@@ -47,7 +48,7 @@ export class AgentExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> 
 	protected getAvailableChildren(): vscode.ProviderResult<CodexTreeItem[]> {
 		const { configPath } = resolveCodexPaths();
 		const enabledAgents = this.readEnabledAgents(configPath);
-		return this.readLocations().flatMap((location) =>
+		const normalItems = this.readLocations().flatMap((location) =>
 			this.readEntries(location.rootPath)
 				.filter((entry) => entry.isFile && path.extname(entry.name).toLowerCase() === '.toml')
 				.sort((left, right) =>
@@ -58,6 +59,32 @@ export class AgentExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> 
 				)
 				.map((entry) => this.toTreeItem(entry, enabledAgents, location)),
 		);
+		const pluginItems = listPluginAgentRecords({ configPath }).map((agent) => {
+			const item = new CodexTreeItem(
+				'file',
+				'agents',
+				agent.name,
+				vscode.TreeItemCollapsibleState.None,
+				agent.definitionPath,
+			);
+			item.id = `plugin-agent:${agent.pluginId}:${agent.definitionPath}`;
+			item.contextValue = 'codex-plugin-agent-file';
+			item.description = agent.pluginDisplayName;
+			item.tooltip = `${agent.pluginDisplayName}: ${agent.name}\n${agent.definitionPath}`;
+			item.command = {
+				command: 'codex-workspace.openFile',
+				title: 'Open plugin agent file',
+				arguments: [item],
+			};
+			item.iconPath = agent.enabled && !agent.error
+				? new vscode.ThemeIcon('plug')
+				: new vscode.ThemeIcon(
+					agent.error ? 'warning' : 'circle-slash',
+					new vscode.ThemeColor(agent.error ? 'editorWarning.foreground' : 'disabledForeground'),
+				);
+			return item;
+		});
+		return [...normalItems, ...pluginItems];
 	}
 
 	getLocationForPath(targetPath: string): AgentLocation | undefined {

@@ -92,6 +92,44 @@ export const messages = {
 		'message.mcpToggleUpdated',
 		'Settings updated. Please restart Codex to apply changes.',
 	),
+	pluginToggleUpdated: localize(
+		'message.pluginToggleUpdated',
+		'Plugin settings updated. Please restart Codex to apply changes.',
+	),
+	pluginsTab: localize('message.pluginsTab', 'Plugins'),
+	pluginsSearchPlaceholder: localize(
+		'message.pluginsSearchPlaceholder',
+		'Search plugins',
+	),
+	pluginsNoResult: localize(
+		'message.pluginsNoResult',
+		'No plugins found.',
+	),
+	pluginsSelectPlaceholder: localize(
+		'message.pluginsSelectPlaceholder',
+		'Select a plugin to view details.',
+	),
+	pluginStatusEnabled: localize('message.pluginStatusEnabled', 'Enabled'),
+	pluginStatusDisabled: localize('message.pluginStatusDisabled', 'Disabled'),
+	pluginStatusReadonly: localize('message.pluginStatusReadonly', 'Read only'),
+	pluginStatusNeedsReview: localize(
+		'message.pluginStatusNeedsReview',
+		'Needs review',
+	),
+	pluginReadonlyTooltip: localize(
+		'message.pluginReadonlyTooltip',
+		'Managed by the parent plugin. Individual feature toggles are not available in this release.',
+	),
+	pluginSkillBadge: localize('message.pluginSkillBadge', 'Plugin Skill'),
+	pluginMcpBadge: localize('message.pluginMcpBadge', 'Plugin MCP'),
+	pluginAppBadge: localize('message.pluginAppBadge', 'Plugin App'),
+	pluginAgentBadge: localize('message.pluginAgentBadge', 'Plugin Agent'),
+	pluginOpenManifest: localize('message.pluginOpenManifest', 'Open manifest'),
+	pluginOpenFolder: localize('message.pluginOpenFolder', 'Open plugin folder'),
+	pluginCacheEditWarning: localize(
+		'message.pluginCacheEditWarning',
+		'Plugin cache files may be overwritten by reinstall or upgrade.',
+	),
 	configTomlOrganized: (backupPath: string) =>
 		localize(
 			'message.configTomlOrganized',
@@ -177,6 +215,10 @@ export const messages = {
 	mcpManagerSearchPlaceholder: localize(
 		'message.mcpManagerSearchPlaceholder',
 		'Search MCP servers',
+	),
+	mcpManagerNoResult: localize(
+		'message.mcpManagerNoResult',
+		'No MCP servers found.',
 	),
 	mcpManagerAdd: localize('message.mcpManagerAdd', 'Add'),
 	mcpManagerDelete: localize('message.mcpManagerDelete', 'Delete'),

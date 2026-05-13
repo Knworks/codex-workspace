@@ -51,7 +51,20 @@ export function activate(context: vscode.ExtensionContext) {
 	const selectionContext = new SelectionContext();
 	const expansionState = new TreeExpansionState();
 	const viewFocusState = new ViewFocusState();
-	const historyPanelManager = new HistoryPanelManager();
+	const historyPanelManager = new HistoryPanelManager(
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		() => {
+			skillsProvider.refresh();
+			mcpProvider.refresh();
+			agentsProvider.refresh();
+		},
+	);
 	const skillManagerPanelManager = new SkillManagerPanelManager(() =>
 		skillsProvider.refresh(),
 	);

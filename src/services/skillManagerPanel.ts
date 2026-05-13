@@ -56,19 +56,26 @@ function buildRows(records: SkillRecord[]): string {
 	}
 	return records.map((record) => {
 		const disabledClass = record.enabled ? '' : ' disabled';
+		const readonlyBadge = record.readonly
+			? `<span class="location" title="${escapeHtml(messages.pluginReadonlyTooltip)}">${escapeHtml(messages.pluginSkillBadge)}</span>`
+			: '';
+		const toggleHtml = record.readonly
+			? `<span class="readonly-lock" title="${escapeHtml(messages.pluginReadonlyTooltip)}"><span class="codicon codicon-lock" aria-hidden="true"></span></span>`
+			: `<label class="switch">
+					<input type="checkbox" data-skill-path="${escapeHtml(record.skillPath)}" ${record.enabled ? 'checked' : ''} />
+					<span></span>
+				</label>`;
 		return `<article class="skill-row${disabledClass}" data-filter-text="${escapeHtml(`${record.name} ${record.description} ${record.skillPath}`.toLocaleLowerCase())}">
-			<span class="codicon codicon-agent row-icon" aria-hidden="true"></span>
+			<span class="codicon ${record.readonly ? 'codicon-plug' : 'codicon-agent'} row-icon" aria-hidden="true"></span>
 			<div class="skill-main">
 				<div class="skill-title">${escapeHtml(record.name)}</div>
 				<div class="skill-description">${escapeHtml(record.description)}</div>
 				<div class="skill-path" title="${escapeHtml(record.location.label)}: ${escapeHtml(record.skillPath)}">${escapeHtml(record.skillPath)}</div>
 			</div>
 			<div class="skill-actions">
+				${readonlyBadge}
 				<span class="location">${escapeHtml(record.location.label)}</span>
-				<label class="switch">
-					<input type="checkbox" data-skill-path="${escapeHtml(record.skillPath)}" ${record.enabled ? 'checked' : ''} />
-					<span></span>
-				</label>
+				${toggleHtml}
 				<button class="icon-button" type="button" data-open-path="${escapeHtml(record.skillPath)}" title="${escapeHtml(messages.skillManagerOpen)}" aria-label="${escapeHtml(messages.skillManagerOpen)}"><span class="codicon codicon-file-text" aria-hidden="true"></span></button>
 			</div>
 		</article>`;
@@ -119,6 +126,7 @@ function buildHtml(webview: vscode.Webview, records: SkillRecord[], query: strin
 			.switch span::after { background: #ffffff; }
 		}
 		.icon-button { width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--vscode-panel-border); border-radius: 4px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); cursor: pointer; }
+		.readonly-lock { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; color: var(--vscode-descriptionForeground); }
 		.row-icon { font-size: 22px; color: var(--vscode-descriptionForeground); }
 		.empty { color: var(--vscode-descriptionForeground); }
 	</style>
