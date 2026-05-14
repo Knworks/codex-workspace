@@ -2,6 +2,12 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
+## 1.1.4
+
+Changes
+
+- Added a `Plugins` tab to `Codex Manager` for browsing installed plugin metadata, bundled capabilities, and marketplace details.
+
 ## 1.1.3
 
 Changes
