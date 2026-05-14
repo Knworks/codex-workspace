@@ -1,10 +1,10 @@
-# 📘Codex Workspace 計書書
+# 📘Codex Workspace 設計書
 
 ## 1. 🏷️システム概要
 
 - **アプリ名**: `Codex Workspace`
 - **種別**: VS Code 拡張
-- **役割**: Codex の設定ファイル、Skills、Sub Agents、MCP Server、Templates、履歴・診断画面を VS Code 上で扱う
+- **役割**: Codex の設定ファイル、Skills、Sub Agents、MCP Server、Templates、履歴・診断画面、Plugin 情報を VS Code 上で扱う
 - **主要 UI**:
   - View Container 配下の 6 Tree View
   - `Codex Manager` / `Skill Manager` / `AGENTS Manager` / `MCP Manager` の 4 WebviewPanel
@@ -30,38 +30,51 @@ codex-workspace/
 ├── src/
 │   ├── extension.ts
 │   ├── commands/
-│   │   ├── fileCommands.ts
-│   │   └── agentCommands.ts
-│   ├── services/
-│   │   ├── workspaceStatus.ts
-│   │   ├── historyService.ts
-│   │   ├── historyPanel.ts
-│   │   ├── skillConfigService.ts
-│   │   ├── skillManagerPanel.ts
-│   │   ├── agentConfigService.ts
-│   │   ├── agentManagerService.ts
-│   │   ├── agentManagerPanel.ts
-│   │   ├── mcpService.ts
-│   │   ├── mcpManagerService.ts
-│   │   ├── mcpManagerPanel.ts
-│   │   ├── coreDiagnosticsService.ts
-│   │   ├── coreManagerConfigService.ts
-│   │   ├── syncService.ts
-│   │   └── configTomlOrganizerService.ts
-│   ├── views/
-│   │   ├── coreExplorerProvider.ts
-│   │   ├── fileExplorerProvider.ts
-│   │   ├── agentExplorerProvider.ts
-│   │   └── mcpExplorerProvider.ts
+│   │   ├── agentCommands.ts
+│   │   └── fileCommands.ts
 │   ├── models/
 │   │   └── treeItems.ts
+│   ├── services/
+│   │   ├── agentConfigRepairService.ts
+│   │   ├── agentConfigService.ts
+│   │   ├── agentLocations.ts
+│   │   ├── agentManagerPanel.ts
+│   │   ├── agentManagerService.ts
+│   │   ├── agentSyncCleanupService.ts
+│   │   ├── configTomlOrganizerService.ts
+│   │   ├── coreDiagnosticsService.ts
+│   │   ├── coreManagerConfigService.ts
+│   │   ├── disabledAgentsStore.ts
+│   │   ├── fileNaming.ts
+│   │   ├── fileOperations.ts
+│   │   ├── fileTreeService.ts
+│   │   ├── historyPanel.ts
+│   │   ├── historyService.ts
+│   │   ├── mcpManagerPanel.ts
+│   │   ├── mcpManagerService.ts
+│   │   ├── mcpService.ts
+│   │   ├── pluginService.ts
+│   │   ├── settings.ts
+│   │   ├── skillConfigService.ts
+│   │   ├── skillLocations.ts
+│   │   ├── skillManagerPanel.ts
+│   │   ├── syncService.ts
+│   │   ├── webviewAssets.ts
+│   │   └── workspaceStatus.ts
+│   ├── views/
+│   │   ├── agentExplorerProvider.ts
+│   │   ├── codexTreeProvider.ts
+│   │   ├── coreExplorerProvider.ts
+│   │   ├── emptyExplorerProvider.ts
+│   │   ├── fileExplorerProvider.ts
+│   │   └── mcpExplorerProvider.ts
 │   └── test/
 ├── docs/
 ├── images/
 └── package.json
 ```
 
-## 4.🧩機能設計
+## 4. 🧩機能設計
 
 - **拡張起動**
   - `extension.ts` で 6 つの Tree View を生成する
@@ -77,70 +90,80 @@ codex-workspace/
   - 隠しファイルは除外する
   - ソートは「folder 優先 + 名前昇順」
   - Skills のみ複数 root をフラットに表示する
-  - Skills の `SKILL.md` と skill root folder には有効/無効状態アイコンを付与する
+  - Skills の `SKILL.md` と Skill root folder には有効/無効状態アイコンを付与する
 
 - **Sub Agents Explorer**
-  - `agentExplorerProvider.ts` が Project / Workspace ルートの `*.toml` を列挙する
+  - `agentExplorerProvider.ts` が `getAgentLocations()` の結果から `*.toml` を列挙する
   - アイコン状態は `config.toml` に `[agents.<id>]` があるかどうかで決まる
   - tooltip と description に location label を付与する
 
 - **MCP Server Explorer**
   - `mcpExplorerProvider.ts` が `readMcpServers()` の結果を表示する
+  - `.env` 末尾の補助 block は一覧に出さない
   - Tree item クリックで `codex-workspace.mcp.toggle` を実行する
 
 - **ファイル操作**
   - `fileCommands.ts` が add / rename / delete を担当する
   - Skills では root 選択時に location picker を表示する
   - Skills の folder 作成時は `references` / `scripts` / `assets` の候補を先に出す
-  - テンプレート候補は `templateService.ts` から取得する
+  - 新規ファイル作成時の既定テンプレートは `templateService.ts` から取得する
+  - 既存ファイル名と衝突した場合は `resolveUniqueName()` で `_1`, `_2` 形式へ退避する
 
 - **Skill Manager**
   - `skillManagerPanel.ts` が単一 WebviewPanel を維持する
   - `skillConfigService.ts` が `SKILL.md` を再帰列挙し、frontmatter の `name` / `description` を読む
-  - toggle は `[[skills.config]]` を追加または更新する
+  - toggle は `setSkillEnabled()` により `[[skills.config]]` block を追加、更新、削除する
+  - `enabled = true` は保存せず、block 不在を有効状態として扱う
 
 - **Sub Agents 操作**
   - `agentCommands.ts` が add / edit / delete / enable / disable を担当する
-  - 作成後は `appendAgentConfigBlock()` で `config.toml` に block を追加する
+  - 作成、編集、有効化後は `upsertAgentConfigMetadata()` で `description` と `config_file` を実体へ同期する
   - 無効化時は block を `agents-disabled.json` に退避する
+  - 同期や整理の前後では `agentConfigRepairService.ts` と `agentSyncCleanupService.ts` が `config.toml` を補正する
   - AGENTS Manager は `agentManagerService.ts` が一覧モデルを作る
 
 - **MCP Manager**
   - `mcpManagerPanel.ts` が左 list / 右 form の Webview を提供する
   - `mcpManagerService.ts` が block 解析、バリデーション、保存、削除を行う
-  - 保存時は管理対象キーのみ更新し、未管理キーは維持する
+  - 保存時は管理対象キーを更新し、既存 block の未管理キーは維持する
+  - `env` は sibling block と inline table の両方から編集モデルへマージする
 
 - **Codex Manager**
   - `historyPanel.ts` がタブ付き Core WebviewPanel を提供する
   - History タブは `historyService.ts` から `HistoryIndex` を構築する
-  - AGENTS Loading Chain は `coreDiagnosticsService.ts` で推定診断を作る
+  - AGENTS Loading Chain は `coreDiagnosticsService.ts` で診断を作る
   - Trusted Directory、Feature Flags、Hooks は `coreDiagnosticsService.ts` と `coreManagerConfigService.ts` を用いる
+  - Plugins タブは `pluginService.ts` で cache / marketplace / manifest 情報を集約し、`[plugins."<id>"]` の有効状態を切り替える
 
 - **同期**
   - `syncService.ts` が Core / directory 単位の双方向同期を行う
+  - Core 同期対象は `AGENTS.md`、`AGENTS.override.md`、`config.toml`
+  - 隠しパスと `.codex-workspace` メタディレクトリは除外する
   - 管理状態は `.codex-workspace/codex-sync.json` に保存する
-  - Sub Agents 同期後は `agentSyncCleanupService.ts` で `config.toml` を補正する
+  - Sub Agents 同期後は `agentSyncCleanupService.ts` で `config.toml`、disabled store、sync state を補正する
 
 - **`Organize config.toml`**
-  - `configTomlOrganizerService.ts` が管理対象 cluster を再配置する
-  - バックアップ先は `.codex-workspace/config.toml.bk`
+  - `extension.ts` のコマンド実装がバックアップを保存する
+  - `repairAgentConfigEntries()` で Agent metadata を修復した後、`organizeConfigTomlContents()` で管理 block を再配置する
 
 ## 5. 🗃️データモデル
 
 | エンティティ | 属性 | 型 | 説明 |
 | --- | --- | --- | --- |
 | `WorkspaceStatus` | `isAvailable` / `reason` / `isConfigInvalid` | boolean / string | ビュー利用可否 |
+| `SyncSettings` | `codexFolder` / `promptsFolder` / `skillsFolder` / `templatesFolder` / `agentFolder` | object | 同期先設定 |
 | `SkillLocation` | `kind` / `label` / `rootPath` / `createPath` / `priority` | object | Skills 保存場所 |
 | `SkillRecord` | `id` / `name` / `description` / `skillPath` / `enabled` | object | Skill Manager 行 |
 | `AgentLocation` | `kind` / `label` / `rootPath` / `createPath` / `priority` | object | Sub Agents 保存場所 |
 | `AgentManagerRecord` | `name` / `description` / `model` / `reasoningEffort` / `sandboxMode` / `agentPath` / `enabled` | object | AGENTS Manager 行 |
 | `McpFormModel` | `id` / `transport` / `command` / `args` / `url` / `env` / `required` / `startupTimeoutSec` / `toolTimeoutSec` / `enabledTools` / `disabledTools` / `enabled` | object | MCP Manager 編集モデル |
-| `HistoryTurnRecord` | `turnId` / `dateKey` / `userMessage` / `agentMessages` / `reasoningMessages` / `aiTimeline` | object | 会話履歴 1 タスク分 |
+| `HistoryTurnRecord` | `turnId` / `sessionId` / `dateKey` / `userMessage` / `agentMessages` / `reasoningMessages` / `aiTimeline` | object | 会話履歴 1 タスク分 |
 | `AgentsChainNode` | `status` / `kind` / `type` / `fileName` / `absolutePath` / `reason` | object | AGENTS Loading Chain 診断ノード |
 | `TrustedDirectory` | `path` / `exists` / `reason` | object | Trusted Directory 表示モデル |
 | `FeatureFlagRecord` | `key` / `enabled` / `configuredValue` / `defaultEnabled` / `maturity` / `description` | object | Feature Flags 表示モデル |
 | `HookSourceRecord` | `id` / `layer` / `format` / `path` / `exists` / `active` / `entryCount` / `warning` | object | Hooks source 表示モデル |
 | `HookEntryRecord` | `event` / `matcher` / `handlerType` / `command` / `timeout` / `statusMessage` / `active` / `supported` | object | Hooks entry 表示モデル |
+| `PluginRecord` | `id` / `displayName` / `version` / `marketplace` / `status` / `enabled` / `toggleDisabled` / `skills` / `mcpServers` / `apps` / `agents` | object | Plugins タブ表示モデル |
 
 ## 6. 🖥️画面設計
 
@@ -173,7 +196,7 @@ codex-workspace/
   - item context: add folder / add file
 
 - **Sub Agents ビュー**
-  - Project / Workspace root の `*.toml` を表示
+  - `getAgentLocations()` の各 root 配下 `*.toml` を表示
   - タイトルバー: add / edit / delete / refresh / open folder / sync / AGENTS Manager
 
 - **MCP Server ビュー**
@@ -196,12 +219,13 @@ codex-workspace/
   - 右ペイン: server detail form
 
 - **Codex Manager**
-  - タブ: History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks
+  - タブ: History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks / Plugins
   - History: 検索バー + 左一覧 + 右プレビュー
   - AGENTS Loading Chain: 左一覧 + 右詳細
   - Trusted Directory: add / remove / refresh
   - Feature Flags: list + toggle + refresh
   - Hooks: summary + source list + entry list
+  - Plugins: 検索 + 左一覧 + 右詳細
 
 ## 7. 🗺️システム構成図
 
@@ -219,18 +243,22 @@ flowchart TB
   CODEX[~/.codex]
   PROJECT[Workspace Root]
   SESSIONS[CODEX_HOME/sessions]
+  PLUGINS[~/.codex/plugins/cache]
+  MARKET[Marketplace JSON]
 
   VC --> EH
   EH --> CODEX
   EH --> PROJECT
   EH --> SESSIONS
+  EH --> PLUGINS
+  EH --> MARKET
   EH --> WV1
   EH --> WV2
   EH --> WV3
   EH --> WV4
 ```
 
-## 8.🔌外部インターフェース
+## 8. 🔌外部インターフェース
 
 - **ファイルシステム**
   - `~/.codex`
@@ -239,6 +267,10 @@ flowchart TB
   - `workspace/.codex/agents`
   - `workspace/.agents/agents`
   - `~/.agents/skills`
+  - `~/.codex/plugins/cache`
+  - `~/.agents/plugins/marketplace.json`
+  - `workspace/.agents/plugins/marketplace.json`
+  - `workspace/.claude-plugin/marketplace.json`
 - **VS Code API**
   - Tree View
   - Command
@@ -260,9 +292,11 @@ flowchart TB
   - `agentMenus.test.ts`: Agent メニュー寄与
   - `skillLocations.test.ts` / `agentLocations.test.ts`: 保存場所解決
   - `skillConfigService.test.ts` / `agentConfigService.test.ts`: `config.toml` 更新
-  - `mcpService.test.ts` / `mcpManagerService.test.ts`: MCP 読み書き
-  - `historyService.test.ts` / `historyPanel.test.ts`: 履歴抽出と Webview state
+  - `agentConfigRepairService.test.ts` / `disabledAgentsStore.test.ts`: Agent metadata 修復と disabled store
+  - `mcpService.test.ts` / `mcpManagerService.test.ts` / `mcpManagerPanel.test.ts`: MCP 読み書きとパネル挙動
+  - `historyService.test.ts` / `historyPanel.test.ts`: 履歴抽出と Core Webview state
   - `coreDiagnosticsService.test.ts` / `coreManagerConfigService.test.ts`: Core 診断と設定更新
+  - `pluginService.test.ts`: Plugin manifest / marketplace 読み取り
   - `syncService.test.ts` / `syncCommands.test.ts`: 双方向同期
   - `configTomlOrganizerService.test.ts`: `config.toml` 整理
 
@@ -278,4 +312,5 @@ flowchart TB
   - Skills / Agents / MCP の ON/OFF 表現を統一する
 - **安全性**
   - 破壊操作は確認ダイアログを出す
-  - User Skills 削除時のみ追加警告を出す
+  - User Agents 削除時のみ追加警告を出す
+  - Plugin toggle は manifest 不備または config 不正時に無効化する
