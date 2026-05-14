@@ -1,6 +1,6 @@
 # Codex Workspace
 
-Codex Workspace is a VS Code extension that brings scattered Codex configuration and operational assets into one place, so you can manage them without getting lost. It lets you work with everything from `config.toml` and `AGENTS.md` to Sub Agents, Skills, Commands, Templates, MCP servers, conversation history, Feature Flags, and Hooks diagnostics—all in a single, consistent workflow. Spend less time hunting for “where that thing lives,” and more time getting work done.
+Codex Workspace is a VS Code extension that brings scattered Codex configuration and operational assets into one place, so you can manage them without getting lost. It lets you work with everything from `config.toml` and `AGENTS.md` to Sub Agents, Skills, Commands, Templates, MCP servers, conversation history, Feature Flags, Hooks diagnostics, and installed Plugin metadata—all in a single, consistent workflow. Spend less time hunting for “where that thing lives,” and more time getting work done.
 
 ## Quick Start
 
@@ -18,6 +18,7 @@ Codex Workspace is a VS Code extension that brings scattered Codex configuration
    - Trusted Directory
    - Feature Flags
    - Hooks
+   - Plugins
 
 ## Key Features
 
@@ -28,7 +29,8 @@ Codex Workspace is a VS Code extension that brings scattered Codex configuration
 - Unified Skills list across Project / Workspace / User / System
 - Unified Sub Agents list across Project / Workspace / User
 - Dedicated Manager Views for Skills, Sub Agents, and MCP Server
-- `Codex Manager` that brings together conversation history, the AGENTS loading chain, Trusted Directory, Feature Flags, and Hooks
+- `Codex Manager` that brings together conversation history, the AGENTS loading chain, Trusted Directory, Feature Flags, Hooks, and Plugins
+- Plugin visibility and enable/disable management centralized in the `Plugins` tab instead of the Skills / Sub Agents / MCP Explore and Manager views
 
 > **Important:** Conversation history is displayed by parsing `$CODEX_HOME/sessions/.../rollout-*.jsonl`. If Codex changes its log format, the History tab may stop working.
 
@@ -68,6 +70,10 @@ From the Core Explore view, you can access:
   - Diagnostics for user / project hook sources
   - Show project hooks as enabled/disabled based on trusted status
   - Create and open `hooks.json` / `config.toml`
+- `Plugins`
+  - List installed plugins from the local plugin cache
+  - Show manifest-derived metadata, packaged Skills / MCP / Apps / Agents, and marketplace source details
+  - Toggle plugin enable/disable from `[plugins."<id>"]` when the manifest and `config.toml` are in a writable state
 
 ### Commands
 
