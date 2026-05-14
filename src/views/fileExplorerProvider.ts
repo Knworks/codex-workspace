@@ -13,7 +13,6 @@ import {
 	SkillLocation,
 } from '../services/skillLocations';
 import { readSkillEnabledByPath } from '../services/skillConfigService';
-import { listPluginSkillRecords } from '../services/pluginService';
 
 const FILE_ICON_MAP: Record<string, string> = {
 	'.md': 'markdown32.png',
@@ -96,16 +95,7 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 	}
 
 	private getAllSkillRootOptions(): SkillLocation[] {
-		if (this.kind !== 'skills') {
-			return this.getRootOptions();
-		}
-		const pluginLocations: SkillLocation[] = listPluginSkillRecords().map((skill) => ({
-			kind: 'plugin',
-			label: `Plugin: ${skill.pluginDisplayName}`,
-			rootPath: path.dirname(skill.skillPath),
-			priority: 5,
-		}));
-		return [...getSkillLocations(), ...pluginLocations];
+		return this.getRootOptions();
 	}
 
 	getLocationForPath(targetPath: string): SkillLocation | undefined {
@@ -173,7 +163,7 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 
 	private readSkillRoots(): CodexTreeItem[] {
 		const enabledByPath = this.getSkillEnabledMap();
-		return this.getAllSkillRootOptions().flatMap((location) =>
+		return this.getRootOptions().flatMap((location) =>
 			this.readDirectory(location.rootPath, location, enabledByPath),
 		);
 	}
@@ -272,12 +262,9 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 			const skillPath = path.join(folderPath, 'SKILL.md');
 			if (this.isSkillRootFolder(folderPath)) {
 				const location = this.getLocationForPath(skillPath);
-				const pluginSkill = location?.kind === 'plugin'
-					? listPluginSkillRecords().find((skill) => path.resolve(skill.skillPath) === path.resolve(skillPath))
-					: undefined;
-				const enabled = pluginSkill?.enabled ?? enabledByPath.get(path.resolve(skillPath)) ?? true;
+				const enabled = enabledByPath.get(path.resolve(skillPath)) ?? true;
 				return enabled
-					? new vscode.ThemeIcon(location?.kind === 'plugin' ? 'plug' : 'folder-library')
+					? new vscode.ThemeIcon('folder-library')
 					: new vscode.ThemeIcon(
 							'circle-slash',
 							new vscode.ThemeColor('disabledForeground'),
@@ -303,13 +290,9 @@ export class FileExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		}
 
 		if (this.kind === 'skills' && fileName === 'SKILL.md' && filePath && enabledByPath) {
-			const location = this.getLocationForPath(filePath);
-			const pluginSkill = location?.kind === 'plugin'
-				? listPluginSkillRecords().find((skill) => path.resolve(skill.skillPath) === path.resolve(filePath))
-				: undefined;
-			const enabled = pluginSkill?.enabled ?? enabledByPath.get(path.resolve(filePath)) ?? true;
+			const enabled = enabledByPath.get(path.resolve(filePath)) ?? true;
 			return enabled
-				? new vscode.ThemeIcon(location?.kind === 'plugin' ? 'plug' : 'agent')
+				? new vscode.ThemeIcon('agent')
 				: new vscode.ThemeIcon(
 						'circle-slash',
 						new vscode.ThemeColor('disabledForeground'),

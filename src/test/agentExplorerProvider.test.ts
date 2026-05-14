@@ -92,4 +92,5 @@ suite('Agent explorer provider', () => {
 		].join('\n'));
 		assert.deepStrictEqual(Array.from(parsed).sort(), ['alpha', 'beta-prod']);
 	});
+
 });

@@ -124,6 +124,9 @@ export const messages = {
 	pluginMcpBadge: localize('message.pluginMcpBadge', 'Plugin MCP'),
 	pluginAppBadge: localize('message.pluginAppBadge', 'Plugin App'),
 	pluginAgentBadge: localize('message.pluginAgentBadge', 'Plugin Agent'),
+	pluginSkillsSection: localize('message.pluginSkillsSection', 'Plugin Skills'),
+	pluginMcpSection: localize('message.pluginMcpSection', 'Plugin MCP'),
+	pluginAgentsSection: localize('message.pluginAgentsSection', 'Plugin Agents'),
 	pluginOpenManifest: localize('message.pluginOpenManifest', 'Open manifest'),
 	pluginOpenFolder: localize('message.pluginOpenFolder', 'Open plugin folder'),
 	pluginCacheEditWarning: localize(

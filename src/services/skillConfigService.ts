@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import { SkillLocation, getSkillLocations } from './skillLocations';
 import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
-import { listPluginSkillRecords } from './pluginService';
 
 export type SkillRecord = {
 	id: string;
@@ -25,7 +24,7 @@ export function listSkillRecords(
 	locations: SkillLocation[] = getSkillLocations(),
 ): SkillRecord[] {
 	const disabledPaths = readSkillEnabledByPath(configPath);
-	const normalRecords = locations.flatMap((location) =>
+	return locations.flatMap((location) =>
 		findSkillMarkdownFiles(location.rootPath).map((skillPath) => {
 			const metadata = readSkillMetadata(skillPath);
 			const enabled = disabledPaths.get(path.resolve(skillPath)) ?? true;
@@ -39,26 +38,6 @@ export function listSkillRecords(
 			};
 		}),
 	);
-	const pluginRecords = listPluginSkillRecords({
-		configPath,
-		homeDir: path.dirname(path.dirname(configPath)),
-	}).map((skill) => ({
-		id: `plugin:${skill.pluginId}:${skill.skillPath}`,
-		name: skill.name,
-		description: skill.description,
-		skillPath: skill.skillPath,
-		location: {
-			kind: 'plugin' as const,
-			label: `Plugin: ${skill.pluginDisplayName}`,
-			rootPath: path.dirname(skill.skillPath),
-			priority: 5,
-		},
-		enabled: skill.enabled,
-		readonly: true,
-		pluginId: skill.pluginId,
-		pluginDisplayName: skill.pluginDisplayName,
-	}));
-	return [...normalRecords, ...pluginRecords];
 }
 
 export function readSkillMetadata(skillPath: string): { name: string; description: string } {
