@@ -40,6 +40,25 @@ suite('MCP service', () => {
 		);
 	});
 
+	test('does not include companion settings blocks in the server list', () => {
+		const input = [
+			'[mcp_servers.context7]',
+			'command = "npx"',
+			'',
+			'[mcp_servers.context7.env_http_headers]',
+			'AUTHORIZATION = "Bearer token"',
+			'',
+			'[mcp_servers.beta]',
+			'enabled = false',
+		].join('\n');
+		const servers = parseMcpServers(input);
+		assert.strictEqual(servers.length, 2);
+		assert.deepStrictEqual(
+			servers.map((server) => server.id),
+			['context7', 'beta'],
+		);
+	});
+
 	test('parses and toggles quoted mcp server headers', () => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-mcp-'));
 		const configPath = path.join(tempDir, 'config.toml');
@@ -87,6 +106,33 @@ suite('MCP service', () => {
 			const contentsBeta = fs.readFileSync(configPath, 'utf8');
 			assert.ok(
 				contentsBeta.includes('[mcp_servers.beta]\nenabled = false\ncommand = \"b\"'),
+			);
+		} finally {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test('toggleMcpServer does not write enabled into companion settings blocks', () => {
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-mcp-'));
+		const configPath = path.join(tempDir, 'config.toml');
+		try {
+			const input = [
+				'[mcp_servers.context7]',
+				'command = "npx"',
+				'',
+				'[mcp_servers.context7.env_http_headers]',
+				'AUTHORIZATION = "Bearer token"',
+			].join('\n');
+			fs.writeFileSync(configPath, input, 'utf8');
+
+			const updated = toggleMcpServer(configPath, 'context7');
+			assert.strictEqual(updated, true);
+			const contents = fs.readFileSync(configPath, 'utf8');
+			assert.ok(contents.includes('[mcp_servers.context7]\nenabled = false\ncommand = "npx"'));
+			assert.ok(
+				contents.includes(
+					'[mcp_servers.context7.env_http_headers]\nAUTHORIZATION = "Bearer token"',
+				),
 			);
 		} finally {
 			fs.rmSync(tempDir, { recursive: true, force: true });

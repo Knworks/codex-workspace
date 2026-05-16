@@ -17,7 +17,7 @@ type TopLevelBlock = {
 	text: string;
 	clusterKind?: ManagedClusterKind;
 	mcpParentId?: string;
-	mcpEnvParentId?: string;
+	mcpCompanionParentId?: string;
 };
 
 export type OrganizeConfigTomlResult = {
@@ -116,10 +116,12 @@ export function organizeConfigTomlContents(contents: string): string {
 }
 
 function buildMcpClusterText(blocks: TopLevelBlock[]): string {
-	const envByParentId = new Map<string, TopLevelBlock>();
+	const companionsByParentId = new Map<string, TopLevelBlock[]>();
 	for (const block of blocks) {
-		if (block.mcpEnvParentId) {
-			envByParentId.set(block.mcpEnvParentId, block);
+		if (block.mcpCompanionParentId) {
+			const companions = companionsByParentId.get(block.mcpCompanionParentId) ?? [];
+			companions.push(block);
+			companionsByParentId.set(block.mcpCompanionParentId, companions);
 		}
 	}
 
@@ -132,10 +134,13 @@ function buildMcpClusterText(blocks: TopLevelBlock[]): string {
 		if (block.mcpParentId) {
 			result += normalizeBlockText(block.text);
 			emitted.add(block);
-			const envBlock = envByParentId.get(block.mcpParentId);
-			if (envBlock && !emitted.has(envBlock)) {
-				result += `\n${normalizeBlockText(envBlock.text)}`;
-				emitted.add(envBlock);
+			const companionBlocks = companionsByParentId.get(block.mcpParentId) ?? [];
+			for (const companionBlock of companionBlocks) {
+				if (emitted.has(companionBlock)) {
+					continue;
+				}
+				result += `\n${normalizeBlockText(companionBlock.text)}`;
+				emitted.add(companionBlock);
 			}
 			result += '\n\n';
 			continue;
@@ -213,12 +218,23 @@ function classifyBlock(headerLine: string): Partial<TopLevelBlock> {
 		/^\s*\[mcp_servers\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.-]+))\]\s*$/,
 	);
 	if (mcpMatch) {
-		const blockId = unescapeTomlString(mcpMatch[1] ?? mcpMatch[2] ?? '');
+		const quotedId = mcpMatch[1];
+		const bareId = mcpMatch[2];
+		const blockId = unescapeTomlString(quotedId ?? bareId ?? '');
 		if (blockId.endsWith('.env')) {
 			return {
 				clusterKind: 'mcp',
-				mcpEnvParentId: blockId.slice(0, -4),
+				mcpCompanionParentId: blockId.slice(0, -4),
 			};
+		}
+		if (!quotedId && bareId?.includes('.')) {
+			const [parentId, ...settingSegments] = bareId.split('.');
+			if (parentId && settingSegments.length > 0) {
+				return {
+					clusterKind: 'mcp',
+					mcpCompanionParentId: parentId,
+				};
+			}
 		}
 		return {
 			clusterKind: 'mcp',

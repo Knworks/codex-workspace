@@ -9,12 +9,46 @@ export type McpServer = {
 	headerLineIndex: number;
 };
 
+type McpHeaderInfo = {
+	id: string;
+	parentId?: string;
+	settingName?: string;
+};
+
 const mcpHeaderPattern =
 	/^\s*\[mcp_servers\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.-]+))\]\s*$/;
 const enabledPattern = /^(\s*enabled\s*=\s*)(true|false)(\s*#.*)?$/i;
 
-function isMcpServerVisible(id: string): boolean {
-	return !id.toLowerCase().endsWith('.env');
+function parseMcpHeader(line: string): McpHeaderInfo | undefined {
+	const match = line.match(mcpHeaderPattern);
+	if (!match) {
+		return undefined;
+	}
+	const quotedId = match[1];
+	const bareId = match[2];
+	const id = unescapeTomlString(quotedId ?? bareId ?? '');
+	if (id.toLowerCase().endsWith('.env')) {
+		return {
+			id,
+			parentId: id.slice(0, -4),
+			settingName: 'env',
+		};
+	}
+	if (!quotedId && bareId?.includes('.')) {
+		const [parentId, ...settingSegments] = bareId.split('.');
+		if (parentId && settingSegments.length > 0) {
+			return {
+				id,
+				parentId,
+				settingName: settingSegments.join('.'),
+			};
+		}
+	}
+	return { id };
+}
+
+function isMcpServerVisible(header: McpHeaderInfo): boolean {
+	return !header.parentId;
 }
 
 export function readMcpServers(configPath: string): McpServer[] {
@@ -35,14 +69,13 @@ export function parseMcpServers(contents: string): McpServer[] {
 				currentBlock.endLineIndex = i - 1;
 				currentBlock = null;
 			}
-			const mcpMatch = lines[i].match(mcpHeaderPattern);
-			if (mcpMatch) {
-				const id = unescapeTomlString(mcpMatch[1] ?? mcpMatch[2] ?? '');
-				if (!isMcpServerVisible(id)) {
+			const headerInfo = parseMcpHeader(lines[i]);
+			if (headerInfo) {
+				if (!isMcpServerVisible(headerInfo)) {
 					continue;
 				}
 				currentBlock = {
-					id,
+					id: headerInfo.id,
 					headerLineIndex: i,
 					endLineIndex: lines.length - 1,
 				};

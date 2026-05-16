@@ -106,6 +106,33 @@ suite('Config TOML organizer service', () => {
 		assert.ok(betaEnv > betaParent);
 	});
 
+	test('organizeConfigTomlContents keeps other mcp companion blocks directly after their parent', () => {
+		const contents = [
+			'[mcp_servers.alpha]',
+			'command = "a"',
+			'',
+			'[mcp_servers.beta]',
+			'command = "b"',
+			'',
+			'[mcp_servers.alpha.env_http_headers]',
+			'AUTHORIZATION = "Bearer token"',
+			'',
+			'[mcp_servers.beta.env]',
+			'API_KEY = "y"',
+			'',
+		].join('\n');
+
+		const organized = organizeConfigTomlContents(contents);
+		const alphaParent = organized.indexOf('[mcp_servers.alpha]');
+		const alphaHeaders = organized.indexOf('[mcp_servers.alpha.env_http_headers]');
+		const betaParent = organized.indexOf('[mcp_servers.beta]');
+		const betaEnv = organized.indexOf('[mcp_servers.beta.env]');
+
+		assert.ok(alphaHeaders > alphaParent);
+		assert.ok(betaParent > alphaHeaders);
+		assert.ok(betaEnv > betaParent);
+	});
+
 	test('organizeConfigToml creates a single backup file and rewrites the config', () => {
 		withTempDir((root) => {
 			const codexDir = path.join(root, '.codex');

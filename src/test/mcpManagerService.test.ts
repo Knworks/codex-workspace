@@ -140,6 +140,28 @@ suite('MCP manager service', () => {
 		});
 	});
 
+	test('listMcpFormModels excludes other companion entries from the server list', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			fs.writeFileSync(
+				configPath,
+				[
+					'[mcp_servers.context7]',
+					'command = "npx"',
+					'',
+					'[mcp_servers.context7.env_http_headers]',
+					'AUTHORIZATION = "Bearer token"',
+				].join('\n'),
+				'utf8',
+			);
+
+			const models = listMcpFormModels(configPath);
+
+			assert.strictEqual(models.length, 1);
+			assert.strictEqual(models[0].id, 'context7');
+		});
+	});
+
 	test('saveMcpServer quotes server headers when needed', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, 'config.toml');
@@ -200,6 +222,32 @@ suite('MCP manager service', () => {
 			const contents = fs.readFileSync(configPath, 'utf8');
 			assert.ok(!contents.includes('[mcp_servers.context7]'));
 			assert.ok(!contents.includes('[mcp_servers.context7.env]'));
+			assert.ok(contents.includes('[mcp_servers.other]'));
+		});
+	});
+
+	test('deleteMcpServer removes other companion blocks with the target server', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			fs.writeFileSync(
+				configPath,
+				[
+					'[mcp_servers.context7]',
+					'command = "npx"',
+					'',
+					'[mcp_servers.context7.env_http_headers]',
+					'AUTHORIZATION = "Bearer token"',
+					'',
+					'[mcp_servers.other]',
+					'command = "node"',
+				].join('\n'),
+				'utf8',
+			);
+
+			assert.strictEqual(deleteMcpServer(configPath, 'context7'), true);
+			const contents = fs.readFileSync(configPath, 'utf8');
+			assert.ok(!contents.includes('[mcp_servers.context7]'));
+			assert.ok(!contents.includes('[mcp_servers.context7.env_http_headers]'));
 			assert.ok(contents.includes('[mcp_servers.other]'));
 		});
 	});
@@ -373,6 +421,46 @@ suite('MCP manager service', () => {
 			assert.ok(!contents.includes('env = { OLD = "legacy" }'));
 			assert.ok(contents.includes('[mcp_servers.context7.env]'));
 			assert.ok(contents.includes("API_KEY = 'secret'"));
+		});
+	});
+
+	test('saveMcpServer keeps other companion blocks attached on rename', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			fs.writeFileSync(
+				configPath,
+				[
+					'[mcp_servers.context7]',
+					'command = "npx"',
+					'',
+					'[mcp_servers.context7.env_http_headers]',
+					'AUTHORIZATION = "Bearer token"',
+				].join('\n'),
+				'utf8',
+			);
+
+			const result = saveMcpServer(
+				configPath,
+				{
+					id: 'context7-renamed',
+					transport: 'stdio',
+					command: 'npx',
+					args: [],
+					url: '',
+					env: [],
+					enabledTools: [],
+					disabledTools: [],
+					enabled: true,
+				},
+				'context7',
+			);
+
+			const contents = fs.readFileSync(configPath, 'utf8');
+			assert.strictEqual(result.ok, true);
+			assert.ok(contents.includes('[mcp_servers.context7-renamed]'));
+			assert.ok(contents.includes('[mcp_servers.context7-renamed.env_http_headers]'));
+			assert.ok(contents.includes('AUTHORIZATION = "Bearer token"'));
+			assert.ok(!contents.includes('[mcp_servers.context7.env_http_headers]'));
 		});
 	});
 });

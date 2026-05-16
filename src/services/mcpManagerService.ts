@@ -33,11 +33,47 @@ type McpBlock = {
 	startLine: number;
 	endLine: number;
 	lines: string[];
+	parentId?: string;
+	settingName?: string;
+};
+
+type McpHeaderInfo = {
+	id: string;
+	parentId?: string;
+	settingName?: string;
 };
 
 const MCP_HEADER_PATTERN =
 	/^\s*\[mcp_servers\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.-]+))\]\s*$/;
 const MCP_ENV_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function parseMcpHeader(line: string): McpHeaderInfo | undefined {
+	const match = line.match(MCP_HEADER_PATTERN);
+	if (!match) {
+		return undefined;
+	}
+	const quotedId = match[1];
+	const bareId = match[2];
+	const id = unescapeTomlString(quotedId ?? bareId ?? '');
+	if (id.toLowerCase().endsWith('.env')) {
+		return {
+			id,
+			parentId: id.slice(0, -4),
+			settingName: 'env',
+		};
+	}
+	if (!quotedId && bareId?.includes('.')) {
+		const [parentId, ...settingSegments] = bareId.split('.');
+		if (parentId && settingSegments.length > 0) {
+			return {
+				id,
+				parentId,
+				settingName: settingSegments.join('.'),
+			};
+		}
+	}
+	return { id };
+}
 
 export function listMcpFormModels(configPath: string): McpFormModel[] {
 	if (!fs.existsSync(configPath)) {
@@ -47,11 +83,11 @@ export function listMcpFormModels(configPath: string): McpFormModel[] {
 	const blocks = parseMcpBlocks(contents);
 	const envBlocks = new Map(
 		blocks
-			.filter((block) => block.id.endsWith('.env'))
-			.map((block) => [block.id.slice(0, -4), block] as const),
+			.filter((block) => block.settingName === 'env' && block.parentId)
+			.map((block) => [block.parentId!, block] as const),
 	);
 	return blocks
-		.filter((block) => !block.id.endsWith('.env'))
+		.filter((block) => !block.parentId)
 		.map((block) => blockToModel(block, envBlocks.get(block.id)));
 }
 
@@ -117,7 +153,7 @@ export function saveMcpServer(
 	const blocks = parseMcpBlocks(contents);
 	const validation = validateMcpModel(
 		model,
-		blocks.map((block) => block.id),
+		blocks.filter((block) => !block.parentId).map((block) => block.id),
 		previousId,
 	);
 	if (!validation.ok) {
@@ -127,8 +163,16 @@ export function saveMcpServer(
 		? blocks.find((block) => block.id === previousId)
 		: undefined;
 	const targetEnv = previousId
-		? blocks.find((block) => block.id === `${previousId}.env`)
+		? blocks.find((block) => block.parentId === previousId && block.settingName === 'env')
 		: undefined;
+	const targetCompanions = previousId
+		? blocks.filter(
+				(block) =>
+					block.parentId === previousId &&
+					block.settingName &&
+					block.settingName !== 'env',
+			)
+		: [];
 	const newBlock = buildMcpBlock(model, target).split('\n');
 	const newEnvBlock = buildMcpEnvBlock(model).split('\n');
 	if (!target) {
@@ -150,6 +194,10 @@ export function saveMcpServer(
 		...(targetEnv
 			? [{ target: targetEnv, nextLines: model.env.length > 0 ? newEnvBlock : [] }]
 			: []),
+		...targetCompanions.map((block) => ({
+			target: block,
+			nextLines: rewriteCompanionBlock(block, model.id).split('\n'),
+		})),
 	].sort((left, right) => right.target.startLine - left.target.startLine);
 	for (const replacement of replacements) {
 		lines.splice(
@@ -172,8 +220,9 @@ export function saveMcpServer(
 export function deleteMcpServer(configPath: string, serverId: string): boolean {
 	const contents = fs.readFileSync(configPath, 'utf8');
 	const blocks = parseMcpBlocks(contents);
-	const targetIds = new Set([serverId, `${serverId}.env`]);
-	const targets = blocks.filter((block) => targetIds.has(block.id));
+	const targets = blocks.filter(
+		(block) => block.id === serverId || block.parentId === serverId,
+	);
 	if (targets.length === 0) {
 		return false;
 	}
@@ -201,14 +250,15 @@ function parseMcpBlocks(contents: string): McpBlock[] {
 				current.lines = lines.slice(current.startLine, current.endLine + 1);
 				current = undefined;
 			}
-			const mcpHeader = lines[index].match(MCP_HEADER_PATTERN);
-			if (mcpHeader) {
-				const id = unescapeTomlString(mcpHeader[1] ?? mcpHeader[2] ?? '');
+			const headerInfo = parseMcpHeader(lines[index]);
+			if (headerInfo) {
 				current = {
-					id,
+					id: headerInfo.id,
 					startLine: index,
 					endLine: lines.length - 1,
 					lines: [],
+					parentId: headerInfo.parentId,
+					settingName: headerInfo.settingName,
 				};
 				blocks.push(current);
 			}
@@ -393,9 +443,7 @@ function formatStringArray(values: string[]): string {
 }
 
 function buildMcpEnvBlock(model: McpFormModel): string {
-	const envHeader = /^[A-Za-z0-9_.-]+$/.test(model.id)
-		? `[mcp_servers.${model.id}.env]`
-		: `[mcp_servers.${formatHeaderKey(`${model.id}.env`)}]`;
+	const envHeader = buildCompanionHeader(model.id, 'env');
 	const lines = [envHeader];
 	for (const entry of model.env) {
 		if (!entry.key.trim()) {
@@ -408,6 +456,19 @@ function buildMcpEnvBlock(model: McpFormModel): string {
 
 function escapeTomlLiteralString(value: string): string {
 	return value.replace(/'/g, "''");
+}
+
+function buildCompanionHeader(parentId: string, settingName: string): string {
+	return /^[A-Za-z0-9_-]+$/.test(parentId) && /^[A-Za-z0-9_.-]+$/.test(settingName)
+		? `[mcp_servers.${parentId}.${settingName}]`
+		: `[mcp_servers.${formatHeaderKey(`${parentId}.${settingName}`)}]`;
+}
+
+function rewriteCompanionBlock(block: McpBlock, parentId: string): string {
+	if (!block.settingName) {
+		return block.lines.join('\n');
+	}
+	return [buildCompanionHeader(parentId, block.settingName), ...block.lines.slice(1)].join('\n');
 }
 
 function normalizeLines(lines: string[]): string {
