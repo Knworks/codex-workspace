@@ -126,7 +126,11 @@ codex-workspace/
   - `mcpManagerPanel.ts` が左 list / 右 form の Webview を提供する
   - `mcpManagerService.ts` が block 解析、バリデーション、保存、削除を行う
   - 保存時は管理対象キーを更新し、既存 block の未管理キーは維持する
-  - `env` は sibling block と inline table の両方から編集モデルへマージする
+  - 一覧は親サーバー block のみを対象とし、`env` / `http_headers` / `env_http_headers` / `tools.*` companion block は個別表示しない
+  - `env` / `http_headers` / `env_http_headers` は companion block と inline table の両方から編集モデルへ取り込む
+  - `tools.*` companion block は tool name ごとの `enabled` / `approval_mode` として編集モデルへ取り込む
+  - UI で管理する companion block は `env` / `http_headers` / `env_http_headers` / `tools.*` のみで、未知の companion block は保存時も維持しつつ UI 編集対象外とする
+  - 親サーバー rename / delete 時は companion block も追従し、`http_headers` などの inline table は保存時に companion block へ正規化されうる
 
 - **Codex Manager**
   - `historyPanel.ts` がタブ付き Core WebviewPanel を提供する
@@ -156,7 +160,7 @@ codex-workspace/
 | `SkillRecord` | `id` / `name` / `description` / `skillPath` / `enabled` | object | Skill Manager 行 |
 | `AgentLocation` | `kind` / `label` / `rootPath` / `createPath` / `priority` | object | Sub Agents 保存場所 |
 | `AgentManagerRecord` | `name` / `description` / `model` / `reasoningEffort` / `sandboxMode` / `agentPath` / `enabled` | object | AGENTS Manager 行 |
-| `McpFormModel` | `id` / `transport` / `command` / `args` / `url` / `env` / `required` / `startupTimeoutSec` / `toolTimeoutSec` / `enabledTools` / `disabledTools` / `enabled` | object | MCP Manager 編集モデル |
+| `McpFormModel` | `id` / `transport` / `command` / `args` / `url` / `env` / `httpHeaders` / `envHttpHeaders` / `tools` / `required` / `startupTimeoutSec` / `toolTimeoutSec` / `enabledTools` / `disabledTools` / `enabled` | object | MCP Manager 編集モデル |
 | `HistoryTurnRecord` | `turnId` / `sessionId` / `dateKey` / `userMessage` / `agentMessages` / `reasoningMessages` / `aiTimeline` | object | 会話履歴 1 タスク分 |
 | `AgentsChainNode` | `status` / `kind` / `type` / `fileName` / `absolutePath` / `reason` | object | AGENTS Loading Chain 診断ノード |
 | `TrustedDirectory` | `path` / `exists` / `reason` | object | Trusted Directory 表示モデル |
@@ -217,6 +221,7 @@ codex-workspace/
   - 上部: search / clear / refresh
   - 左ペイン: server list, add / delete / save / cancel
   - 右ペイン: server detail form
+  - 詳細フォーム: `env` / `httpHeaders` / `envHttpHeaders` は key-value rows、`tools` は tool name + enabled + approval_mode rows
 
 - **Codex Manager**
   - タブ: History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks / Plugins

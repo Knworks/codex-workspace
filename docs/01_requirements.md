@@ -30,7 +30,7 @@
 | `Skills` | Skill ルート配下の `SKILL.md` を表示するビュー | Project / Workspace / User / System を列挙 |
 | `Templates` | テンプレート保存場所 | `~/.codex/codex-templates` 固定 |
 | `Sub Agents` | Agent 定義 `*.toml` を表示するビュー | `getAgentLocations()` の結果を列挙 |
-| `MCP Server` | `config.toml` の `[mcp_servers.<id>]` 設定 | `.env` 末尾の補助 block は一覧表示しない |
+| `MCP Server` | `config.toml` の `[mcp_servers.<id>]` 設定 | `env` / `http_headers` / `env_http_headers` / `tools.*` companion block は一覧表示しない |
 | `Codex Manager` | Core 画面から開く WebviewPanel | History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks / Plugins タブを持つ |
 | `Skill Manager` | Skills 一覧と有効/無効切替を行う WebviewPanel | `SKILL.md` frontmatter と `[[skills.config]]` を参照 |
 | `AGENTS Manager` | Sub Agents 一覧と有効/無効切替を行う WebviewPanel | `config.toml`、disabled store、Agent TOML を参照 |
@@ -149,7 +149,7 @@
 ### 5.6 MCP Server の管理
 
 - `config.toml` の `[mcp_servers.<id>]` を一覧表示する。
-- `id` が `.env` で終わる補助 block は Explorer と Manager の一覧に出さない。
+- `env` / `http_headers` / `env_http_headers` / `tools.*` companion block は Explorer と Manager の一覧に出さない。
 - `enabled` がない場合は有効扱いとする。
 - MCP Server ビューでは項目クリックで `enabled` をトグルする。
 - 無効状態は `circle-slash` アイコン、有効状態は `mcp` アイコンを使う。
@@ -161,6 +161,9 @@
   - args
   - url
   - env
+  - http_headers
+  - env_http_headers
+  - tools
   - required
   - startup_timeout_sec
   - tool_timeout_sec
@@ -168,7 +171,14 @@
   - disabled_tools
 - `enabled_tools` と `disabled_tools` の同時指定は保存不可とする。
 - 保存時は既存 block の未管理キーを保持する。
+- `env` / `http_headers` / `env_http_headers` は key-value 行編集で扱う。
+- `tools` は tool name ごとに `enabled` / `approval_mode` を持つ行編集で扱う。
 - `env` は `[mcp_servers.<id>.env]` block と inline table の両方を読める。
+- `http_headers` / `env_http_headers` は companion block を優先し、inline table があれば読み込み対象に含める。
+- MCP Manager が UI で管理する companion block は `env` / `http_headers` / `env_http_headers` / `tools.*` のみとする。
+- 未知の companion block は UI では編集対象にせず、`config.toml` 手動管理前提のままとする。
+- 親サーバーの rename / delete 時は、上記 companion block も追従する。
+- 既存 inline `http_headers` は保存時に `[mcp_servers.<id>.http_headers]` companion block へ正規化される場合がある。
 
 ### 5.7 Codex Manager
 
@@ -233,7 +243,7 @@
   - `[agents.<name>]`
   - `[mcp_servers.<id>]`
   - `[projects."<path>"]`
-- `[mcp_servers.<id>.env]` は親 block 直後へ再配置する。
+- `[mcp_servers.<id>.env]`、`[mcp_servers.<id>.http_headers]`、`[mcp_servers.<id>.env_http_headers]`、`[mcp_servers.<id>.tools.<tool_name>]` は親 block 直後へ再配置する。
 - クラスタ順は「その種別が最初に出た位置」を保つ。
 
 ---
