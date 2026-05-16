@@ -2,6 +2,17 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
+## 1.1.5
+
+Changes
+
+- Updated `MCP Manager` to support `http_headers`, `env_http_headers`, and `tools` companion settings.
+
+Fixes
+
+- Fixed MCP server listings and enable toggles so only parent `mcp_servers.<server>` entries are shown and updated.
+- Fixed MCP companion block handling so managed settings follow parent rename, delete, and organize flows while unknown blocks remain manual `config.toml` entries.
+
 ## 1.1.4
 
 Changes
