@@ -40,6 +40,9 @@ suite('MCP manager service', () => {
 			assert.strictEqual(models[0].transport, 'stdio');
 			assert.deepStrictEqual(models[0].args, ['api', 'repos']);
 			assert.deepStrictEqual(models[0].env, []);
+			assert.deepStrictEqual(models[0].httpHeaders, []);
+			assert.deepStrictEqual(models[0].envHttpHeaders, []);
+			assert.deepStrictEqual(models[0].tools, []);
 			assert.strictEqual(models[1].transport, 'http');
 			assert.strictEqual(models[1].url, 'https://example.test/mcp');
 		});
@@ -95,7 +98,8 @@ suite('MCP manager service', () => {
 			assert.strictEqual(result.ok, true);
 			assert.ok(contents.includes('url = "https://example.test/mcp"'));
 			assert.ok(!contents.includes('command = "old"'));
-			assert.ok(contents.includes('http_headers = { AUTH = "x" }'));
+			assert.ok(contents.includes('[mcp_servers.github.http_headers]'));
+			assert.ok(contents.includes("AUTH = 'x'"));
 		});
 	});
 
@@ -136,6 +140,40 @@ suite('MCP manager service', () => {
 			assert.strictEqual(models[0].id, 'context7');
 			assert.deepStrictEqual(models[0].env, [
 				{ key: 'API_KEY', value: 'x' },
+			]);
+		});
+	});
+
+	test('listMcpFormModels reads http_headers, env_http_headers and tools companion blocks', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			fs.writeFileSync(
+				configPath,
+				[
+					'[mcp_servers.context7]',
+					'url = "https://example.test/mcp"',
+					'',
+					'[mcp_servers.context7.http_headers]',
+					"AUTZ = 'Bearer token'",
+					'',
+					'[mcp_servers.context7.env_http_headers]',
+					"X_API_KEY = 'CONTEXT7_API_KEY'",
+					'',
+					'[mcp_servers.context7.tools.resolve-library-id]',
+					'enabled = true',
+					'approval_mode = "prompt"',
+				].join('\n'),
+				'utf8',
+			);
+
+			const models = listMcpFormModels(configPath);
+
+			assert.deepStrictEqual(models[0].httpHeaders, [{ key: 'AUTZ', value: 'Bearer token' }]);
+			assert.deepStrictEqual(models[0].envHttpHeaders, [
+				{ key: 'X_API_KEY', value: 'CONTEXT7_API_KEY' },
+			]);
+			assert.deepStrictEqual(models[0].tools, [
+				{ name: 'resolve-library-id', enabled: true, approvalMode: 'prompt' },
 			]);
 		});
 	});
@@ -424,6 +462,37 @@ suite('MCP manager service', () => {
 		});
 	});
 
+	test('saveMcpServer writes http_headers, env_http_headers and tools entries from the form model', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+
+			const result = saveMcpServer(configPath, {
+				id: 'context7',
+				transport: 'http',
+				command: '',
+				args: [],
+				url: 'https://example.test/mcp',
+				env: [],
+				httpHeaders: [{ key: 'Authorization', value: 'Bearer token' }],
+				envHttpHeaders: [{ key: 'X_API_KEY', value: 'CONTEXT7_API_KEY' }],
+				tools: [{ name: 'resolve-library-id', enabled: true, approvalMode: 'prompt' }],
+				enabledTools: [],
+				disabledTools: [],
+				enabled: true,
+			});
+
+			const contents = fs.readFileSync(configPath, 'utf8');
+			assert.strictEqual(result.ok, true);
+			assert.ok(contents.includes('[mcp_servers.context7.http_headers]'));
+			assert.ok(contents.includes("Authorization = 'Bearer token'"));
+			assert.ok(contents.includes('[mcp_servers.context7.env_http_headers]'));
+			assert.ok(contents.includes("X_API_KEY = 'CONTEXT7_API_KEY'"));
+			assert.ok(contents.includes('[mcp_servers.context7.tools.resolve-library-id]'));
+			assert.ok(contents.includes('enabled = true'));
+			assert.ok(contents.includes('approval_mode = "prompt"'));
+		});
+	});
+
 	test('saveMcpServer keeps other companion blocks attached on rename', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, 'config.toml');
@@ -459,7 +528,7 @@ suite('MCP manager service', () => {
 			assert.strictEqual(result.ok, true);
 			assert.ok(contents.includes('[mcp_servers.context7-renamed]'));
 			assert.ok(contents.includes('[mcp_servers.context7-renamed.env_http_headers]'));
-			assert.ok(contents.includes('AUTHORIZATION = "Bearer token"'));
+			assert.ok(contents.includes("AUTHORIZATION = 'Bearer token'"));
 			assert.ok(!contents.includes('[mcp_servers.context7.env_http_headers]'));
 		});
 	});

@@ -152,6 +152,40 @@ function buildMcpClusterText(blocks: TopLevelBlock[]): string {
 	return result.replace(/\n{3,}$/u, '\n\n');
 }
 
+function parseKnownMcpCompanionId(
+	id: string,
+	allowUnknownBareCompanion = false,
+): { parentId: string; settingName: string } | undefined {
+	for (const settingName of ['env', 'http_headers', 'env_http_headers']) {
+		const suffix = `.${settingName}`;
+		if (id.toLowerCase().endsWith(suffix)) {
+			return {
+				parentId: id.slice(0, -suffix.length),
+				settingName,
+			};
+		}
+	}
+	const toolsMarker = '.tools.';
+	const toolsIndex = id.toLowerCase().indexOf(toolsMarker);
+	if (toolsIndex > 0 && toolsIndex + toolsMarker.length < id.length) {
+		return {
+			parentId: id.slice(0, toolsIndex),
+			settingName: id.slice(toolsIndex + 1),
+		};
+	}
+	if (!allowUnknownBareCompanion) {
+		return undefined;
+	}
+	const segments = id.split('.');
+	if (segments.length > 1 && segments[0]) {
+		return {
+			parentId: segments[0],
+			settingName: segments.slice(1).join('.'),
+		};
+	}
+	return undefined;
+}
+
 function joinBlocksWithSingleBlankLine(blocks: TopLevelBlock[]): string {
 	return `${blocks.map((block) => normalizeBlockText(block.text)).join('\n\n')}\n\n`;
 }
@@ -221,20 +255,12 @@ function classifyBlock(headerLine: string): Partial<TopLevelBlock> {
 		const quotedId = mcpMatch[1];
 		const bareId = mcpMatch[2];
 		const blockId = unescapeTomlString(quotedId ?? bareId ?? '');
-		if (blockId.endsWith('.env')) {
+		const companion = parseKnownMcpCompanionId(blockId, !quotedId);
+		if (companion) {
 			return {
 				clusterKind: 'mcp',
-				mcpCompanionParentId: blockId.slice(0, -4),
+				mcpCompanionParentId: companion.parentId,
 			};
-		}
-		if (!quotedId && bareId?.includes('.')) {
-			const [parentId, ...settingSegments] = bareId.split('.');
-			if (parentId && settingSegments.length > 0) {
-				return {
-					clusterKind: 'mcp',
-					mcpCompanionParentId: parentId,
-				};
-			}
 		}
 		return {
 			clusterKind: 'mcp',

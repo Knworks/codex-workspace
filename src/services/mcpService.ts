@@ -19,6 +19,40 @@ const mcpHeaderPattern =
 	/^\s*\[mcp_servers\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.-]+))\]\s*$/;
 const enabledPattern = /^(\s*enabled\s*=\s*)(true|false)(\s*#.*)?$/i;
 
+function parseKnownMcpCompanionId(
+	id: string,
+	allowUnknownBareCompanion = false,
+): { parentId: string; settingName: string } | undefined {
+	for (const settingName of ['env', 'http_headers', 'env_http_headers']) {
+		const suffix = `.${settingName}`;
+		if (id.toLowerCase().endsWith(suffix)) {
+			return {
+				parentId: id.slice(0, -suffix.length),
+				settingName,
+			};
+		}
+	}
+	const toolsMarker = '.tools.';
+	const toolsIndex = id.toLowerCase().indexOf(toolsMarker);
+	if (toolsIndex > 0 && toolsIndex + toolsMarker.length < id.length) {
+		return {
+			parentId: id.slice(0, toolsIndex),
+			settingName: id.slice(toolsIndex + 1),
+		};
+	}
+	if (!allowUnknownBareCompanion) {
+		return undefined;
+	}
+	const segments = id.split('.');
+	if (segments.length > 1 && segments[0]) {
+		return {
+			parentId: segments[0],
+			settingName: segments.slice(1).join('.'),
+		};
+	}
+	return undefined;
+}
+
 function parseMcpHeader(line: string): McpHeaderInfo | undefined {
 	const match = line.match(mcpHeaderPattern);
 	if (!match) {
@@ -27,22 +61,13 @@ function parseMcpHeader(line: string): McpHeaderInfo | undefined {
 	const quotedId = match[1];
 	const bareId = match[2];
 	const id = unescapeTomlString(quotedId ?? bareId ?? '');
-	if (id.toLowerCase().endsWith('.env')) {
+	const companion = parseKnownMcpCompanionId(id, !quotedId);
+	if (companion) {
 		return {
 			id,
-			parentId: id.slice(0, -4),
-			settingName: 'env',
+			parentId: companion.parentId,
+			settingName: companion.settingName,
 		};
-	}
-	if (!quotedId && bareId?.includes('.')) {
-		const [parentId, ...settingSegments] = bareId.split('.');
-		if (parentId && settingSegments.length > 0) {
-			return {
-				id,
-				parentId,
-				settingName: settingSegments.join('.'),
-			};
-		}
 	}
 	return { id };
 }

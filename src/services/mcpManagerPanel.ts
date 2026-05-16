@@ -3,7 +3,9 @@ import { messages } from '../i18n';
 import {
 	deleteMcpServer,
 	listMcpFormModels,
+	McpEnvEntry,
 	McpFormModel,
+	McpToolEntry,
 	saveMcpServer,
 } from './mcpManagerService';
 import { toggleMcpServer } from './mcpService';
@@ -52,6 +54,9 @@ function emptyModel(): McpFormModel {
 		args: [],
 		url: '',
 		env: [],
+		httpHeaders: [],
+		envHttpHeaders: [],
+		tools: [],
 		enabledTools: [],
 		disabledTools: [],
 		enabled: true,
@@ -96,6 +101,10 @@ function localizeValidationErrors(errors: string[]): string[] {
 				return messages.mcpValidationEnvKeyInvalid;
 			case 'envKeyDuplicate':
 				return messages.mcpValidationEnvKeyDuplicate;
+			case 'toolNameRequired':
+				return messages.mcpValidationToolNameRequired;
+			case 'toolApprovalModeInvalid':
+				return messages.mcpValidationToolApprovalModeInvalid;
 			default:
 				return error;
 		}
@@ -110,6 +119,9 @@ function getMcpFieldDescriptions(): Record<string, string> {
 		args: messages.mcpManagerDescriptionArgs,
 		url: messages.mcpManagerDescriptionUrl,
 		env: messages.mcpManagerDescriptionEnv,
+		httpHeaders: messages.mcpManagerDescriptionHttpHeaders,
+		envHttpHeaders: messages.mcpManagerDescriptionEnvHttpHeaders,
+		tools: messages.mcpManagerDescriptionTools,
 		required: messages.mcpManagerDescriptionRequired,
 		startupTimeoutSec: messages.mcpManagerDescriptionStartupTimeout,
 		toolTimeoutSec: messages.mcpManagerDescriptionToolTimeout,
@@ -137,6 +149,9 @@ function buildForm(model: McpFormModel | undefined, previousId?: string): string
 		)}
 		<label>${buildFieldLabel(messages.mcpManagerUrlLabel, descriptions.url)}<input name="url" value="${escapeHtml(current.url)}" /></label>
 		${buildEnvField(current.env, descriptions.env)}
+		${buildKeyValueField('httpHeaders', messages.mcpManagerHttpHeadersLabel, current.httpHeaders ?? [], descriptions.httpHeaders)}
+		${buildKeyValueField('envHttpHeaders', messages.mcpManagerEnvHttpHeadersLabel, current.envHttpHeaders ?? [], descriptions.envHttpHeaders)}
+		${buildToolField(current.tools ?? [], descriptions.tools)}
 		<label class="required-field">${buildFieldLabel(messages.mcpManagerRequiredLabel, descriptions.required)}<span class="required-switch"><input name="required" type="checkbox" ${current.required ? 'checked' : ''} /><span></span></span></label>
 		<label>${buildFieldLabel(messages.mcpManagerStartupTimeoutLabel, descriptions.startupTimeoutSec)}<input name="startupTimeoutSec" value="${current.startupTimeoutSec ?? ''}" /></label>
 		<label>${buildFieldLabel(messages.mcpManagerToolTimeoutLabel, descriptions.toolTimeoutSec)}<input name="toolTimeoutSec" value="${current.toolTimeoutSec ?? ''}" /></label>
@@ -158,23 +173,68 @@ function buildForm(model: McpFormModel | undefined, previousId?: string): string
 }
 
 function buildEnvField(entries: McpFormModel['env'], description: string): string {
+	return buildKeyValueField('env', messages.mcpManagerEnvLabel, entries, description);
+}
+
+function buildKeyValueField(
+	fieldKey: 'env' | 'httpHeaders' | 'envHttpHeaders',
+	label: string,
+	entries: McpEnvEntry[],
+	description: string,
+): string {
 	return `<div class="env-field">
 		<span class="field-label-row">
-			${buildFieldLabel(messages.mcpManagerEnvLabel, description)}
-			<button id="addEnvRow" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerAddEnv)}" aria-label="${escapeHtml(messages.mcpManagerAddEnv)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>
+			${buildFieldLabel(label, description)}
+			<button class="icon-button" type="button" data-add-key-value-row="${escapeHtml(fieldKey)}" title="${escapeHtml(messages.mcpManagerAddEnv)}" aria-label="${escapeHtml(messages.mcpManagerAddEnv)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>
 		</span>
-		<div id="envRows" class="env-rows">${buildEnvRows(entries)}</div>
+		<div data-key-value-rows="${escapeHtml(fieldKey)}" class="env-rows">${buildEnvRows(fieldKey, entries)}</div>
 	</div>`;
 }
 
-function buildEnvRows(entries: McpFormModel['env']): string {
+function buildEnvRows(
+	fieldKey: 'env' | 'httpHeaders' | 'envHttpHeaders',
+	entries: McpEnvEntry[],
+): string {
 	const resolvedEntries = entries.length > 0 ? entries : [{ key: '', value: '' }];
 	return resolvedEntries
 		.map(
 			(entry) => `<div class="env-row">
-				<input name="envKey" value="${escapeHtml(entry.key)}" placeholder="${escapeHtml(messages.mcpManagerEnvKeyPlaceholder)}" />
-				<input name="envValue" value="${escapeHtml(entry.value)}" placeholder="${escapeHtml(messages.mcpManagerEnvValuePlaceholder)}" />
+				<input name="${escapeHtml(fieldKey)}Key" value="${escapeHtml(entry.key)}" placeholder="${escapeHtml(messages.mcpManagerEnvKeyPlaceholder)}" />
+				<input name="${escapeHtml(fieldKey)}Value" value="${escapeHtml(entry.value)}" placeholder="${escapeHtml(messages.mcpManagerEnvValuePlaceholder)}" />
 				<button class="icon-button env-remove" type="button" title="${escapeHtml(messages.mcpManagerRemoveEnv)}" aria-label="${escapeHtml(messages.mcpManagerRemoveEnv)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>
+			</div>`,
+		)
+		.join('');
+}
+
+function buildToolField(entries: McpToolEntry[], description: string): string {
+	return `<div class="tool-field">
+		<span class="field-label-row">
+			${buildFieldLabel(messages.mcpManagerToolsLabel, description)}
+			<button class="icon-button" type="button" data-add-tool-row="tools" title="${escapeHtml(messages.mcpManagerAdd)}" aria-label="${escapeHtml(messages.mcpManagerAdd)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>
+		</span>
+		<div data-tool-rows="tools" class="tool-rows">${buildToolRows(entries)}</div>
+	</div>`;
+}
+
+function buildToolRows(entries: McpToolEntry[]): string {
+	const resolvedEntries = entries.length > 0 ? entries : [{ name: '' }];
+	return resolvedEntries
+		.map(
+			(entry) => `<div class="tool-row">
+				<input name="toolName" value="${escapeHtml(entry.name)}" placeholder="${escapeHtml(messages.mcpManagerToolNamePlaceholder)}" />
+				<select name="toolEnabled">
+					<option value="" ${entry.enabled === undefined ? 'selected' : ''}>${escapeHtml(messages.mcpManagerToolEnabledDefault)}</option>
+					<option value="true" ${entry.enabled === true ? 'selected' : ''}>${escapeHtml(messages.mcpManagerToolEnabledTrue)}</option>
+					<option value="false" ${entry.enabled === false ? 'selected' : ''}>${escapeHtml(messages.mcpManagerToolEnabledFalse)}</option>
+				</select>
+				<select name="toolApprovalMode">
+					<option value="" ${!entry.approvalMode ? 'selected' : ''}>${escapeHtml(messages.mcpManagerToolApprovalDefault)}</option>
+					<option value="auto" ${entry.approvalMode === 'auto' ? 'selected' : ''}>auto</option>
+					<option value="prompt" ${entry.approvalMode === 'prompt' ? 'selected' : ''}>prompt</option>
+					<option value="approve" ${entry.approvalMode === 'approve' ? 'selected' : ''}>approve</option>
+				</select>
+				<button class="icon-button tool-remove" type="button" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>
 			</div>`,
 		)
 		.join('');
@@ -269,10 +329,11 @@ function buildHtml(
 		.field-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 		.info-icon { color: var(--vscode-descriptionForeground); }
 		.required-field { justify-items: start; }
-		.env-field, .list-field { display: grid; gap: 6px; }
-		.env-rows, .list-rows { display: grid; gap: 8px; }
+		.env-field, .list-field, .tool-field { display: grid; gap: 6px; }
+		.env-rows, .list-rows, .tool-rows { display: grid; gap: 8px; }
 		.env-row { display: grid; grid-template-columns: minmax(120px, 0.9fr) minmax(0, 1.1fr) auto; gap: 8px; align-items: center; }
 		.list-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+		.tool-row { display: grid; grid-template-columns: minmax(140px, 1fr) 140px 160px auto; gap: 8px; align-items: center; }
 		input, textarea, select { width: 100%; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); border-radius: 6px; padding: 6px 8px; }
 		textarea { min-height: 70px; }
 		.icon-button { width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--vscode-panel-border); border-radius: 4px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); cursor: pointer; }
@@ -333,13 +394,33 @@ function buildHtml(
 				.replaceAll('"', '&quot;');
 		const fieldLabel = (label, description) =>
 			'<span class="field-label">' + escapeHtml(label) + '<span class="codicon codicon-info info-icon" title="' + escapeHtml(description) + '" aria-label="' + escapeHtml(description) + '"></span></span>';
-		const buildEnvRowsHtml = (entries) => {
+		const buildEnvRowsHtml = (fieldKey, entries) => {
 			const resolvedEntries = entries && entries.length > 0 ? entries : [{ key: '', value: '' }];
 			return resolvedEntries.map((entry) =>
 				'<div class="env-row">' +
-				'<input name="envKey" value="' + escapeHtml(entry.key || '') + '" placeholder="${escapeHtml(messages.mcpManagerEnvKeyPlaceholder)}" />' +
-				'<input name="envValue" value="' + escapeHtml(entry.value || '') + '" placeholder="${escapeHtml(messages.mcpManagerEnvValuePlaceholder)}" />' +
+				'<input name="' + escapeHtml(fieldKey) + 'Key" value="' + escapeHtml(entry.key || '') + '" placeholder="${escapeHtml(messages.mcpManagerEnvKeyPlaceholder)}" />' +
+				'<input name="' + escapeHtml(fieldKey) + 'Value" value="' + escapeHtml(entry.value || '') + '" placeholder="${escapeHtml(messages.mcpManagerEnvValuePlaceholder)}" />' +
 				'<button class="icon-button env-remove" type="button" title="${escapeHtml(messages.mcpManagerRemoveEnv)}" aria-label="${escapeHtml(messages.mcpManagerRemoveEnv)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>' +
+				'</div>'
+			).join('');
+		};
+		const buildToolRowsHtml = (entries) => {
+			const resolvedEntries = entries && entries.length > 0 ? entries : [{ name: '' }];
+			return resolvedEntries.map((entry) =>
+				'<div class="tool-row">' +
+				'<input name="toolName" value="' + escapeHtml(entry.name || '') + '" placeholder="${escapeHtml(messages.mcpManagerToolNamePlaceholder)}" />' +
+				'<select name="toolEnabled">' +
+				'<option value="" ' + (entry.enabled === undefined ? 'selected' : '') + '>${escapeHtml(messages.mcpManagerToolEnabledDefault)}</option>' +
+				'<option value="true" ' + (entry.enabled === true ? 'selected' : '') + '>${escapeHtml(messages.mcpManagerToolEnabledTrue)}</option>' +
+				'<option value="false" ' + (entry.enabled === false ? 'selected' : '') + '>${escapeHtml(messages.mcpManagerToolEnabledFalse)}</option>' +
+				'</select>' +
+				'<select name="toolApprovalMode">' +
+				'<option value="" ' + (!entry.approvalMode ? 'selected' : '') + '>${escapeHtml(messages.mcpManagerToolApprovalDefault)}</option>' +
+				'<option value="auto" ' + (entry.approvalMode === 'auto' ? 'selected' : '') + '>auto</option>' +
+				'<option value="prompt" ' + (entry.approvalMode === 'prompt' ? 'selected' : '') + '>prompt</option>' +
+				'<option value="approve" ' + (entry.approvalMode === 'approve' ? 'selected' : '') + '>approve</option>' +
+				'</select>' +
+				'<button class="icon-button tool-remove" type="button" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>' +
 				'</div>'
 			).join('');
 		};
@@ -360,6 +441,9 @@ function buildHtml(
 				args: [],
 				url: '',
 				env: [],
+				httpHeaders: [],
+				envHttpHeaders: [],
+				tools: [],
 				enabledTools: [],
 				disabledTools: [],
 				enabled: true,
@@ -383,9 +467,30 @@ function buildHtml(
 				'<div class="env-field">' +
 				'<span class="field-label-row">' +
 				fieldLabel(${JSON.stringify(messages.mcpManagerEnvLabel)}, descriptions.env) +
-				'<button id="addEnvRow" class="icon-button" type="button" title="${escapeHtml(messages.mcpManagerAddEnv)}" aria-label="${escapeHtml(messages.mcpManagerAddEnv)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>' +
+				'<button class="icon-button" type="button" data-add-key-value-row="env" title="${escapeHtml(messages.mcpManagerAddEnv)}" aria-label="${escapeHtml(messages.mcpManagerAddEnv)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>' +
 				'</span>' +
-				'<div id="envRows" class="env-rows">' + buildEnvRowsHtml(current.env || []) + '</div>' +
+				'<div data-key-value-rows="env" class="env-rows">' + buildEnvRowsHtml('env', current.env || []) + '</div>' +
+				'</div>' +
+				'<div class="env-field">' +
+				'<span class="field-label-row">' +
+				fieldLabel(${JSON.stringify(messages.mcpManagerHttpHeadersLabel)}, descriptions.httpHeaders) +
+				'<button class="icon-button" type="button" data-add-key-value-row="httpHeaders" title="${escapeHtml(messages.mcpManagerAddEnv)}" aria-label="${escapeHtml(messages.mcpManagerAddEnv)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>' +
+				'</span>' +
+				'<div data-key-value-rows="httpHeaders" class="env-rows">' + buildEnvRowsHtml('httpHeaders', current.httpHeaders || []) + '</div>' +
+				'</div>' +
+				'<div class="env-field">' +
+				'<span class="field-label-row">' +
+				fieldLabel(${JSON.stringify(messages.mcpManagerEnvHttpHeadersLabel)}, descriptions.envHttpHeaders) +
+				'<button class="icon-button" type="button" data-add-key-value-row="envHttpHeaders" title="${escapeHtml(messages.mcpManagerAddEnv)}" aria-label="${escapeHtml(messages.mcpManagerAddEnv)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>' +
+				'</span>' +
+				'<div data-key-value-rows="envHttpHeaders" class="env-rows">' + buildEnvRowsHtml('envHttpHeaders', current.envHttpHeaders || []) + '</div>' +
+				'</div>' +
+				'<div class="tool-field">' +
+				'<span class="field-label-row">' +
+				fieldLabel(${JSON.stringify(messages.mcpManagerToolsLabel)}, descriptions.tools) +
+				'<button class="icon-button" type="button" data-add-tool-row="tools" title="${escapeHtml(messages.mcpManagerAdd)}" aria-label="${escapeHtml(messages.mcpManagerAdd)}"><span class="codicon codicon-add" aria-hidden="true"></span></button>' +
+				'</span>' +
+				'<div data-tool-rows="tools" class="tool-rows">' + buildToolRowsHtml(current.tools || []) + '</div>' +
 				'</div>' +
 				'<label class="required-field">' + fieldLabel(${JSON.stringify(messages.mcpManagerRequiredLabel)}, descriptions.required) + '<span class="required-switch"><input name="required" type="checkbox" ' + (current.required ? 'checked' : '') + ' /><span></span></span></label>' +
 				'<label>' + fieldLabel(${JSON.stringify(messages.mcpManagerStartupTimeoutLabel)}, descriptions.startupTimeoutSec) + '<input name="startupTimeoutSec" value="' + escapeHtml(current.startupTimeoutSec ?? '') + '" /></label>' +
@@ -408,13 +513,32 @@ function buildHtml(
 			bindForm();
 		};
 		const getForm = () => document.getElementById('form');
-		const createEnvRow = (key = '', value = '') => {
+		const createKeyValueRow = (fieldKey, key = '', value = '') => {
 			const row = document.createElement('div');
 			row.className = 'env-row';
 			row.innerHTML =
-				'<input name="envKey" value="' + escapeHtml(key) + '" placeholder="${escapeHtml(messages.mcpManagerEnvKeyPlaceholder)}" />' +
-				'<input name="envValue" value="' + escapeHtml(value) + '" placeholder="${escapeHtml(messages.mcpManagerEnvValuePlaceholder)}" />' +
+				'<input name="' + escapeHtml(fieldKey) + 'Key" value="' + escapeHtml(key) + '" placeholder="${escapeHtml(messages.mcpManagerEnvKeyPlaceholder)}" />' +
+				'<input name="' + escapeHtml(fieldKey) + 'Value" value="' + escapeHtml(value) + '" placeholder="${escapeHtml(messages.mcpManagerEnvValuePlaceholder)}" />' +
 				'<button class="icon-button env-remove" type="button" title="${escapeHtml(messages.mcpManagerRemoveEnv)}" aria-label="${escapeHtml(messages.mcpManagerRemoveEnv)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>';
+			return row;
+		};
+		const createToolRow = (tool = {}) => {
+			const row = document.createElement('div');
+			row.className = 'tool-row';
+			row.innerHTML =
+				'<input name="toolName" value="' + escapeHtml(tool.name || '') + '" placeholder="${escapeHtml(messages.mcpManagerToolNamePlaceholder)}" />' +
+				'<select name="toolEnabled">' +
+				'<option value="" ' + (tool.enabled === undefined ? 'selected' : '') + '>${escapeHtml(messages.mcpManagerToolEnabledDefault)}</option>' +
+				'<option value="true" ' + (tool.enabled === true ? 'selected' : '') + '>${escapeHtml(messages.mcpManagerToolEnabledTrue)}</option>' +
+				'<option value="false" ' + (tool.enabled === false ? 'selected' : '') + '>${escapeHtml(messages.mcpManagerToolEnabledFalse)}</option>' +
+				'</select>' +
+				'<select name="toolApprovalMode">' +
+				'<option value="" ' + (!tool.approvalMode ? 'selected' : '') + '>${escapeHtml(messages.mcpManagerToolApprovalDefault)}</option>' +
+				'<option value="auto" ' + (tool.approvalMode === 'auto' ? 'selected' : '') + '>auto</option>' +
+				'<option value="prompt" ' + (tool.approvalMode === 'prompt' ? 'selected' : '') + '>prompt</option>' +
+				'<option value="approve" ' + (tool.approvalMode === 'approve' ? 'selected' : '') + '>approve</option>' +
+				'</select>' +
+				'<button class="icon-button tool-remove" type="button" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>';
 			return row;
 		};
 		const createListRow = (name, value = '') => {
@@ -425,41 +549,89 @@ function buildHtml(
 				'<button class="icon-button list-remove" type="button" data-remove-list-row="' + escapeHtml(name) + '" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>';
 			return row;
 		};
-		const collectEnvEntries = () => {
-			const keys = Array.from(document.querySelectorAll('input[name="envKey"]'));
-			const values = Array.from(document.querySelectorAll('input[name="envValue"]'));
+		const collectKeyValueEntries = (fieldKey) => {
+			const keys = Array.from(document.querySelectorAll('input[name="' + fieldKey + 'Key"]'));
+			const values = Array.from(document.querySelectorAll('input[name="' + fieldKey + 'Value"]'));
 			return keys.map((keyInput, index) => ({
 				key: String(keyInput.value || '').trim(),
 				value: String(values[index]?.value || '').trim(),
 			})).filter((entry) => entry.key.length > 0 || entry.value.length > 0);
 		};
+		const collectToolEntries = () =>
+			Array.from(document.querySelectorAll('[data-tool-rows="tools"] .tool-row')).map((row) => {
+				const name = row.querySelector('input[name="toolName"]')?.value || '';
+				const enabledValue = row.querySelector('select[name="toolEnabled"]')?.value || '';
+				const approvalMode = row.querySelector('select[name="toolApprovalMode"]')?.value || '';
+				return {
+					name: String(name).trim(),
+					enabled:
+						enabledValue === 'true' ? true : enabledValue === 'false' ? false : undefined,
+					approvalMode: approvalMode || undefined,
+				};
+			}).filter((entry) => entry.name || entry.enabled !== undefined || entry.approvalMode);
 		const collectListEntries = (name) =>
 			Array.from(document.querySelectorAll('input[name="' + name + 'Item"]'))
 				.map((input) => String(input.value || '').trim())
 				.filter(Boolean);
 		const bindForm = () => {
 			const form = getForm();
-			const envRows = document.getElementById('envRows');
-			document.getElementById('addEnvRow')?.addEventListener('click', () => {
-				envRows?.appendChild(createEnvRow());
-				dirty = true;
+			form?.querySelectorAll('[data-add-key-value-row]').forEach((button) => {
+				button.addEventListener('click', () => {
+					const key = button.getAttribute('data-add-key-value-row');
+					const rows = key ? form.querySelector('[data-key-value-rows="' + key + '"]') : null;
+					if (!key || !rows) {
+						return;
+					}
+					rows.appendChild(createKeyValueRow(key));
+					dirty = true;
+				});
 			});
-			envRows?.addEventListener('click', (event) => {
-				const target = event.target instanceof Element ? event.target : null;
-				const removeButton = target?.closest?.('.env-remove');
-				if (!removeButton) {
-					return;
-				}
-				const rows = envRows.querySelectorAll('.env-row');
-				if (rows.length === 1) {
-					const row = rows[0];
-					row.querySelectorAll('input').forEach((input) => {
-						input.value = '';
-					});
-				} else {
-					removeButton.closest('.env-row')?.remove();
-				}
-				dirty = true;
+			form?.querySelectorAll('[data-key-value-rows]').forEach((rows) => {
+				rows.addEventListener('click', (event) => {
+					const target = event.target instanceof Element ? event.target : null;
+					const removeButton = target?.closest?.('.env-remove');
+					if (!removeButton) {
+						return;
+					}
+					const rowItems = rows.querySelectorAll('.env-row');
+					if (rowItems.length === 1) {
+						rowItems[0].querySelectorAll('input').forEach((input) => {
+							input.value = '';
+						});
+					} else {
+						removeButton.closest('.env-row')?.remove();
+					}
+					dirty = true;
+				});
+			});
+			form?.querySelectorAll('[data-add-tool-row]').forEach((button) => {
+				button.addEventListener('click', () => {
+					const key = button.getAttribute('data-add-tool-row');
+					const rows = key ? form.querySelector('[data-tool-rows="' + key + '"]') : null;
+					if (!rows) {
+						return;
+					}
+					rows.appendChild(createToolRow());
+					dirty = true;
+				});
+			});
+			form?.querySelectorAll('[data-tool-rows]').forEach((rows) => {
+				rows.addEventListener('click', (event) => {
+					const target = event.target instanceof Element ? event.target : null;
+					const removeButton = target?.closest?.('.tool-remove');
+					if (!removeButton) {
+						return;
+					}
+					const rowItems = rows.querySelectorAll('.tool-row');
+					if (rowItems.length === 1) {
+						rowItems[0].querySelectorAll('input, select').forEach((input) => {
+							input.value = '';
+						});
+					} else {
+						removeButton.closest('.tool-row')?.remove();
+					}
+					dirty = true;
+				});
 			});
 			form?.querySelectorAll('[data-add-list-row]').forEach((button) => {
 				button.addEventListener('click', () => {
@@ -510,7 +682,10 @@ function buildHtml(
 						command: String(data.get('command') ?? ''),
 						args: collectListEntries('args'),
 						url: String(data.get('url') ?? ''),
-						env: collectEnvEntries(),
+						env: collectKeyValueEntries('env'),
+						httpHeaders: collectKeyValueEntries('httpHeaders'),
+						envHttpHeaders: collectKeyValueEntries('envHttpHeaders'),
+						tools: collectToolEntries(),
 						required: data.get('required') === 'on',
 						startupTimeoutSec: numberValue('startupTimeoutSec'),
 						toolTimeoutSec: numberValue('toolTimeoutSec'),
@@ -722,6 +897,9 @@ function emptyModelForPanel(): McpFormModel {
 		args: [],
 		url: '',
 		env: [],
+		httpHeaders: [],
+		envHttpHeaders: [],
+		tools: [],
 		enabledTools: [],
 		disabledTools: [],
 		enabled: true,

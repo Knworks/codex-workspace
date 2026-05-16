@@ -242,6 +242,15 @@ export const messages = {
 	mcpManagerArgsLabel: localize('message.mcpManagerArgsLabel', 'Args'),
 	mcpManagerUrlLabel: localize('message.mcpManagerUrlLabel', 'URL'),
 	mcpManagerEnvLabel: localize('message.mcpManagerEnvLabel', 'Env'),
+	mcpManagerHttpHeadersLabel: localize(
+		'message.mcpManagerHttpHeadersLabel',
+		'HTTP Headers',
+	),
+	mcpManagerEnvHttpHeadersLabel: localize(
+		'message.mcpManagerEnvHttpHeadersLabel',
+		'Env HTTP Headers',
+	),
+	mcpManagerToolsLabel: localize('message.mcpManagerToolsLabel', 'Tools'),
 	mcpManagerRequiredLabel: localize(
 		'message.mcpManagerRequiredLabel',
 		'Required',
@@ -275,6 +284,26 @@ export const messages = {
 		'message.mcpManagerEnvValuePlaceholder',
 		'value',
 	),
+	mcpManagerToolNamePlaceholder: localize(
+		'message.mcpManagerToolNamePlaceholder',
+		'tool-name',
+	),
+	mcpManagerToolEnabledDefault: localize(
+		'message.mcpManagerToolEnabledDefault',
+		'Enabled: default',
+	),
+	mcpManagerToolEnabledTrue: localize(
+		'message.mcpManagerToolEnabledTrue',
+		'Enabled: true',
+	),
+	mcpManagerToolEnabledFalse: localize(
+		'message.mcpManagerToolEnabledFalse',
+		'Enabled: false',
+	),
+	mcpManagerToolApprovalDefault: localize(
+		'message.mcpManagerToolApprovalDefault',
+		'Approval: default',
+	),
 	mcpManagerToggle: localize('message.mcpManagerToggle', 'Toggle'),
 	mcpManagerDescriptionServerName: localize(
 		'message.mcpManagerDescriptionServerName',
@@ -299,6 +328,18 @@ export const messages = {
 	mcpManagerDescriptionEnv: localize(
 		'message.mcpManagerDescriptionEnv',
 		'Environment variables passed to the MCP server. Enter key and value pairs.',
+	),
+	mcpManagerDescriptionHttpHeaders: localize(
+		'message.mcpManagerDescriptionHttpHeaders',
+		'Static HTTP headers sent to the MCP server. Enter header names and values.',
+	),
+	mcpManagerDescriptionEnvHttpHeaders: localize(
+		'message.mcpManagerDescriptionEnvHttpHeaders',
+		'HTTP header mappings whose values are read from environment variables. Enter header names and environment variable names.',
+	),
+	mcpManagerDescriptionTools: localize(
+		'message.mcpManagerDescriptionTools',
+		'Per-tool settings. Each row can override enabled and approval_mode for one tool.',
 	),
 	mcpManagerDescriptionRequired: localize(
 		'message.mcpManagerDescriptionRequired',
@@ -366,6 +407,14 @@ export const messages = {
 	mcpValidationEnvKeyDuplicate: localize(
 		'message.mcpValidationEnvKeyDuplicate',
 		'Env keys must be unique.',
+	),
+	mcpValidationToolNameRequired: localize(
+		'message.mcpValidationToolNameRequired',
+		'Tool rows with settings must also have a tool name.',
+	),
+	mcpValidationToolApprovalModeInvalid: localize(
+		'message.mcpValidationToolApprovalModeInvalid',
+		'Tool approval_mode must be auto, prompt, or approve.',
 	),
 	coreViewAgentsChainTab: localize(
 		'message.coreViewAgentsChainTab',

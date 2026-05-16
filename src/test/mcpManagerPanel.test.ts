@@ -17,9 +17,15 @@ suite('MCP manager panel', () => {
 		assert.ok(source.includes("data-list-rows=\"args\""));
 		assert.ok(source.includes("data-list-rows=\"enabledTools\""));
 		assert.ok(source.includes("data-list-rows=\"disabledTools\""));
+		assert.ok(source.includes("data-key-value-rows=\"httpHeaders\""));
+		assert.ok(source.includes("data-key-value-rows=\"envHttpHeaders\""));
+		assert.ok(source.includes("data-tool-rows=\"tools\""));
 		assert.ok(source.includes("collectListEntries('args')"));
 		assert.ok(source.includes("collectListEntries('enabledTools')"));
 		assert.ok(source.includes("collectListEntries('disabledTools')"));
+		assert.ok(source.includes("collectKeyValueEntries('httpHeaders')"));
+		assert.ok(source.includes("collectKeyValueEntries('envHttpHeaders')"));
+		assert.ok(source.includes('collectToolEntries()'));
 		assert.ok(!source.includes('<textarea class="textarea-args" name="args">'));
 	});
 });

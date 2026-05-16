@@ -8,6 +8,12 @@ export type McpEnvEntry = {
 	value: string;
 };
 
+export type McpToolEntry = {
+	name: string;
+	enabled?: boolean;
+	approvalMode?: 'auto' | 'prompt' | 'approve';
+};
+
 export type McpFormModel = {
 	id: string;
 	transport: McpTransport;
@@ -15,6 +21,9 @@ export type McpFormModel = {
 	args: string[];
 	url: string;
 	env: McpEnvEntry[];
+	httpHeaders?: McpEnvEntry[];
+	envHttpHeaders?: McpEnvEntry[];
+	tools?: McpToolEntry[];
 	required?: boolean;
 	startupTimeoutSec?: number;
 	toolTimeoutSec?: number;
@@ -46,6 +55,41 @@ type McpHeaderInfo = {
 const MCP_HEADER_PATTERN =
 	/^\s*\[mcp_servers\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.-]+))\]\s*$/;
 const MCP_ENV_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const MCP_TOOL_APPROVAL_MODES = new Set(['auto', 'prompt', 'approve']);
+
+function parseKnownMcpCompanionId(
+	id: string,
+	allowUnknownBareCompanion = false,
+): { parentId: string; settingName: string } | undefined {
+	for (const settingName of ['env', 'http_headers', 'env_http_headers']) {
+		const suffix = `.${settingName}`;
+		if (id.toLowerCase().endsWith(suffix)) {
+			return {
+				parentId: id.slice(0, -suffix.length),
+				settingName,
+			};
+		}
+	}
+	const toolsMarker = '.tools.';
+	const toolsIndex = id.toLowerCase().indexOf(toolsMarker);
+	if (toolsIndex > 0 && toolsIndex + toolsMarker.length < id.length) {
+		return {
+			parentId: id.slice(0, toolsIndex),
+			settingName: id.slice(toolsIndex + 1),
+		};
+	}
+	if (!allowUnknownBareCompanion) {
+		return undefined;
+	}
+	const segments = id.split('.');
+	if (segments.length > 1 && segments[0]) {
+		return {
+			parentId: segments[0],
+			settingName: segments.slice(1).join('.'),
+		};
+	}
+	return undefined;
+}
 
 function parseMcpHeader(line: string): McpHeaderInfo | undefined {
 	const match = line.match(MCP_HEADER_PATTERN);
@@ -55,22 +99,13 @@ function parseMcpHeader(line: string): McpHeaderInfo | undefined {
 	const quotedId = match[1];
 	const bareId = match[2];
 	const id = unescapeTomlString(quotedId ?? bareId ?? '');
-	if (id.toLowerCase().endsWith('.env')) {
+	const companion = parseKnownMcpCompanionId(id, !quotedId);
+	if (companion) {
 		return {
 			id,
-			parentId: id.slice(0, -4),
-			settingName: 'env',
+			parentId: companion.parentId,
+			settingName: companion.settingName,
 		};
-	}
-	if (!quotedId && bareId?.includes('.')) {
-		const [parentId, ...settingSegments] = bareId.split('.');
-		if (parentId && settingSegments.length > 0) {
-			return {
-				id,
-				parentId,
-				settingName: settingSegments.join('.'),
-			};
-		}
 	}
 	return { id };
 }
@@ -81,14 +116,11 @@ export function listMcpFormModels(configPath: string): McpFormModel[] {
 	}
 	const contents = fs.readFileSync(configPath, 'utf8');
 	const blocks = parseMcpBlocks(contents);
-	const envBlocks = new Map(
-		blocks
-			.filter((block) => block.settingName === 'env' && block.parentId)
-			.map((block) => [block.parentId!, block] as const),
-	);
 	return blocks
 		.filter((block) => !block.parentId)
-		.map((block) => blockToModel(block, envBlocks.get(block.id)));
+		.map((block) =>
+			blockToModel(block, blocks.filter((candidate) => candidate.parentId === block.id)),
+		);
 }
 
 export function validateMcpModel(
@@ -121,7 +153,11 @@ export function validateMcpModel(
 		errors.push('toolsMutuallyExclusive');
 	}
 	const seenEnvKeys = new Set<string>();
-	for (const entry of model.env) {
+	for (const entry of [
+		...model.env,
+		...(model.httpHeaders ?? []),
+		...(model.envHttpHeaders ?? []),
+	]) {
 		const key = entry.key.trim();
 		const value = entry.value.trim();
 		if (!key && !value) {
@@ -140,6 +176,19 @@ export function validateMcpModel(
 			continue;
 		}
 		seenEnvKeys.add(key);
+	}
+	for (const entry of model.tools ?? []) {
+		const name = entry.name.trim();
+		if (!name) {
+			if (entry.enabled === undefined && !entry.approvalMode) {
+				continue;
+			}
+			errors.push('toolNameRequired');
+			continue;
+		}
+		if (entry.approvalMode && !MCP_TOOL_APPROVAL_MODES.has(entry.approvalMode)) {
+			errors.push('toolApprovalModeInvalid');
+		}
 	}
 	return { ok: errors.length === 0, errors };
 }
@@ -162,41 +211,53 @@ export function saveMcpServer(
 	const target = previousId
 		? blocks.find((block) => block.id === previousId)
 		: undefined;
-	const targetEnv = previousId
-		? blocks.find((block) => block.parentId === previousId && block.settingName === 'env')
-		: undefined;
 	const targetCompanions = previousId
-		? blocks.filter(
-				(block) =>
-					block.parentId === previousId &&
-					block.settingName &&
-					block.settingName !== 'env',
-			)
+		? blocks.filter((block) => block.parentId === previousId && block.settingName)
 		: [];
-	const newBlock = buildMcpBlock(model, target).split('\n');
-	const newEnvBlock = buildMcpEnvBlock(model).split('\n');
+	const existingModel = target ? blockToModel(target, targetCompanions) : undefined;
+	const effectiveModel: McpFormModel = {
+		...model,
+		httpHeaders: model.httpHeaders ?? existingModel?.httpHeaders ?? [],
+		envHttpHeaders: model.envHttpHeaders ?? existingModel?.envHttpHeaders ?? [],
+		tools: model.tools ?? existingModel?.tools ?? [],
+	};
+	const newBlock = buildMcpBlock(effectiveModel, target).split('\n');
+	const newCompanionBlocks = buildManagedCompanionBlocks(effectiveModel);
 	if (!target) {
 		const separator = contents.trim().length > 0 ? '\n\n' : '';
-		const envSection =
-			model.env.length > 0 ? `\n\n${newEnvBlock.join('\n')}` : '';
+		const companionSection =
+			newCompanionBlocks.length > 0 ? `\n\n${newCompanionBlocks.join('\n\n')}` : '';
 		fs.writeFileSync(
 			configPath,
 			stabilizeManagedConfigToml(
-				`${contents}${separator}${newBlock.join('\n')}${envSection}\n`,
+				`${contents}${separator}${newBlock.join('\n')}${companionSection}\n`,
 			),
 			'utf8',
 		);
 		return validation;
 	}
 	const lines = contents.split(/\r?\n/);
+	const managedCompanions = targetCompanions.filter((block) =>
+		isManagedCompanionSetting(block.settingName),
+	);
+	const unknownCompanions = targetCompanions.filter(
+		(block) => !isManagedCompanionSetting(block.settingName),
+	);
 	const replacements = [
 		{ target, nextLines: newBlock },
-		...(targetEnv
-			? [{ target: targetEnv, nextLines: model.env.length > 0 ? newEnvBlock : [] }]
-			: []),
-		...targetCompanions.map((block) => ({
+		...managedCompanions.map((block, index) => ({
 			target: block,
-			nextLines: rewriteCompanionBlock(block, model.id).split('\n'),
+			nextLines:
+				index < newCompanionBlocks.length
+					? newCompanionBlocks[index].split('\n')
+					: [],
+		})),
+		...unknownCompanions.map((block) => ({
+			target: block,
+			nextLines:
+				previousId && model.id !== previousId
+					? rewriteCompanionBlock(block, model.id).split('\n')
+					: block.lines,
 		})),
 	].sort((left, right) => right.target.startLine - left.target.startLine);
 	for (const replacement of replacements) {
@@ -206,8 +267,14 @@ export function saveMcpServer(
 			...replacement.nextLines,
 		);
 	}
-	if (!targetEnv && model.env.length > 0) {
-		lines.push('', ...newEnvBlock);
+	if (newCompanionBlocks.length > managedCompanions.length) {
+		const extraBlocks = newCompanionBlocks.slice(managedCompanions.length);
+		lines.push(
+			'',
+			...extraBlocks.flatMap((block, index) =>
+				index === 0 ? block.split('\n') : ['', ...block.split('\n')],
+			),
+		);
 	}
 	fs.writeFileSync(
 		configPath,
@@ -270,12 +337,19 @@ function parseMcpBlocks(contents: string): McpBlock[] {
 	return blocks;
 }
 
-function blockToModel(block: McpBlock, envBlock?: McpBlock): McpFormModel {
+function blockToModel(block: McpBlock, companionBlocks: McpBlock[]): McpFormModel {
 	const values = readBlockValues(block.lines);
 	const hasUrl = typeof values.url === 'string';
 	const args = Array.isArray(values.args) ? values.args : [];
 	const enabledTools = Array.isArray(values.enabled_tools) ? values.enabled_tools : [];
 	const disabledTools = Array.isArray(values.disabled_tools) ? values.disabled_tools : [];
+	const envBlock = companionBlocks.find((candidate) => candidate.settingName === 'env');
+	const httpHeadersBlock = companionBlocks.find(
+		(candidate) => candidate.settingName === 'http_headers',
+	);
+	const envHttpHeadersBlock = companionBlocks.find(
+		(candidate) => candidate.settingName === 'env_http_headers',
+	);
 	return {
 		id: block.id,
 		transport: hasUrl ? 'http' : 'stdio',
@@ -283,6 +357,16 @@ function blockToModel(block: McpBlock, envBlock?: McpBlock): McpFormModel {
 		args,
 		url: typeof values.url === 'string' ? values.url : '',
 		env: envBlock ? readEnvBlockEntries(envBlock.lines) : toEnvEntries(values.env),
+		httpHeaders: httpHeadersBlock
+			? readEnvBlockEntries(httpHeadersBlock.lines)
+			: toEnvEntries(values.http_headers),
+		envHttpHeaders: envHttpHeadersBlock
+			? readEnvBlockEntries(envHttpHeadersBlock.lines)
+			: toEnvEntries(values.env_http_headers),
+		tools: companionBlocks
+			.filter((candidate) => candidate.settingName?.startsWith('tools.'))
+			.map((candidate) => toToolEntry(candidate))
+			.filter((entry): entry is McpToolEntry => entry !== undefined),
 		required: typeof values.required === 'boolean' ? values.required : undefined,
 		startupTimeoutSec:
 			typeof values.startup_timeout_sec === 'number'
@@ -295,6 +379,23 @@ function blockToModel(block: McpBlock, envBlock?: McpBlock): McpFormModel {
 		enabledTools,
 		disabledTools,
 		enabled: typeof values.enabled === 'boolean' ? values.enabled : true,
+	};
+}
+
+function toToolEntry(block: McpBlock): McpToolEntry | undefined {
+	const toolName = block.settingName?.slice('tools.'.length).trim();
+	if (!toolName) {
+		return undefined;
+	}
+	const values = readBlockValues(block.lines);
+	const approvalMode =
+		typeof values.approval_mode === 'string' && MCP_TOOL_APPROVAL_MODES.has(values.approval_mode)
+			? (values.approval_mode as McpToolEntry['approvalMode'])
+			: undefined;
+	return {
+		name: toolName,
+		enabled: typeof values.enabled === 'boolean' ? values.enabled : undefined,
+		approvalMode,
 	};
 }
 
@@ -382,6 +483,8 @@ function buildMcpBlock(model: McpFormModel, previous?: McpBlock): string {
 		'command',
 		'args',
 		'env',
+		'http_headers',
+		'env_http_headers',
 		'url',
 		'required',
 		'startup_timeout_sec',
@@ -443,13 +546,59 @@ function formatStringArray(values: string[]): string {
 }
 
 function buildMcpEnvBlock(model: McpFormModel): string {
-	const envHeader = buildCompanionHeader(model.id, 'env');
-	const lines = [envHeader];
-	for (const entry of model.env) {
+	return buildKeyValueCompanionBlock(model.id, 'env', model.env);
+}
+
+function buildManagedCompanionBlocks(model: McpFormModel): string[] {
+	const blocks: string[] = [];
+	if (model.env.length > 0) {
+		blocks.push(buildKeyValueCompanionBlock(model.id, 'env', model.env));
+	}
+	if ((model.httpHeaders ?? []).length > 0) {
+		blocks.push(
+			buildKeyValueCompanionBlock(model.id, 'http_headers', model.httpHeaders ?? []),
+		);
+	}
+	if ((model.envHttpHeaders ?? []).length > 0) {
+		blocks.push(
+			buildKeyValueCompanionBlock(
+				model.id,
+				'env_http_headers',
+				model.envHttpHeaders ?? [],
+			),
+		);
+	}
+	for (const tool of model.tools ?? []) {
+		if (!tool.name.trim()) {
+			continue;
+		}
+		blocks.push(buildToolCompanionBlock(model.id, tool));
+	}
+	return blocks;
+}
+
+function buildKeyValueCompanionBlock(
+	parentId: string,
+	settingName: string,
+	entries: McpEnvEntry[],
+): string {
+	const lines = [buildCompanionHeader(parentId, settingName)];
+	for (const entry of entries) {
 		if (!entry.key.trim()) {
 			continue;
 		}
 		lines.push(`${entry.key} = '${escapeTomlLiteralString(entry.value)}'`);
+	}
+	return lines.join('\n');
+}
+
+function buildToolCompanionBlock(parentId: string, entry: McpToolEntry): string {
+	const lines = [buildCompanionHeader(parentId, `tools.${entry.name.trim()}`)];
+	if (entry.enabled !== undefined) {
+		lines.push(`enabled = ${entry.enabled ? 'true' : 'false'}`);
+	}
+	if (entry.approvalMode) {
+		lines.push(`approval_mode = "${escapeTomlString(entry.approvalMode)}"`);
 	}
 	return lines.join('\n');
 }
@@ -469,6 +618,16 @@ function rewriteCompanionBlock(block: McpBlock, parentId: string): string {
 		return block.lines.join('\n');
 	}
 	return [buildCompanionHeader(parentId, block.settingName), ...block.lines.slice(1)].join('\n');
+}
+
+function isManagedCompanionSetting(settingName?: string): boolean {
+	return Boolean(
+		settingName &&
+			(settingName === 'env' ||
+				settingName === 'http_headers' ||
+				settingName === 'env_http_headers' ||
+				settingName.startsWith('tools.')),
+	);
 }
 
 function normalizeLines(lines: string[]): string {
