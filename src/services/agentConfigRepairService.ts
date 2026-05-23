@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import {
 	readAgentTomlDescription,
+	syncAgentTomlMetadata,
 	toAgentConfigFilePath,
 	upsertAgentConfigMetadata,
 } from './agentConfigService';
@@ -58,6 +59,7 @@ export function repairAgentConfigContents(
 				continue;
 			}
 			seenAgentIds.add(agentId);
+			syncAgentTomlMetadata(agentFilePath, agentId);
 			nextContents = upsertAgentConfigMetadata(
 				nextContents,
 				agentId,

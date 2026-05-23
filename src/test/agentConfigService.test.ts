@@ -11,7 +11,9 @@ import {
 	getAgentConfigFile,
 	hasAgentConfigBlock,
 	readAgentTomlDescription,
+	syncAgentTomlMetadata,
 	toAgentConfigFilePath,
+	upsertAgentTomlMetadata,
 	upsertAgentConfigBlock,
 	upsertAgentConfigMetadata,
 } from '../services/agentConfigService';
@@ -91,6 +93,21 @@ suite('Agent config service', () => {
 		assert.ok(updated.includes('config_file = "../project/.codex/agents/alpha.toml" # keep'));
 	});
 
+	test('upsertAgentTomlMetadata corrects name and description while preserving comments', () => {
+		const original = [
+			'# comment',
+			'name = "old_name" # keep',
+			'description = "Old" # keep',
+			'model = "gpt-5.4"',
+			'',
+		].join('\n');
+		const updated = upsertAgentTomlMetadata(original, 'new_name', 'New');
+		assert.ok(updated.includes('name = "new_name" # keep'));
+		assert.ok(updated.includes('description = "New" # keep'));
+		assert.ok(updated.includes('# comment'));
+		assert.ok(updated.includes('model = "gpt-5.4"'));
+	});
+
 	test('reads description from agent toml and derives relative config path', () => {
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-config-service-'));
 		try {
@@ -108,6 +125,22 @@ suite('Agent config service', () => {
 				toAgentConfigFilePath(configPath, agentPath),
 				path.relative(path.dirname(configPath), agentPath),
 			);
+		} finally {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test('syncAgentTomlMetadata writes missing name and description to file', () => {
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-config-service-'));
+		try {
+			const agentPath = path.join(tempDir, 'agent.toml');
+			fs.writeFileSync(agentPath, 'model = "gpt-5.4"\n', 'utf8');
+			const changed = syncAgentTomlMetadata(agentPath, 'planner', 'Planner');
+			assert.strictEqual(changed, true);
+			const next = fs.readFileSync(agentPath, 'utf8');
+			assert.ok(next.includes('name = "planner"'));
+			assert.ok(next.includes('description = "Planner"'));
+			assert.ok(next.includes('model = "gpt-5.4"'));
 		} finally {
 			fs.rmSync(tempDir, { recursive: true, force: true });
 		}

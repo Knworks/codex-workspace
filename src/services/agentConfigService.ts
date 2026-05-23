@@ -4,6 +4,8 @@ import path from 'path';
 const AGENT_CONFIG_HEADER_PATTERN = /^\s*\[agents\.(?:"([^"]+)"|([A-Za-z0-9_-]+))\]\s*$/;
 const AGENT_DESCRIPTION_PATTERN =
 	/^(\s*description\s*=\s*")((?:[^"\\]|\\.)*)(")(\s*#.*)?$/;
+const AGENT_NAME_PATTERN =
+	/^(\s*name\s*=\s*")((?:[^"\\]|\\.)*)(")(\s*#.*)?$/;
 
 type AgentBlock = {
 	id: string;
@@ -190,6 +192,71 @@ export function upsertAgentConfigMetadata(
 		...blockLines,
 	);
 	return normalizeTomlContents(lines);
+}
+
+export function upsertAgentTomlMetadata(
+	contents: string,
+	agentId: string,
+	description?: string,
+): string {
+	const lines = contents.split(/\r?\n/);
+	const escapedAgentId = escapeTomlString(agentId);
+	const nameLine = `name = "${escapedAgentId}"`;
+	const descriptionLine =
+		description !== undefined
+			? `description = "${escapeTomlString(description)}"`
+			: undefined;
+
+	const nameLineIndex = lines.findIndex((line) => AGENT_NAME_PATTERN.test(line));
+	const descriptionLineIndex = lines.findIndex((line) => AGENT_DESCRIPTION_PATTERN.test(line));
+
+	if (nameLineIndex >= 0) {
+		const match = lines[nameLineIndex]?.match(AGENT_NAME_PATTERN);
+		if (match) {
+			lines[nameLineIndex] =
+				`${match[1]}${escapedAgentId}${match[3]}${match[4] ?? ''}`;
+		}
+	} else {
+		const insertIndex = descriptionLineIndex >= 0 ? descriptionLineIndex : 0;
+		lines.splice(insertIndex, 0, nameLine);
+	}
+
+	if (descriptionLine !== undefined) {
+		const nextDescription = description ?? '';
+		const nextDescriptionLineIndex = lines.findIndex((line) =>
+			AGENT_DESCRIPTION_PATTERN.test(line),
+		);
+		if (nextDescriptionLineIndex >= 0) {
+			const match = lines[nextDescriptionLineIndex]?.match(AGENT_DESCRIPTION_PATTERN);
+			if (match) {
+				lines[nextDescriptionLineIndex] =
+					`${match[1]}${escapeTomlString(nextDescription)}${match[3]}${match[4] ?? ''}`;
+			}
+		} else {
+			const nextNameLineIndex = lines.findIndex((line) => AGENT_NAME_PATTERN.test(line));
+			const insertIndex = nextNameLineIndex >= 0 ? nextNameLineIndex + 1 : 0;
+			lines.splice(insertIndex, 0, descriptionLine);
+		}
+	}
+
+	return normalizeTomlContents(lines);
+}
+
+export function syncAgentTomlMetadata(
+	agentFilePath: string,
+	agentId: string,
+	description?: string,
+): boolean {
+	if (!fs.existsSync(agentFilePath)) {
+		return false;
+	}
+	const original = fs.readFileSync(agentFilePath, 'utf8');
+	const next = upsertAgentTomlMetadata(original, agentId, description);
+	if (next === original) {
+		return false;
+	}
+	fs.writeFileSync(agentFilePath, next, 'utf8');
+	return true;
 }
 
 export function readAgentTomlDescription(agentFilePath: string): string | undefined {

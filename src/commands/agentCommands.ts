@@ -19,6 +19,7 @@ import {
 	getAgentDescription,
 	hasAgentConfigBlock,
 	readAgentTomlDescription,
+	syncAgentTomlMetadata,
 	toAgentConfigFilePath,
 	upsertAgentConfigBlock,
 	upsertAgentConfigMetadata,
@@ -154,6 +155,7 @@ async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
 	}
 
 	fs.writeFileSync(agentFilePath, templateContent, 'utf8');
+	syncAgentTomlMetadata(agentFilePath, agentName, description);
 
 	const configContents = fs.readFileSync(configPath, 'utf8');
 	if (hasAgentConfigBlock(configContents, agentName)) {
@@ -214,6 +216,7 @@ async function editAgent(
 	if (!isSamePath(agentFilePath, nextFilePath)) {
 		fs.renameSync(agentFilePath, nextFilePath);
 	}
+	syncAgentTomlMetadata(nextFilePath, nextName, nextDescription);
 
 	const updatedConfig = upsertAgentConfigBlock(
 		configContents,
@@ -317,6 +320,7 @@ async function enableAgent(
 		readAgentTomlDescription(agentFilePath),
 		toAgentConfigFilePath(configPath, agentFilePath),
 	);
+	syncAgentTomlMetadata(agentFilePath, agentId);
 	fs.writeFileSync(
 		configPath,
 		stabilizeManagedConfigToml(nextContents),

@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { repairAgentConfigContents } from '../services/agentConfigRepairService';
+import { repairAgentConfigEntries } from '../services/agentConfigRepairService';
 import { AgentLocation } from '../services/agentLocations';
 
 function withTempDir(run: (root: string) => void): void {
@@ -58,6 +59,37 @@ suite('Agent config repair service', () => {
 					`config_file = "${path.relative(path.dirname(configPath), path.join(projectAgentsRoot, 'architect.toml'))}"`,
 				),
 			);
+		});
+	});
+
+	test('repairAgentConfigEntries also syncs agent TOML name with the file basename', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, '.codex', 'config.toml');
+			const workspaceAgentsRoot = path.join(root, '.codex', 'agents');
+			fs.mkdirSync(path.dirname(configPath), { recursive: true });
+			fs.mkdirSync(workspaceAgentsRoot, { recursive: true });
+			const agentPath = path.join(workspaceAgentsRoot, 'reviewer.toml');
+			fs.writeFileSync(
+				agentPath,
+				'name = "legacy-reviewer"\ndescription = "Reviewer"\n',
+				'utf8',
+			);
+			fs.writeFileSync(configPath, 'title = "ok"\n', 'utf8');
+			const locations: AgentLocation[] = [
+				{
+					kind: 'workspace',
+					label: 'Workspace Agents',
+					rootPath: workspaceAgentsRoot,
+					priority: 1,
+				},
+			];
+
+			const repaired = repairAgentConfigEntries(configPath, locations);
+
+			assert.strictEqual(repaired.changed, true);
+			const nextAgentContents = fs.readFileSync(agentPath, 'utf8');
+			assert.ok(nextAgentContents.includes('name = "reviewer"'));
+			assert.ok(!nextAgentContents.includes('name = "legacy-reviewer"'));
 		});
 	});
 });
