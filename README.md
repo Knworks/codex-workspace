@@ -22,7 +22,7 @@ Codex Workspace is a VS Code extension that brings scattered Codex configuration
 
 ## Key Features
 
-- Dedicated Explore views for `Codex Manager`, `Sub Agents`, `Skills`, `Commands`, `MCP Server`, and `Templates`
+- Dedicated Explore views for `Codex Manager`, `Sub Agents`, `Skills`, `Commands`, `MCP Server`, `Templates`, and `Codex Pet`
 - One-click open for `config.toml`, `AGENTS.md`, `AGENTS.override.md`, prompts, skills, templates, and agent definition files
 - Add, rename, and delete files/folders directly from supported Explore views
 - Two-way sync between external folders and Core, Commands, Skills, Templates, and Sub Agents
@@ -130,6 +130,15 @@ In `MCP Manager`, you can:
 
 Manage templates under `~/.codex/codex-templates`. Supports template selection when creating files and sync with `codex-workspace.templatesFolder`.
 
+### Codex Pet
+
+`Codex Pet` is a dedicated Webview-based Explore for animated pets.
+
+- Loads pets from `~/.codex/pets/<petId>`
+- Lets you select a pet from the title bar and persists the selected `petId`
+- Renders a draggable sprite character in the Explore view with idle / drag / click / wait animations
+- Optionally connects to `codex app-server` and shows `5h` / `1w` rate limit speech bubbles after refreshes
+
 ## Commands
 
 | Command | Description |
@@ -138,6 +147,9 @@ Manage templates under `~/.codex/codex-templates`. Supports template selection w
 | `Codex Workspace: Open Skill Manager` | Opens the `Skill Manager` Webview |
 | `Codex Workspace: Open AGENTS Manager` | Opens the `AGENTS Manager` Webview |
 | `Codex Workspace: Open MCP Manager` | Opens the `MCP Manager` Webview |
+| `Codex Workspace: Select Pet` | Opens a Quick Pick to choose the active pet for `Codex Pet Explore` |
+| `Codex Workspace: Connect Pet App Server` | Connects `Codex Pet Explore` to `codex app-server` when the feature is enabled |
+| `Codex Workspace: Disconnect Pet App Server` | Disconnects `Codex Pet Explore` from `codex app-server` |
 | `Codex Workspace: Organize config.toml` | Groups managed `config.toml` sections and creates `~/.codex/.codex-workspace/config.toml.bk` before rewriting |
 | `Codex Workspace: Open .codex Folder` | Opens the `.codex` folder in the OS file explorer |
 
@@ -152,6 +164,11 @@ Manage templates under `~/.codex/codex-templates`. Supports template selection w
 | `codex-workspace.agentFolder` | string | `""` | Sync target for Sub Agents |
 | `codex-workspace.maxHistoryCount` | number | `100` | Maximum number of history items to show when explicitly set. If unset, all detected history items are shown. |
 | `codex-workspace.incrudeReasoningMessage` | boolean | `false` | Include reasoning messages in the history preview. The key name is preserved for backward compatibility. |
+| `codex-workspace.pet.enabled` | boolean | `false` | Enables the `Codex Pet Explore` view in the Activity Bar container. |
+| `codex-workspace.pet.appServer.enabled` | boolean | `false` | Enables the title-bar connect/disconnect commands and App Server rate limit integration for the pet view. |
+| `codex-workspace.pet.rateLimitRefreshMinutes` | number | `5` | Refresh interval, in minutes, for fetching rate limits from `codex app-server`. `0` disables automatic refresh. |
+| `codex-workspace.pet.scale` | number | `1` | Display scale for the pet. Supported range is `0.5` to `2.0`. |
+| `codex-workspace.pet.selectedPetId` | string | `""` | Persists the currently selected pet id. |
 
 ## License
 
