@@ -334,7 +334,7 @@
         },
         "codex-workspace.pet.enabled": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "order": 7,
           "description": "%configuration.pet.enabled.description%"
         },

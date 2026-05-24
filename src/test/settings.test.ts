@@ -110,7 +110,7 @@ suite('Sync settings', () => {
 		const settings = getPetSettings(createConfig({}));
 
 		assert.deepStrictEqual(settings, {
-			enabled: true,
+			enabled: false,
 			appServerEnabled: false,
 			rateLimitRefreshMinutes: 5,
 			scale: 1,

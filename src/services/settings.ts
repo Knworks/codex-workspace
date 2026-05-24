@@ -112,7 +112,7 @@ export function getPetSettings(
 	const enabled =
 		configuration.get<boolean>('pet.enabled')
 		?? readLegacyPetConfiguration<boolean>('pet.enabled')
-		?? true;
+		?? false;
 	const appServerEnabled =
 		configuration.get<boolean>('pet.appServer.enabled')
 		?? readLegacyPetConfiguration<boolean>('pet.appServer.enabled')
