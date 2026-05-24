@@ -148,14 +148,14 @@ suite('Sync settings', () => {
 		assert.strictEqual(settings.scale, 0.5);
 	});
 
-	test('keeps legacy explicit scale 0.5 at the new default visual size', () => {
+	test('keeps configured pet scale 0.5', () => {
 		const settings = getPetSettings(
 			createConfig({
 				'pet.scale': 0.5,
 			}),
 		);
 
-		assert.strictEqual(settings.scale, 1);
+		assert.strictEqual(settings.scale, 0.5);
 	});
 
 	test('keeps fractional refresh intervals like 0.1 minutes', () => {

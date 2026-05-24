@@ -25,7 +25,8 @@ const FRAME_WIDTH = 192;
 const FRAME_HEIGHT = 208;
 const FRAME_COLUMNS = 8;
 const BUBBLE_VISIBLE_MS = 5000;
-const BASE_RENDER_SCALE = 0.5;
+// Rebase scale semantics so the previous visual size at 0.75 becomes the new 1.0.
+const BASE_RENDER_SCALE = 0.375;
 
 type PetInboundMessage =
 	| {
@@ -68,7 +69,17 @@ export class PetExploreProvider implements vscode.WebviewViewProvider, vscode.Di
 			vscode.workspace.onDidChangeConfiguration((event) => {
 				if (
 					event.affectsConfiguration(`${SETTINGS_SECTION}.pet`)
+					|| event.affectsConfiguration(`${SETTINGS_SECTION}.pet.enabled`)
+					|| event.affectsConfiguration(`${SETTINGS_SECTION}.pet.appServer.enabled`)
+					|| event.affectsConfiguration(`${SETTINGS_SECTION}.pet.rateLimitRefreshMinutes`)
+					|| event.affectsConfiguration(`${SETTINGS_SECTION}.pet.scale`)
+					|| event.affectsConfiguration(`${SETTINGS_SECTION}.pet.selectedPetId`)
 					|| event.affectsConfiguration('codexWorkspace.pet')
+					|| event.affectsConfiguration('codexWorkspace.pet.enabled')
+					|| event.affectsConfiguration('codexWorkspace.pet.appServer.enabled')
+					|| event.affectsConfiguration('codexWorkspace.pet.rateLimitRefreshMinutes')
+					|| event.affectsConfiguration('codexWorkspace.pet.scale')
+					|| event.affectsConfiguration('codexWorkspace.pet.selectedPetId')
 				) {
 					if (!getPetSettings().appServerEnabled) {
 						this.connected = false;

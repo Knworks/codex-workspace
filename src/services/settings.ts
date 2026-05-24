@@ -125,17 +125,10 @@ export function getPetSettings(
 		configuration.get('pet.scale')
 			?? readLegacyPetConfiguration<number>('pet.scale'),
 	);
-	const inspectedScale = configuration.inspect<number>('pet.scale');
-	const explicitScale =
-		inspectedScale?.workspaceFolderValue
-		?? inspectedScale?.workspaceValue
-		?? inspectedScale?.globalValue;
 	const normalizedScale =
 		scale === undefined
 			? 1
-			: explicitScale === 0.5
-				? 1
-				: clampNumber(Number(scale.toFixed(1)), 0.5, 2);
+			: clampNumber(Number(scale.toFixed(1)), 0.5, 2);
 	return {
 		enabled: readBooleanSetting(enabled),
 		appServerEnabled: readBooleanSetting(appServerEnabled),
