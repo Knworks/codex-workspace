@@ -76,6 +76,18 @@ suite('View title menus', () => {
 				command: 'codex-workspace.openHistoryView',
 				viewId: 'codex-workspace.core',
 			},
+			{
+				command: 'codex-workspace.selectPet',
+				viewId: 'codex-workspace.pet',
+			},
+			{
+				command: 'codex-workspace.connectPetAppServer',
+				viewId: 'codex-workspace.pet',
+			},
+			{
+				command: 'codex-workspace.disconnectPetAppServer',
+				viewId: 'codex-workspace.pet',
+			},
 		];
 
 		const syncCommands = [
@@ -130,7 +142,7 @@ suite('View title menus', () => {
 			const when = entry.when ?? '';
 			const targetViewIds =
 				command === 'codex-workspace.refreshAll'
-					? [...viewIds, 'codex-workspace.mcp', 'codex-workspace.agents']
+					? [...viewIds, 'codex-workspace.mcp', 'codex-workspace.agents', 'codex-workspace.pet']
 					: viewIds;
 			const excludedForCommand =
 				command === 'codex-workspace.refreshAll'
@@ -150,7 +162,7 @@ suite('View title menus', () => {
 			}
 		}
 
-		const perViewIds = [...viewIds, 'codex-workspace.core', 'codex-workspace.agents'];
+		const perViewIds = [...viewIds, 'codex-workspace.core', 'codex-workspace.agents', 'codex-workspace.pet'];
 		const commandsWithView = [...perViewCommands, ...syncCommands];
 
 		for (const { command, viewId } of commandsWithView) {
@@ -198,6 +210,34 @@ suite('View title menus', () => {
 				`${command} is missing config condition`,
 			);
 		}
+
+		const petConnectEntry = viewTitle.find(
+			(item: { command?: string }) =>
+				item.command === 'codex-workspace.connectPetAppServer',
+		);
+		assert.ok(petConnectEntry, 'Missing view/title menu for codex-workspace.connectPetAppServer');
+		assert.ok(
+			(petConnectEntry.when ?? '').includes('config.codex-workspace.pet.appServer.enabled'),
+			'codex-workspace.connectPetAppServer is missing config condition',
+		);
+		assert.ok(
+			(petConnectEntry.when ?? '').includes('!codex-workspace.pet.appServer.connected'),
+			'codex-workspace.connectPetAppServer is missing disconnected-state condition',
+		);
+
+		const petDisconnectEntry = viewTitle.find(
+			(item: { command?: string }) =>
+				item.command === 'codex-workspace.disconnectPetAppServer',
+		);
+		assert.ok(petDisconnectEntry, 'Missing view/title menu for codex-workspace.disconnectPetAppServer');
+		assert.ok(
+			(petDisconnectEntry.when ?? '').includes('config.codex-workspace.pet.appServer.enabled'),
+			'codex-workspace.disconnectPetAppServer is missing config condition',
+		);
+		assert.ok(
+			(petDisconnectEntry.when ?? '').includes('codex-workspace.pet.appServer.connected'),
+			'codex-workspace.disconnectPetAppServer is missing connected-state condition',
+		);
 
 		for (const command of managerCommands) {
 			const entry = viewTitle.find(

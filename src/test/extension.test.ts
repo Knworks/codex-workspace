@@ -41,11 +41,17 @@ suite('Extension Test Suite', () => {
 		assert.ok(
 			views.some((view: { id: string }) => view.id === 'codex-workspace.agents'),
 		);
+		assert.ok(
+			views.some((view: { id: string }) => view.id === 'codex-workspace.pet'),
+		);
 
 		const activationEvents = packageJson?.activationEvents;
 		assert.ok(Array.isArray(activationEvents));
 		assert.ok(
 			activationEvents.includes('onView:codex-workspace.agents'),
+		);
+		assert.ok(
+			activationEvents.includes('onView:codex-workspace.pet'),
 		);
 	});
 });

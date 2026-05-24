@@ -16,6 +16,14 @@ export type SyncSettings = {
 	agentFolder: string;
 };
 
+export type PetSettings = {
+	enabled: boolean;
+	appServerEnabled: boolean;
+	rateLimitRefreshMinutes: number;
+	scale: number;
+	selectedPetId: string;
+};
+
 type ConfigurationReader = Pick<vscode.WorkspaceConfiguration, 'get' | 'inspect'>;
 
 const readStringSetting = (value: unknown): string =>
@@ -31,6 +39,18 @@ const readPositiveIntegerSetting = (value: unknown): number | undefined => {
 	const normalized = Math.floor(value);
 	return normalized > 0 ? normalized : undefined;
 };
+
+const readNumberSetting = (value: unknown): number | undefined =>
+	typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+
+const clampNumber = (value: number, min: number, max: number): number =>
+	Math.min(max, Math.max(min, value));
+
+function readLegacyPetConfiguration<T>(
+	key: string,
+): T | undefined {
+	return vscode.workspace.getConfiguration('codexWorkspace').get<T>(key);
+}
 
 /**
  * Reads sync folder settings from VS Code configuration.
@@ -82,4 +102,64 @@ export function getIncludeReasoningMessage(
 	),
 ): boolean {
 	return readBooleanSetting(configuration.get('incrudeReasoningMessage'));
+}
+
+export function getPetSettings(
+	configuration: ConfigurationReader = vscode.workspace.getConfiguration(
+		SETTINGS_SECTION,
+	),
+): PetSettings {
+	const enabled =
+		configuration.get<boolean>('pet.enabled')
+		?? readLegacyPetConfiguration<boolean>('pet.enabled')
+		?? true;
+	const appServerEnabled =
+		configuration.get<boolean>('pet.appServer.enabled')
+		?? readLegacyPetConfiguration<boolean>('pet.appServer.enabled')
+		?? false;
+	const refreshMinutes = readNumberSetting(
+		configuration.get('pet.rateLimitRefreshMinutes')
+			?? readLegacyPetConfiguration<number>('pet.rateLimitRefreshMinutes'),
+	);
+	const scale = readNumberSetting(
+		configuration.get('pet.scale')
+			?? readLegacyPetConfiguration<number>('pet.scale'),
+	);
+	const inspectedScale = configuration.inspect<number>('pet.scale');
+	const explicitScale =
+		inspectedScale?.workspaceFolderValue
+		?? inspectedScale?.workspaceValue
+		?? inspectedScale?.globalValue;
+	const normalizedScale =
+		scale === undefined
+			? 1
+			: explicitScale === 0.5
+				? 1
+				: clampNumber(Number(scale.toFixed(1)), 0.5, 2);
+	return {
+		enabled: readBooleanSetting(enabled),
+		appServerEnabled: readBooleanSetting(appServerEnabled),
+			rateLimitRefreshMinutes:
+				refreshMinutes === undefined
+					? 5
+					: clampNumber(Number(refreshMinutes.toFixed(1)), 0, 60),
+			scale: normalizedScale,
+		selectedPetId: readStringSetting(
+			configuration.get('pet.selectedPetId')
+				?? readLegacyPetConfiguration<string>('pet.selectedPetId'),
+		),
+	};
+}
+
+export async function updatePetScale(scale: number): Promise<void> {
+	const normalized = clampNumber(Number(scale.toFixed(1)), 0.5, 2);
+	await vscode.workspace
+		.getConfiguration(SETTINGS_SECTION)
+		.update('pet.scale', normalized, vscode.ConfigurationTarget.Global);
+}
+
+export async function updatePetSelectedPetId(petId: string): Promise<void> {
+	await vscode.workspace
+		.getConfiguration(SETTINGS_SECTION)
+		.update('pet.selectedPetId', petId, vscode.ConfigurationTarget.Global);
 }

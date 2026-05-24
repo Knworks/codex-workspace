@@ -4,9 +4,10 @@
 
 - **アプリ名**: `Codex Workspace`
 - **種別**: VS Code 拡張
-- **役割**: Codex の設定ファイル、Skills、Sub Agents、MCP Server、Templates、履歴・診断画面、Plugin 情報を VS Code 上で扱う
+- **役割**: Codex の設定ファイル、Skills、Sub Agents、MCP Server、Templates、Pet、履歴・診断画面、Plugin 情報を VS Code 上で扱う
 - **主要 UI**:
   - View Container 配下の 6 Tree View
+  - `Codex Pet Explore` の 1 WebviewView
   - `Codex Manager` / `Skill Manager` / `AGENTS Manager` / `MCP Manager` の 4 WebviewPanel
 
 ## 2. 🧰技術スタック
@@ -54,6 +55,8 @@ codex-workspace/
 │   │   ├── mcpManagerService.ts
 │   │   ├── mcpService.ts
 │   │   ├── pluginService.ts
+│   │   ├── petRateLimitService.ts
+│   │   ├── petService.ts
 │   │   ├── settings.ts
 │   │   ├── skillConfigService.ts
 │   │   ├── skillLocations.ts
@@ -68,6 +71,7 @@ codex-workspace/
 │   │   ├── emptyExplorerProvider.ts
 │   │   ├── fileExplorerProvider.ts
 │   │   └── mcpExplorerProvider.ts
+│   │   └── petExploreProvider.ts
 │   └── test/
 ├── docs/
 ├── images/
@@ -101,6 +105,14 @@ codex-workspace/
   - `mcpExplorerProvider.ts` が `readMcpServers()` の結果を表示する
   - `.env` 末尾の補助 block は一覧に出さない
   - Tree item クリックで `codex-workspace.mcp.toggle` を実行する
+
+- **Codex Pet Explore**
+  - `petExploreProvider.ts` が `WebviewViewProvider` として Explore 内にペット UI を提供する
+  - `petService.ts` が `~/.codex/pet/<petId>/pet.json` を列挙し、安全な `spritesheetPath` だけを許可する
+  - Webview は `asWebviewUri` と `localResourceRoots` を使って pet フォルダ配下の画像だけを公開する
+  - アニメーションは Webview 側の canvas で固定サイズフレームを再生する
+  - `settings.ts` が `pet.enabled`、`pet.appServer.enabled`、`pet.rateLimitRefreshMinutes`、`pet.scale`、`pet.selectedPetId` を読む
+  - `petRateLimitService.ts` が `codex status --json` を利用して `5h` / `1w` rate limit 表示モデルへ変換する
 
 - **ファイル操作**
   - `fileCommands.ts` が add / rename / delete を担当する
@@ -168,6 +180,9 @@ codex-workspace/
 | `HookSourceRecord` | `id` / `layer` / `format` / `path` / `exists` / `active` / `entryCount` / `warning` | object | Hooks source 表示モデル |
 | `HookEntryRecord` | `event` / `matcher` / `handlerType` / `command` / `timeout` / `statusMessage` / `active` / `supported` | object | Hooks entry 表示モデル |
 | `PluginRecord` | `id` / `displayName` / `version` / `marketplace` / `status` / `enabled` / `toggleDisabled` / `skills` / `mcpServers` / `apps` / `agents` | object | Plugins タブ表示モデル |
+| `PetDefinition` | `id` / `displayName` / `description` / `spritesheetPath` / `petRootPath` / `spritesheetFsPath` | object | Pet 定義 |
+| `PetSettings` | `enabled` / `appServerEnabled` / `rateLimitRefreshMinutes` / `scale` / `selectedPetId` | object | Pet 表示設定 |
+| `PetRateLimitWindow` | `label` / `usedPercent` / `remainingPercent` / `resetAtLabel` / `isWarning` | object | Pet rate limit 表示モデル |
 
 ## 6. 🖥️画面設計
 
@@ -178,6 +193,7 @@ codex-workspace/
   - `Commands`
   - `MCP Server`
   - `Templates`
+  - `Codex Pet Explore`
 
 - **Core ビュー**
   - `config.toml`
@@ -206,6 +222,11 @@ codex-workspace/
 - **MCP Server ビュー**
   - MCP サーバー一覧のみを表示
   - タイトルバー: refresh / MCP Manager
+
+- **Codex Pet Explore**
+  - 上部: add or change pet / scale slider / App Server toggle
+  - 本体: pet canvas / display name / description
+  - 下部: `5h` / `1w` rate limit cards
 
 - **Skill Manager**
   - 上部: search / clear / refresh
@@ -257,10 +278,12 @@ flowchart TB
   EH --> SESSIONS
   EH --> PLUGINS
   EH --> MARKET
+  EH --> CODEX
   EH --> WV1
   EH --> WV2
   EH --> WV3
   EH --> WV4
+  EH --> PET[Codex Pet Explore]
 ```
 
 ## 8. 🔌外部インターフェース

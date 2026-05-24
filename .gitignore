@@ -7,3 +7,6 @@ coverage/
 out/
 .DS_Store
 .vscode-test
+docs/issues
+docs/I
+docs/specification-changes.md

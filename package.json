@@ -31,11 +31,15 @@
     "onView:codex-workspace.templates",
     "onView:codex-workspace.mcp",
     "onView:codex-workspace.agents",
+    "onView:codex-workspace.pet",
     "onCommand:codex-workspace.openHistoryView",
     "onCommand:codex-workspace.openSkillManager",
     "onCommand:codex-workspace.openAgentManager",
     "onCommand:codex-workspace.openMcpManager",
-    "onCommand:codex-workspace.organizeConfigToml"
+    "onCommand:codex-workspace.organizeConfigToml",
+    "onCommand:codex-workspace.selectPet",
+    "onCommand:codex-workspace.connectPetAppServer",
+    "onCommand:codex-workspace.disconnectPetAppServer"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -73,6 +77,12 @@
         {
           "id": "codex-workspace.templates",
           "name": "%view.templates.name%"
+        },
+        {
+          "id": "codex-workspace.pet",
+          "name": "%view.pet.name%",
+          "type": "webview",
+          "when": "config.codex-workspace.pet.enabled"
         }
       ]
     },
@@ -259,6 +269,21 @@
       {
         "command": "codex-workspace.mcp.toggle",
         "title": "%command.mcp.toggle%"
+      },
+      {
+        "command": "codex-workspace.selectPet",
+        "title": "%command.selectPet%",
+        "icon": "$(add)"
+      },
+      {
+        "command": "codex-workspace.connectPetAppServer",
+        "title": "%command.connectPetAppServer%",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "codex-workspace.disconnectPetAppServer",
+        "title": "%command.disconnectPetAppServer%",
+        "icon": "$(debug-disconnect)"
       }
     ],
     "configuration": {
@@ -306,6 +331,40 @@
           "default": false,
           "order": 6,
           "description": "%configuration.incrudeReasoningMessage.description%"
+        },
+        "codex-workspace.pet.enabled": {
+          "type": "boolean",
+          "default": true,
+          "order": 7,
+          "description": "%configuration.pet.enabled.description%"
+        },
+        "codex-workspace.pet.appServer.enabled": {
+          "type": "boolean",
+          "default": false,
+          "order": 8,
+          "description": "%configuration.pet.appServer.enabled.description%"
+        },
+        "codex-workspace.pet.rateLimitRefreshMinutes": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0,
+          "maximum": 60,
+          "order": 9,
+          "description": "%configuration.pet.rateLimitRefreshMinutes.description%"
+        },
+        "codex-workspace.pet.scale": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.5,
+          "maximum": 2,
+          "order": 10,
+          "description": "%configuration.pet.scale.description%"
+        },
+        "codex-workspace.pet.selectedPetId": {
+          "type": "string",
+          "default": "",
+          "order": 11,
+          "description": "%configuration.pet.selectedPetId.description%"
         }
       }
     },
@@ -343,7 +402,7 @@
         },
         {
           "command": "codex-workspace.refreshAll",
-          "when": "view == 'codex-workspace.core' || view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates' || view == 'codex-workspace.mcp' || view == 'codex-workspace.agents'",
+          "when": "view == 'codex-workspace.core' || view == 'codex-workspace.prompts' || view == 'codex-workspace.skills' || view == 'codex-workspace.templates' || view == 'codex-workspace.mcp' || view == 'codex-workspace.agents' || view == 'codex-workspace.pet'",
           "group": "navigation@99"
         },
         {
@@ -430,6 +489,21 @@
           "command": "codex-workspace.openAgentManager",
           "when": "view == 'codex-workspace.agents'",
           "group": "navigation@9"
+        },
+        {
+          "command": "codex-workspace.selectPet",
+          "when": "view == 'codex-workspace.pet'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codex-workspace.connectPetAppServer",
+          "when": "view == 'codex-workspace.pet' && config.codex-workspace.pet.appServer.enabled && !codex-workspace.pet.appServer.connected",
+          "group": "navigation@2"
+        },
+        {
+          "command": "codex-workspace.disconnectPetAppServer",
+          "when": "view == 'codex-workspace.pet' && config.codex-workspace.pet.appServer.enabled && codex-workspace.pet.appServer.connected",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
@@ -463,7 +537,7 @@
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "package": "npm run check-types && npm run lint && node esbuild.js --production",
-    "compile-tests": "tsc -p . --outDir out",
+    "compile-tests": "node -e \"require('fs').rmSync('out', { recursive: true, force: true })\" && tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",

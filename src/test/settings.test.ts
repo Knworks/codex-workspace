@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import {
 	getConfiguredMaxHistoryCount,
 	getIncludeReasoningMessage,
+	getPetSettings,
 	getSyncSettings,
 } from '../services/settings';
 
@@ -103,5 +104,67 @@ suite('Sync settings', () => {
 		const includeReasoningMessage = getIncludeReasoningMessage(config);
 
 		assert.strictEqual(includeReasoningMessage, true);
+	});
+
+	test('returns default pet settings when values are missing', () => {
+		const settings = getPetSettings(createConfig({}));
+
+		assert.deepStrictEqual(settings, {
+			enabled: true,
+			appServerEnabled: false,
+			rateLimitRefreshMinutes: 5,
+			scale: 1,
+			selectedPetId: '',
+		});
+	});
+
+	test('clamps pet settings to allowed ranges', () => {
+		const settings = getPetSettings(
+			createConfig({
+				'pet.enabled': false,
+				'pet.appServer.enabled': true,
+				'pet.rateLimitRefreshMinutes': 99,
+				'pet.scale': 3.7,
+				'pet.selectedPetId': 'frieren',
+			}),
+		);
+
+		assert.deepStrictEqual(settings, {
+			enabled: false,
+			appServerEnabled: true,
+			rateLimitRefreshMinutes: 60,
+			scale: 2,
+			selectedPetId: 'frieren',
+		});
+	});
+
+	test('clamps pet scale down to 0.5', () => {
+		const settings = getPetSettings(
+			createConfig({
+				'pet.scale': 0.04,
+			}),
+		);
+
+		assert.strictEqual(settings.scale, 0.5);
+	});
+
+	test('keeps legacy explicit scale 0.5 at the new default visual size', () => {
+		const settings = getPetSettings(
+			createConfig({
+				'pet.scale': 0.5,
+			}),
+		);
+
+		assert.strictEqual(settings.scale, 1);
+	});
+
+	test('keeps fractional refresh intervals like 0.1 minutes', () => {
+		const settings = getPetSettings(
+			createConfig({
+				'pet.rateLimitRefreshMinutes': 0.1,
+			}),
+		);
+
+		assert.strictEqual(settings.rateLimitRefreshMinutes, 0.1);
 	});
 });

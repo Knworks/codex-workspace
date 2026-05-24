@@ -17,13 +17,14 @@ import { CoreExplorerProvider } from './views/coreExplorerProvider';
 import { FileExplorerProvider } from './views/fileExplorerProvider';
 import { McpExplorerProvider } from './views/mcpExplorerProvider';
 import { AgentExplorerProvider } from './views/agentExplorerProvider';
+import { PetExploreProvider } from './views/petExploreProvider';
 import { toggleMcpServer } from './services/mcpService';
 import { messages } from './i18n';
 import { runSafely } from './services/errorHandling';
 import { SelectionContext } from './services/selectionContext';
 import { TreeExpansionState } from './services/treeExpansionState';
 import { ViewFocusState } from './services/viewFocusState';
-import { getSyncSettings } from './services/settings';
+import { getPetSettings, getSyncSettings } from './services/settings';
 import { HistoryPanelManager } from './services/historyPanel';
 import { SkillManagerPanelManager } from './services/skillManagerPanel';
 import { AgentManagerPanelManager } from './services/agentManagerPanel';
@@ -48,6 +49,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const templatesProvider = new FileExplorerProvider('templates', context);
 	const mcpProvider = new McpExplorerProvider(context);
 	const agentsProvider = new AgentExplorerProvider(context);
+	const petProvider = new PetExploreProvider(context);
 	const selectionContext = new SelectionContext();
 	const expansionState = new TreeExpansionState();
 	const viewFocusState = new ViewFocusState();
@@ -97,6 +99,11 @@ export function activate(context: vscode.ExtensionContext) {
 		treeDataProvider: agentsProvider,
 	});
 
+	const petViewProviderDisposable = vscode.window.registerWebviewViewProvider(
+		'codex-workspace.pet',
+		petProvider,
+	);
+
 	const trackExpansion = (
 		kind: 'prompts' | 'skills' | 'templates',
 		view: vscode.TreeView<CodexTreeItem>,
@@ -129,6 +136,7 @@ export function activate(context: vscode.ExtensionContext) {
 		templatesView,
 		mcpView,
 		agentsView,
+		petViewProviderDisposable,
 		trackSelection(coreView),
 		trackSelection(promptsView, 'prompts'),
 		trackSelection(skillsView, 'skills'),
@@ -315,6 +323,49 @@ export function activate(context: vscode.ExtensionContext) {
 					return;
 				}
 				mcpManagerPanelManager.show();
+			}),
+	);
+
+	const selectPetDisposable = vscode.commands.registerCommand(
+		'codex-workspace.selectPet',
+		() =>
+			runSafely(async () => {
+				if (!getWorkspaceStatus().isAvailable || !getPetSettings().enabled) {
+					return;
+				}
+				await petProvider.selectPet();
+			}),
+	);
+
+	const connectPetAppServerDisposable = vscode.commands.registerCommand(
+		'codex-workspace.connectPetAppServer',
+		() =>
+			runSafely(async () => {
+				const petSettings = getPetSettings();
+				if (
+					!getWorkspaceStatus().isAvailable
+					|| !petSettings.enabled
+					|| !petSettings.appServerEnabled
+				) {
+					return;
+				}
+				await petProvider.setConnection(true);
+			}),
+	);
+
+	const disconnectPetAppServerDisposable = vscode.commands.registerCommand(
+		'codex-workspace.disconnectPetAppServer',
+		() =>
+			runSafely(async () => {
+				const petSettings = getPetSettings();
+				if (
+					!getWorkspaceStatus().isAvailable
+					|| !petSettings.enabled
+					|| !petSettings.appServerEnabled
+				) {
+					return;
+				}
+				await petProvider.setConnection(false);
 			}),
 	);
 
@@ -530,6 +581,7 @@ export function activate(context: vscode.ExtensionContext) {
 				templatesProvider.refresh();
 				mcpProvider.refresh();
 				agentsProvider.refresh();
+				petProvider.refresh();
 			}),
 	);
 
@@ -562,6 +614,9 @@ export function activate(context: vscode.ExtensionContext) {
 		openSkillManagerDisposable,
 		openAgentManagerDisposable,
 		openMcpManagerDisposable,
+		selectPetDisposable,
+		connectPetAppServerDisposable,
+		disconnectPetAppServerDisposable,
 		organizeConfigTomlDisposable,
 		openPromptsFolderDisposable,
 		openSkillsFolderDisposable,
