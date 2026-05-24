@@ -319,7 +319,7 @@ export class PetExploreProvider implements vscode.WebviewViewProvider, vscode.Di
 					</div>
 				</section>`
 			: `<section class="empty-state">
-					<div class="empty-icon codicon codicon-preview" aria-hidden="true"></div>
+        <div class="empty-icon codicon codicon-error" aria-hidden="true"></div>
 					<h3>No pet found</h3>
 					<p>Place pet folders under ${escapeHtml(getPetRootPath())}</p>
 				</section>`;
@@ -328,7 +328,7 @@ export class PetExploreProvider implements vscode.WebviewViewProvider, vscode.Di
 <html lang="en">
 <head>
 	<meta charset="UTF-8" />
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${this.view?.webview.cspSource ?? ''} data:; style-src ${this.view?.webview.cspSource ?? ''} 'unsafe-inline'; script-src 'nonce-${nonce}';" />
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${this.view?.webview.cspSource ?? ''} data:; font-src ${this.view?.webview.cspSource ?? ''} data:; style-src ${this.view?.webview.cspSource ?? ''} 'unsafe-inline'; script-src 'nonce-${nonce}';" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	${codiconHref ? `<link rel="stylesheet" href="${codiconHref}" />` : ''}
 	<style>
