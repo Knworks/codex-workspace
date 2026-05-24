@@ -8,7 +8,7 @@
   "view.templates.name": "Templates",
   "view.mcp.name": "MCP Server",
   "view.agents.name": "Sub Agents",
-  "view.pet.name": "Codex Pet Explore",
+  "view.pet.name": "Codex Pet",
   "command.helloWorld": "Hello World",
   "command.openFile": "ファイルを開く",
   "command.openFolder": "フォルダを開く",
