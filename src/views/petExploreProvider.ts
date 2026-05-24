@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import {
 	findPetById,
-	getPetRootPath,
+	getPetRootCandidates,
 	listAvailablePets,
 	PetDefinition,
 } from '../services/petService';
@@ -49,6 +49,18 @@ function createNonce(): string {
 			Math.floor(Math.random() * 62),
 		),
 	).join('');
+}
+
+export function getPetResourceRootPaths(): string[] {
+	return getPetRootCandidates();
+}
+
+export function getNoPetFoundDetail(): string {
+	return `Place pet folders under ${getPetRootCandidates().join(' or ')}`;
+}
+
+export function getNoPetFoundWarningMessage(): string {
+	return `No valid pets were found under ${getPetRootCandidates().join(' or ')}.`;
 }
 
 export class PetExploreProvider implements vscode.WebviewViewProvider, vscode.Disposable {
@@ -99,10 +111,10 @@ export class PetExploreProvider implements vscode.WebviewViewProvider, vscode.Di
 
 	public resolveWebviewView(view: vscode.WebviewView): void {
 		this.view = view;
-		const petRoot = vscode.Uri.file(getPetRootPath());
+		const petRoots = getPetResourceRootPaths().map((rootPath) => vscode.Uri.file(rootPath));
 		view.webview.options = {
 			enableScripts: true,
-			localResourceRoots: [...CODICON_RESOURCE_ROOTS, petRoot],
+			localResourceRoots: [...CODICON_RESOURCE_ROOTS, ...petRoots],
 		};
 		view.webview.onDidReceiveMessage((message: PetInboundMessage) => {
 			if (message.type === 'stagePositionChanged') {
@@ -118,7 +130,7 @@ export class PetExploreProvider implements vscode.WebviewViewProvider, vscode.Di
 	public async selectPet(): Promise<void> {
 		const pets = listAvailablePets();
 		if (pets.length === 0) {
-			vscode.window.showWarningMessage('No valid pets were found under ~/.codex/pets.');
+			vscode.window.showWarningMessage(getNoPetFoundWarningMessage());
 			return;
 		}
 
@@ -321,7 +333,7 @@ export class PetExploreProvider implements vscode.WebviewViewProvider, vscode.Di
 			: `<section class="empty-state">
         <div class="empty-icon codicon codicon-error" aria-hidden="true"></div>
 					<h3>No pet found</h3>
-					<p>Place pet folders under ${escapeHtml(getPetRootPath())}</p>
+					<p>${escapeHtml(getNoPetFoundDetail())}</p>
 				</section>`;
 
 		return `<!DOCTYPE html>
