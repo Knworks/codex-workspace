@@ -2,6 +2,13 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
+## 1.1.6
+
+- Added support for displaying custom `Codex Pet` characters.
+  - Displays animations for idle, drag, click, and waiting states.
+  - Added pet selection and settings such as display scale.
+- When App Server integration is enabled, `Codex Pet` connects to `codex app-server` and periodically shows `5h` / `1w` rate limit information in speech bubbles.
+
 ## 1.1.5
 
 Changes
@@ -96,7 +103,7 @@ Changes
 
 - Added a conversation history WebView in the editor area, accessible from Codex Core (`history` button) and Command Palette.
 
->**IMPORTANT:** We parse sessions from $CODEX_HOME/sessions/.../rollout-*.jsonl and extract the fields to display, so if the current log format changes, the conversation history may no longer be displayed.
+>**IMPORTANT:*- We parse sessions from $CODEX_HOME/sessions/.../rollout-*.jsonl and extract the fields to display, so if the current log format changes, the conversation history may no longer be displayed.
 
 ## 1.0.2
 
