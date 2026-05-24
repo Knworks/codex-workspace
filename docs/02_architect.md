@@ -108,11 +108,12 @@ codex-workspace/
 
 - **Codex Pet Explore**
   - `petExploreProvider.ts` が `WebviewViewProvider` として Explore 内にペット UI を提供する
-  - `petService.ts` が `~/.codex/pet/<petId>/pet.json` を列挙し、安全な `spritesheetPath` だけを許可する
+  - `petService.ts` が `~/.codex/pets` を優先し、存在しない場合は `~/.codex/pet` を参照して `pet.json` を列挙する
+  - `petService.ts` は `spritesheetPath` が pet フォルダ内の相対パスで実在する定義だけを採用し、`id` / `displayName` 欠損時はフォルダ名で補完する
   - Webview は `asWebviewUri` と `localResourceRoots` を使って pet フォルダ配下の画像だけを公開する
-  - アニメーションは Webview 側の canvas で固定サイズフレームを再生する
-  - `settings.ts` が `pet.enabled`、`pet.appServer.enabled`、`pet.rateLimitRefreshMinutes`、`pet.scale`、`pet.selectedPetId` を読む
-  - `petRateLimitService.ts` が `codex status --json` を利用して `5h` / `1w` rate limit 表示モデルへ変換する
+  - アニメーションは Webview 側の canvas で `192 x 208`、8 列固定のフレームを再生し、ドラッグ位置は provider が再描画中に保持する
+  - `settings.ts` が `pet.enabled`、`pet.appServer.enabled`、`pet.rateLimitRefreshMinutes`、`pet.scale`、`pet.selectedPetId` を読み、`codexWorkspace.pet.*` も後方互換で参照する
+  - `petRateLimitService.ts` が `codex app-server` を JSON-RPC で起動し、`account/rateLimits/read` の応答を `5h` / `1w` rate limit 表示モデルへ変換する
 
 - **ファイル操作**
   - `fileCommands.ts` が add / rename / delete を担当する
@@ -147,7 +148,7 @@ codex-workspace/
 - **Codex Manager**
   - `historyPanel.ts` がタブ付き Core WebviewPanel を提供する
   - History タブは `historyService.ts` から `HistoryIndex` を構築する
-  - AGENTS Loading Chain は `coreDiagnosticsService.ts` で診断を作る
+  - AGENTS Loading Chain は `coreDiagnosticsService.ts` が Global / Project tier の `AGENTS.override.md`、`AGENTS.md`、`project_doc_fallback_filenames` を診断し、`Active` / `Skipped` / `Missing` / `Error` 状態を作る
   - Trusted Directory、Feature Flags、Hooks は `coreDiagnosticsService.ts` と `coreManagerConfigService.ts` を用いる
   - Plugins タブは `pluginService.ts` で cache / marketplace / manifest 情報を集約し、`[plugins."<id>"]` の有効状態を切り替える
 
@@ -171,7 +172,7 @@ codex-workspace/
 | `SkillLocation` | `kind` / `label` / `rootPath` / `createPath` / `priority` | object | Skills 保存場所 |
 | `SkillRecord` | `id` / `name` / `description` / `skillPath` / `enabled` | object | Skill Manager 行 |
 | `AgentLocation` | `kind` / `label` / `rootPath` / `createPath` / `priority` | object | Sub Agents 保存場所 |
-| `AgentManagerRecord` | `name` / `description` / `model` / `reasoningEffort` / `sandboxMode` / `agentPath` / `enabled` | object | AGENTS Manager 行 |
+| `AgentManagerRecord` | `id` / `name` / `description` / `model` / `reasoningEffort` / `sandboxMode` / `agentPath` / `configFile` / `location` / `enabled` | object | AGENTS Manager 行 |
 | `McpFormModel` | `id` / `transport` / `command` / `args` / `url` / `env` / `httpHeaders` / `envHttpHeaders` / `tools` / `required` / `startupTimeoutSec` / `toolTimeoutSec` / `enabledTools` / `disabledTools` / `enabled` | object | MCP Manager 編集モデル |
 | `HistoryTurnRecord` | `turnId` / `sessionId` / `dateKey` / `userMessage` / `agentMessages` / `reasoningMessages` / `aiTimeline` | object | 会話履歴 1 タスク分 |
 | `AgentsChainNode` | `status` / `kind` / `type` / `fileName` / `absolutePath` / `reason` | object | AGENTS Loading Chain 診断ノード |
@@ -182,6 +183,7 @@ codex-workspace/
 | `PluginRecord` | `id` / `displayName` / `version` / `marketplace` / `status` / `enabled` / `toggleDisabled` / `skills` / `mcpServers` / `apps` / `agents` | object | Plugins タブ表示モデル |
 | `PetDefinition` | `id` / `displayName` / `description` / `spritesheetPath` / `petRootPath` / `spritesheetFsPath` | object | Pet 定義 |
 | `PetSettings` | `enabled` / `appServerEnabled` / `rateLimitRefreshMinutes` / `scale` / `selectedPetId` | object | Pet 表示設定 |
+| `PetRateLimitSnapshot` | `windows` | object | Pet rate limit 取得結果 |
 | `PetRateLimitWindow` | `label` / `usedPercent` / `remainingPercent` / `resetAtLabel` / `isWarning` | object | Pet rate limit 表示モデル |
 
 ## 6. 🖥️画面設計
@@ -224,9 +226,9 @@ codex-workspace/
   - タイトルバー: refresh / MCP Manager
 
 - **Codex Pet Explore**
-  - 上部: add or change pet / scale slider / App Server toggle
-  - 本体: pet canvas / display name / description
-  - 下部: `5h` / `1w` rate limit cards
+  - タイトルバー: select pet / connect app server / disconnect app server / refresh
+  - 本体: draggable pet canvas
+  - 補助表示: 接続中かつ rate limit 取得時のみ吹き出しを約 5 秒表示
 
 - **Skill Manager**
   - 上部: search / clear / refresh
@@ -307,7 +309,7 @@ flowchart TB
   - `vscode.open`
   - `vscode.env.openExternal`
 - **設定**
-  - `codex-workspace.*` の 7 設定キー
+  - `codex-workspace.*` の 12 設定キー
 - **履歴入力**
   - `rollout-*.jsonl`
 
@@ -325,6 +327,8 @@ flowchart TB
   - `historyService.test.ts` / `historyPanel.test.ts`: 履歴抽出と Core Webview state
   - `coreDiagnosticsService.test.ts` / `coreManagerConfigService.test.ts`: Core 診断と設定更新
   - `pluginService.test.ts`: Plugin manifest / marketplace 読み取り
+  - `petService.test.ts` / `settings.test.ts`: Pet 定義と設定値の正規化
+  - `templateService.test.ts`: テンプレート候補の列挙
   - `syncService.test.ts` / `syncCommands.test.ts`: 双方向同期
   - `configTomlOrganizerService.test.ts`: `config.toml` 整理
 

@@ -36,8 +36,8 @@
 | `AGENTS Manager` | Sub Agents 一覧と有効/無効切替を行う WebviewPanel | `config.toml`、disabled store、Agent TOML を参照 |
 | `MCP Manager` | MCP Server の一覧・作成・編集・削除を行う WebviewPanel | 左右 2 ペイン構成 |
 | `Plugins` | インストール済み Plugin の構成情報 | `~/.codex/plugins/cache` と marketplace 定義を参照 |
-| `Codex Pet Explore` | ペット表示、選択、倍率変更、接続状態、rate limit を扱う WebviewView | `~/.codex/pet/<petId>` を参照 |
-| `pet.json` | ペット定義 JSON | `id` / `displayName` / `description?` / `spritesheetPath` を持つ |
+| `Codex Pet Explore` | ペット表示、選択、接続状態、rate limit 吹き出しを扱う WebviewView | `~/.codex/pets/<petId>` を優先し、存在しない場合は `~/.codex/pet/<petId>` を参照 |
+| `pet.json` | ペット定義 JSON | `spritesheetPath` は必須、`id` / `displayName` / `description` は任意 |
 | `.codex-workspace` | 拡張機能のメタ領域 | `~/.codex/.codex-workspace` |
 | `config.toml.bk` | `Organize config.toml` 実行前バックアップ | `~/.codex/.codex-workspace/config.toml.bk` |
 | `agents-disabled.json` | 無効化した agent 設定ブロック退避先 | `~/.codex/.codex-workspace/agents-disabled.json` |
@@ -59,7 +59,7 @@
 - ユーザーは MCP Server ビューでサーバー一覧を見て、項目クリックで有効/無効を切り替えられる。
 - ユーザーは MCP Manager で MCP サーバーを追加、編集、削除できる。
 - ユーザーは Codex Manager を開き、履歴検索、AGENTS Loading Chain、Trusted Directory、Feature Flags、Hooks、Plugins を確認できる。
-- ユーザーは Codex Pet Explore でペットを選択し、アニメーション、倍率、接続トグル、rate limit を確認できる。
+- ユーザーは Codex Pet Explore でペットを選択し、アニメーション表示、ドラッグ移動、接続中の rate limit 吹き出しを確認できる。
 - ユーザーは設定済みの同期先フォルダに対して Core / Commands / Skills / Templates / Sub Agents の同期を実行できる。
 
 ---
@@ -203,7 +203,7 @@
   - `incrudeReasoningMessage` が false の場合 reasoning は非表示とする
 - AGENTS Loading Chain タブ
   - workspace root を基準に Global / Project tier の `AGENTS.override.md`、`AGENTS.md`、fallback 候補を診断する
-  - `Current` / `Ignored` / `Problems` / `Detailed candidates` に分類表示する
+  - `Current` / `Ignored` / `Problems` に分類表示し、各候補の詳細を右ペインに表示する
 - Trusted Directory タブ
   - `[projects."<path>"]` のうち `trust_level = "trusted"` のみ表示する
   - 追加と削除を行える
@@ -223,14 +223,22 @@
 ### 5.8 Codex Pet Explore
 
 - `codex-workspace.pet` は `WebviewView` として提供する。
-- ペット保存場所は `~/.codex/pet/<petId>` とし、各フォルダは `pet.json` と `spritesheet.webp` を持つ。
-- `pet.json` の必須項目は `id`、`displayName`、`spritesheetPath` とする。
+- View 自体の表示は `codex-workspace.pet.enabled` が true のときだけ有効にする。
+- 既定値は `pet.enabled = false`、`pet.appServer.enabled = false`、`pet.rateLimitRefreshMinutes = 5`、`pet.scale = 1`、`pet.selectedPetId = ""` とする。
+- 現行設定キーは `codex-workspace.pet.*` とし、読み取り時のみ legacy の `codexWorkspace.pet.*` も参照する。
+- ペット保存場所は `~/.codex/pets/<petId>` を優先し、存在しない場合は `~/.codex/pet/<petId>` を参照する。
+- 一覧対象はペット保存場所直下のディレクトリのうち、`pet.json` を持ち、かつ有効な `spritesheetPath` を解決できるものだけとする。
+- `pet.json` の必須項目は `spritesheetPath` のみとし、`id` / `displayName` がない場合はフォルダ名を使う。
 - `spritesheetPath` は pet フォルダからの相対パスのみ許可し、外部 URL、絶対パス、pet フォルダ外参照は禁止する。
-- 初期アニメーションは `192px x 144px`、8 列固定のスプライトシートから先頭行の有効フレームを idle 再生する。
-- Codex Pet Explore 内の追加ボタンから QuickPick を開き、`pet.json` を持つフォルダだけを候補表示する。
-- 表示倍率は設定値と UI の両方から変更でき、`0.5` から `3.0` の範囲のみ保存する。
-- App Server 連携設定が OFF の場合、接続トグルは表示しない。
-- App Server 連携設定が ON の場合だけ接続トグルを表示し、接続中のみ rate limit を表示する。
+- 選択ペットは `pet.selectedPetId` で保持し、未設定または不正な ID の場合は一覧先頭のペットを使う。
+- 表示倍率は設定 `pet.scale` から読み取り、`0.5` から `2.0` の範囲に丸める。
+- rate limit の再取得間隔は設定 `pet.rateLimitRefreshMinutes` から読み取り、`0` から `60` の範囲に丸める。小数値は保持する。
+- Pet ビューでは `192px x 208px`、8 列固定のスプライトシートを canvas 描画する。
+- タイトルバーの `Select Pet` コマンドから Quick Pick を開き、候補ペットを選択する。
+- App Server 連携設定が OFF の場合、接続コマンドは表示しない。
+- App Server 連携設定が ON の場合だけ title bar に connect / disconnect コマンドを表示する。
+- 接続中のみ `codex app-server` を起動し、`account/rateLimits/read` の結果から rate limit を取得する。
+- 吹き出しは rate limit を取得できたときだけ表示し、表示時間は約 5 秒とする。
 - rate limit は `5h` と `1w` を対象にし、reset 時刻は `MM/DD HH:mm` で表示する。
 - 残量 25% 以下の rate limit bar はピンク系、それより大きい場合はグリーン系で表示する。
 
