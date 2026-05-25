@@ -25,7 +25,6 @@ const FRAME_WIDTH = 192;
 const FRAME_HEIGHT = 208;
 const FRAME_COLUMNS = 8;
 const BUBBLE_VISIBLE_MS = 5000;
-// Rebase scale semantics so the previous visual size at 0.75 becomes the new 1.0.
 const BASE_RENDER_SCALE = 0.375;
 
 type PetInboundMessage =
@@ -70,6 +69,7 @@ export class PetExploreProvider implements vscode.WebviewViewProvider, vscode.Di
 	private rateLimits?: PetRateLimitSnapshot;
 	private bubbleVisibleUntil = 0;
 	private connected = false;
+	private connectionRevision = 0;
 	private stagePosition?: {
 		left: number;
 		top: number;
@@ -158,19 +158,19 @@ export class PetExploreProvider implements vscode.WebviewViewProvider, vscode.Di
 	}
 
 	public async setConnection(connected: boolean): Promise<void> {
+		this.connectionRevision += 1;
 		this.connected = connected;
+		await this.updateConnectionContext();
 		if (!connected) {
 			this.rateLimits = undefined;
 			this.disposeRefreshTimer();
 			this.disposeBubbleHideTimer();
 			this.bubbleVisibleUntil = 0;
-			void this.updateConnectionContext();
 			this.render();
 			return;
 		}
-		await this.refreshRateLimitsIfNeeded(true);
-		void this.updateConnectionContext();
 		this.render();
+		void this.refreshRateLimitsIfNeeded(true).finally(() => this.render());
 	}
 
 	public dispose(): void {
@@ -180,6 +180,7 @@ export class PetExploreProvider implements vscode.WebviewViewProvider, vscode.Di
 
 	private async refreshRateLimitsIfNeeded(force = false): Promise<void> {
 		const settings = getPetSettings();
+		const revision = this.connectionRevision;
 		if (!settings.appServerEnabled || !this.connected) {
 			this.disposeRefreshTimer();
 			if (!settings.appServerEnabled) {
@@ -189,9 +190,20 @@ export class PetExploreProvider implements vscode.WebviewViewProvider, vscode.Di
 		}
 
 		if (force || !this.rateLimits) {
-			this.rateLimits = await readPetRateLimits();
+			const snapshot = await readPetRateLimits();
+			if (
+				revision !== this.connectionRevision
+				|| !this.connected
+				|| !getPetSettings().appServerEnabled
+			) {
+				return;
+			}
+			this.rateLimits = snapshot;
 			if (this.rateLimits?.windows.length) {
 				this.showBubble();
+			} else {
+				this.disposeBubbleHideTimer();
+				this.bubbleVisibleUntil = 0;
 			}
 		}
 
@@ -261,9 +273,6 @@ export class PetExploreProvider implements vscode.WebviewViewProvider, vscode.Di
 		const selectedPet = settings.selectedPetId
 			? findPetById(settings.selectedPetId) ?? availablePets[0]
 			: availablePets[0];
-		if (settings.appServerEnabled && this.connected && !this.rateLimits) {
-			void this.refreshRateLimitsIfNeeded(true).finally(() => this.render());
-		}
 		this.view.webview.html = this.buildHtml(selectedPet, settings.scale);
 	}
 
@@ -627,7 +636,6 @@ export class PetExploreProvider implements vscode.WebviewViewProvider, vscode.Di
 						const anchorY = stage.offsetTop + Math.round(stage.offsetHeight * 0.3);
 						const bubbleWidth = bubble.offsetWidth;
 						const bubbleHeight = bubble.offsetHeight;
-						const margin = 8;
 						const spaceRight = viewport.clientWidth - anchorX - horizontalGap;
 						const spaceLeft = anchorX - horizontalGap;
 						const side = spaceRight >= bubbleWidth || spaceRight >= spaceLeft
@@ -813,13 +821,13 @@ export class PetExploreProvider implements vscode.WebviewViewProvider, vscode.Di
 								return;
 							}
 							draw();
-								scheduleNextFrame(
-									currentAnimation === 'dragLeft' || currentAnimation === 'dragRight'
-										? 120
-										: 240,
-								);
-							}, delay);
-						};
+							scheduleNextFrame(
+								currentAnimation === 'dragLeft' || currentAnimation === 'dragRight'
+									? 120
+									: 240,
+							);
+						}, delay);
+					};
 
 					window.addEventListener('resize', () => {
 						placeDefaultStage();
