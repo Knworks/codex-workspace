@@ -2,6 +2,12 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
+## 1.1.7
+
+Fixes
+
+- Fixed incorrect behavior when using App Server integration on Windows environments.
+
 ## 1.1.6
 
 - Added support for displaying custom `Codex Pet` characters.
