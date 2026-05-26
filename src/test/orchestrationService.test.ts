@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import {
 	createWorkflowFromTemplate,
+	deleteWorkflowDefinition,
 	generateWorkflowPrompt,
 	listSavedWorkflowSummaries,
 	loadWorkflowDefinition,
@@ -45,6 +46,31 @@ suite('Orchestration service', () => {
 			assert.strictEqual(reloaded.updatedAt, '2026-05-24T12:30:00.000Z');
 			assert.strictEqual(summaries.length, 1);
 			assert.strictEqual(summaries[0].workflowId, saved.workflowId);
+		});
+	});
+
+	test('deletes saved workflow definitions', () => {
+		withTempDir((root) => {
+			const codexDir = path.join(root, '.codex');
+			fs.mkdirSync(codexDir, { recursive: true });
+			const workflow = createWorkflowFromTemplate(
+				'research-plan',
+				['researcher', 'planner'],
+				'2026-05-24T12:00:00.000Z',
+			);
+
+			const saved = saveWorkflowDefinition(
+				workflow,
+				codexDir,
+				'2026-05-24T12:30:00.000Z',
+			);
+			deleteWorkflowDefinition(saved.workflowId, codexDir);
+
+			assert.deepStrictEqual(listSavedWorkflowSummaries(codexDir), []);
+			assert.throws(
+				() => loadWorkflowDefinition(saved.workflowId, codexDir),
+				/ENOENT/,
+			);
 		});
 	});
 

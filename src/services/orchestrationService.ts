@@ -470,6 +470,20 @@ export function loadWorkflowDefinition(
 	return assertWorkflowDefinition(parsed);
 }
 
+export function deleteWorkflowDefinition(
+	workflowId: string,
+	codexDir = resolveCodexPaths().codexDir,
+): void {
+	const filePath = path.join(
+		getOrchestrationDirectory(codexDir),
+		`${workflowId}.json`,
+	);
+	if (!fs.existsSync(filePath)) {
+		throw new Error(`Workflow not found: ${workflowId}`);
+	}
+	fs.unlinkSync(filePath);
+}
+
 export function validateWorkflowDefinition(
 	workflow: OrchestrationWorkflow,
 ): WorkflowValidationResult {
