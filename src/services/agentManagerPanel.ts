@@ -179,6 +179,7 @@ function buildHtml(
 		.inspector select,
 		.inspector textarea {
 			box-sizing: border-box;
+			min-width: 0;
 			width: 100%;
 			background: var(--vscode-input-background);
 			color: var(--vscode-input-foreground);
@@ -534,6 +535,7 @@ function buildHtml(
 		.field-group {
 			display: grid;
 			gap: 6px;
+			min-width: 0;
 		}
 		.field-label {
 			font-size: 12px;
@@ -546,6 +548,9 @@ function buildHtml(
 		.inspector textarea {
 			min-height: 88px;
 			resize: vertical;
+			overflow-wrap: anywhere;
+			word-break: break-word;
+			white-space: pre-wrap;
 		}
 		.inspector details {
 			border-top: 1px solid var(--vscode-panel-border);
@@ -1167,18 +1172,104 @@ function buildHtml(
 			copyPromptButton.disabled = !appState.prompt;
 		}
 
+		function captureInspectorFocusState() {
+			const activeElement = document.activeElement;
+			if (!activeElement || !inspector.contains(activeElement)) {
+				return null;
+			}
+			const isTextInput = activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement;
+			const isSelect = activeElement instanceof HTMLSelectElement;
+			if (!isTextInput && !isSelect) {
+				return null;
+			}
+			return {
+				id: activeElement.id || '',
+				nodeId: activeElement.dataset ? activeElement.dataset.nodeId || '' : '',
+				nodeField: activeElement.dataset ? activeElement.dataset.nodeField || '' : '',
+				workflowField: activeElement.dataset ? activeElement.dataset.workflowField || '' : '',
+				selectionStart: isTextInput && typeof activeElement.selectionStart === 'number' ? activeElement.selectionStart : null,
+				selectionEnd: isTextInput && typeof activeElement.selectionEnd === 'number' ? activeElement.selectionEnd : null,
+				scrollTop: typeof activeElement.scrollTop === 'number' ? activeElement.scrollTop : 0,
+				scrollLeft: typeof activeElement.scrollLeft === 'number' ? activeElement.scrollLeft : 0,
+				inspectorScrollTop: inspector.scrollTop,
+			};
+		}
+
+		function findInspectorField(focusState) {
+			if (!focusState) {
+				return null;
+			}
+			if (focusState.id) {
+				const byId = document.getElementById(focusState.id);
+				if (byId && inspector.contains(byId)) {
+					return byId;
+				}
+			}
+			if (focusState.workflowField) {
+				return inspector.querySelector('[data-workflow-field="' + focusState.workflowField + '"]');
+			}
+			if (focusState.nodeId && focusState.nodeField) {
+				return inspector.querySelector(
+					'[data-node-id="' + focusState.nodeId + '"][data-node-field="' + focusState.nodeField + '"]',
+				);
+			}
+			return null;
+		}
+
+		function restoreInspectorFocusState(focusState) {
+			const field = findInspectorField(focusState);
+			if (!field || !(field instanceof HTMLElement)) {
+				return;
+			}
+			field.focus();
+			const canRestoreSelection =
+				(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) &&
+				typeof focusState.selectionStart === 'number' &&
+				typeof focusState.selectionEnd === 'number';
+			if (canRestoreSelection) {
+				field.setSelectionRange(focusState.selectionStart, focusState.selectionEnd);
+			}
+			if (typeof focusState.inspectorScrollTop === 'number') {
+				inspector.scrollTop = focusState.inspectorScrollTop;
+			}
+			if ('scrollTop' in field && typeof focusState.scrollTop === 'number') {
+				field.scrollTop = focusState.scrollTop;
+			}
+			if ('scrollLeft' in field && typeof focusState.scrollLeft === 'number') {
+				field.scrollLeft = focusState.scrollLeft;
+			}
+			requestAnimationFrame(() => {
+				if (!document.body.contains(field)) {
+					return;
+				}
+				if (typeof focusState.inspectorScrollTop === 'number') {
+					inspector.scrollTop = focusState.inspectorScrollTop;
+				}
+				if ('scrollTop' in field && typeof focusState.scrollTop === 'number') {
+					field.scrollTop = focusState.scrollTop;
+				}
+				if ('scrollLeft' in field && typeof focusState.scrollLeft === 'number') {
+					field.scrollLeft = focusState.scrollLeft;
+				}
+			});
+		}
+
 		function renderInspector() {
+			const focusState = captureInspectorFocusState();
 			const selectedNode = getSelectedNode();
 			const selectedEdge = getSelectedEdge();
 			if (selectedNode) {
 				inspector.innerHTML = buildNodeInspector(selectedNode);
+				restoreInspectorFocusState(focusState);
 				return;
 			}
 			if (selectedEdge) {
 				inspector.innerHTML = buildEdgeInspector(selectedEdge);
+				restoreInspectorFocusState(focusState);
 				return;
 			}
-				inspector.innerHTML = buildWorkflowInspector();
+			inspector.innerHTML = buildWorkflowInspector();
+			restoreInspectorFocusState(focusState);
 		}
 
 		function renderInspectorShell() {

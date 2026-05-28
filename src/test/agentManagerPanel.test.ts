@@ -108,6 +108,12 @@ suite('Agent manager panel', () => {
 		assert.ok(source.includes('data-delete-workflow'));
 		assert.ok(source.includes('class="markdown-content preview-content"'));
 		assert.ok(source.includes('retainContextWhenHidden: false'));
+		assert.ok(source.includes('captureInspectorFocusState'));
+		assert.ok(source.includes('restoreInspectorFocusState'));
+		assert.ok(source.includes('inspectorScrollTop'));
+		assert.ok(source.includes('requestAnimationFrame(() => {'));
+		assert.ok(source.includes('overflow-wrap: anywhere;'));
+		assert.ok(source.includes('min-width: 0;'));
 		assert.ok(!source.includes('applyTemplateButton'));
 		assert.ok(!source.includes('data-add-card="review"'));
 		assert.ok(!source.includes('validateWorkflowButton'));
