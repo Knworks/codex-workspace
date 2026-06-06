@@ -31,7 +31,6 @@ import {
 } from '../services/disabledAgentsStore';
 import { stabilizeManagedConfigToml } from '../services/configTomlOrganizerService';
 import { AgentExplorerProvider } from '../views/agentExplorerProvider';
-import { removeSyncStateEntry } from '../services/syncService';
 
 type AgentCommandContext = {
 	getSelection: () => CodexTreeItem | undefined;
@@ -272,7 +271,6 @@ async function deleteAgent(
 
 	// Delete stale disabled backup to avoid resurrecting deleted agents.
 	takeDisabledAgentBlock(storePath, agentId);
-	removeSyncStateEntry(codexDir, 'agents', `${agentId}.toml`);
 	agentProvider.refresh();
 }
 

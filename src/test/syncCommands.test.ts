@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import * as vscode from 'vscode';
+import { CodexTreeItem } from '../models/treeItems';
 import {
 	getDisabledAgentsStorePath,
 	saveDisabledAgentBlock,
@@ -69,6 +70,16 @@ async function activateExtension(): Promise<void> {
 	const extension = vscode.extensions.getExtension('Knworks.codex-workspace');
 	assert.ok(extension, 'extension not found');
 	await extension.activate();
+}
+
+function createAgentItem(agentFilePath: string): CodexTreeItem {
+	return new CodexTreeItem(
+		'file',
+		'agents',
+		path.basename(agentFilePath),
+		vscode.TreeItemCollapsibleState.None,
+		agentFilePath,
+	);
 }
 
 suite('Sync commands', () => {
@@ -259,6 +270,59 @@ suite('Sync commands', () => {
 			assert.ok(!fs.existsSync(path.join(agentsDir, 'reviewer.toml')));
 			const configContents = fs.readFileSync(configPath, 'utf8');
 			assert.ok(!configContents.includes('[agents.reviewer]'));
+			const syncStatePath = path.join(codexDir, '.codex-workspace', 'codex-sync.json');
+			const syncState = JSON.parse(fs.readFileSync(syncStatePath, 'utf8')) as {
+				agents?: Record<string, unknown>;
+			};
+			assert.strictEqual(syncState.agents?.['reviewer.toml'], undefined);
+		});
+	});
+
+	test('syncAgents deletes the external file after deleteAgent removes the workspace agent', async () => {
+		await withTempHome(async (homeDir) => {
+			await activateExtension();
+
+			const codexDir = path.join(homeDir, '.codex');
+			const agentsDir = path.join(codexDir, 'agents');
+			const configPath = path.join(codexDir, 'config.toml');
+			fs.mkdirSync(agentsDir, { recursive: true });
+			fs.writeFileSync(
+				configPath,
+				[
+					'title = "ok"',
+					'',
+					'[agents.reviewer]',
+					'description = "reviewer"',
+					'config_file = "agents/reviewer.toml"',
+					'',
+				].join('\n'),
+				'utf8',
+			);
+			const agentPath = path.join(agentsDir, 'reviewer.toml');
+			fs.writeFileSync(agentPath, 'mode = "review"', 'utf8');
+
+			const targetDir = path.join(homeDir, 'sync-agents-delete-command');
+			const originalWarning = vscode.window.showWarningMessage;
+			(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+				.showWarningMessage = async () => 'OK';
+
+			try {
+				await withSyncFolderSetting('agentFolder', targetDir, async () => {
+					await vscode.commands.executeCommand('codex-workspace.syncAgents');
+					await vscode.commands.executeCommand(
+						'codex-workspace.deleteAgent',
+						createAgentItem(agentPath),
+					);
+					assert.ok(fs.existsSync(path.join(targetDir, 'reviewer.toml')));
+					await vscode.commands.executeCommand('codex-workspace.syncAgents');
+				});
+			} finally {
+				(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+					.showWarningMessage = originalWarning;
+			}
+
+			assert.ok(!fs.existsSync(agentPath));
+			assert.ok(!fs.existsSync(path.join(targetDir, 'reviewer.toml')));
 			const syncStatePath = path.join(codexDir, '.codex-workspace', 'codex-sync.json');
 			const syncState = JSON.parse(fs.readFileSync(syncStatePath, 'utf8')) as {
 				agents?: Record<string, unknown>;
