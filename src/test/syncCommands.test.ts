@@ -43,7 +43,7 @@ async function withTempHome(
 }
 
 async function withSyncFolderSetting(
-	key: 'promptsFolder' | 'agentFolder',
+	key: 'promptsFolder' | 'skillsFolder' | 'templatesFolder' | 'agentFolder',
 	value: string,
 	run: () => Promise<void>,
 ): Promise<void> {
@@ -72,13 +72,16 @@ async function activateExtension(): Promise<void> {
 	await extension.activate();
 }
 
-function createAgentItem(agentFilePath: string): CodexTreeItem {
+function createItem(
+	kind: 'prompts' | 'skills' | 'templates' | 'agents',
+	targetPath: string,
+): CodexTreeItem {
 	return new CodexTreeItem(
 		'file',
-		'agents',
-		path.basename(agentFilePath),
+		kind,
+		path.basename(targetPath),
 		vscode.TreeItemCollapsibleState.None,
-		agentFilePath,
+		targetPath,
 	);
 }
 
@@ -153,6 +156,114 @@ suite('Sync commands', () => {
 			}
 
 			assert.ok(!fs.existsSync(path.join(targetDir, 'note.md')));
+		});
+	});
+
+	test('syncPrompts deletes the external file after delete removes the workspace prompt', async () => {
+		await withTempHome(async (homeDir) => {
+			await activateExtension();
+
+			const codexDir = path.join(homeDir, '.codex');
+			const promptsDir = path.join(codexDir, 'prompts');
+			fs.mkdirSync(promptsDir, { recursive: true });
+			fs.writeFileSync(path.join(codexDir, 'config.toml'), 'title = "ok"', 'utf8');
+			const promptPath = path.join(promptsDir, 'note.md');
+			fs.writeFileSync(promptPath, 'note', 'utf8');
+
+			const targetDir = path.join(homeDir, 'sync-prompts-delete-command');
+			const originalWarning = vscode.window.showWarningMessage;
+			(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+				.showWarningMessage = async () => 'OK';
+
+			try {
+				await withSyncFolderSetting('promptsFolder', targetDir, async () => {
+					await vscode.commands.executeCommand('codex-workspace.syncPrompts');
+					await vscode.commands.executeCommand(
+						'codex-workspace.delete',
+						createItem('prompts', promptPath),
+					);
+					assert.ok(fs.existsSync(path.join(targetDir, 'note.md')));
+					await vscode.commands.executeCommand('codex-workspace.syncPrompts');
+				});
+			} finally {
+				(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+					.showWarningMessage = originalWarning;
+			}
+
+			assert.ok(!fs.existsSync(promptPath));
+			assert.ok(!fs.existsSync(path.join(targetDir, 'note.md')));
+		});
+	});
+
+	test('syncSkills deletes the external file after delete removes the workspace skill file', async () => {
+		await withTempHome(async (homeDir) => {
+			await activateExtension();
+
+			const codexDir = path.join(homeDir, '.codex');
+			const skillsDir = path.join(codexDir, 'skills', 'demo-skill');
+			fs.mkdirSync(skillsDir, { recursive: true });
+			fs.writeFileSync(path.join(codexDir, 'config.toml'), 'title = "ok"', 'utf8');
+			const skillPath = path.join(skillsDir, 'SKILL.md');
+			fs.writeFileSync(skillPath, '# Demo', 'utf8');
+
+			const targetDir = path.join(homeDir, 'sync-skills-delete-command');
+			const originalWarning = vscode.window.showWarningMessage;
+			(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+				.showWarningMessage = async () => 'OK';
+
+			try {
+				await withSyncFolderSetting('skillsFolder', targetDir, async () => {
+					await vscode.commands.executeCommand('codex-workspace.syncSkills');
+					await vscode.commands.executeCommand(
+						'codex-workspace.delete',
+						createItem('skills', skillPath),
+					);
+					assert.ok(fs.existsSync(path.join(targetDir, 'demo-skill', 'SKILL.md')));
+					await vscode.commands.executeCommand('codex-workspace.syncSkills');
+				});
+			} finally {
+				(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+					.showWarningMessage = originalWarning;
+			}
+
+			assert.ok(!fs.existsSync(skillPath));
+			assert.ok(!fs.existsSync(path.join(targetDir, 'demo-skill', 'SKILL.md')));
+		});
+	});
+
+	test('syncTemplates deletes the external file after delete removes the workspace template', async () => {
+		await withTempHome(async (homeDir) => {
+			await activateExtension();
+
+			const codexDir = path.join(homeDir, '.codex');
+			const templatesDir = path.join(codexDir, 'codex-templates');
+			fs.mkdirSync(templatesDir, { recursive: true });
+			fs.writeFileSync(path.join(codexDir, 'config.toml'), 'title = "ok"', 'utf8');
+			const templatePath = path.join(templatesDir, 'snippet.md');
+			fs.writeFileSync(templatePath, 'snippet', 'utf8');
+
+			const targetDir = path.join(homeDir, 'sync-templates-delete-command');
+			const originalWarning = vscode.window.showWarningMessage;
+			(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+				.showWarningMessage = async () => 'OK';
+
+			try {
+				await withSyncFolderSetting('templatesFolder', targetDir, async () => {
+					await vscode.commands.executeCommand('codex-workspace.syncTemplates');
+					await vscode.commands.executeCommand(
+						'codex-workspace.delete',
+						createItem('templates', templatePath),
+					);
+					assert.ok(fs.existsSync(path.join(targetDir, 'snippet.md')));
+					await vscode.commands.executeCommand('codex-workspace.syncTemplates');
+				});
+			} finally {
+				(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+					.showWarningMessage = originalWarning;
+			}
+
+			assert.ok(!fs.existsSync(templatePath));
+			assert.ok(!fs.existsSync(path.join(targetDir, 'snippet.md')));
 		});
 	});
 
@@ -311,7 +422,7 @@ suite('Sync commands', () => {
 					await vscode.commands.executeCommand('codex-workspace.syncAgents');
 					await vscode.commands.executeCommand(
 						'codex-workspace.deleteAgent',
-						createAgentItem(agentPath),
+						createItem('agents', agentPath),
 					);
 					assert.ok(fs.existsSync(path.join(targetDir, 'reviewer.toml')));
 					await vscode.commands.executeCommand('codex-workspace.syncAgents');
