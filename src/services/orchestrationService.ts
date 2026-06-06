@@ -3,16 +3,14 @@ import fs from 'fs';
 import path from 'path';
 import { resolveCodexPaths } from './workspaceStatus';
 
-export const ORCHESTRATION_SCHEMA_VERSION = 1;
+export const ORCHESTRATION_SCHEMA_VERSION = 2;
 export const ORCHESTRATION_DIRECTORY_NAME = 'orchestrations';
 
 export type OrchestrationCardType =
-	| 'start'
-	| 'agentTask'
-	| 'review'
+	| 'workflow'
+	| 'agent'
+	| 'loop'
 	| 'output';
-
-export type OrchestrationAgentSource = 'built-in' | 'user' | 'project' | '';
 
 type PositionedNode = {
 	nodeId: string;
@@ -21,46 +19,37 @@ type PositionedNode = {
 	y: number;
 };
 
-export type StartNode = PositionedNode & {
-	cardType: 'start';
-	title: string;
-	goal: string;
+export type WorkflowNode = PositionedNode & {
+	cardType: 'workflow';
 };
 
-export type AgentTaskNode = PositionedNode & {
-	cardType: 'agentTask';
+export type AgentNode = PositionedNode & {
+	cardType: 'agent';
+	order: number;
 	agentName: string;
-	agentSource?: OrchestrationAgentSource;
-	role: string;
-	summary: string;
-	instruction: string;
-	outputContract: string;
-	handoffMessage: string;
+	purpose: string;
+	input: string;
+	expectedOutput: string;
 	doneCriteria: string;
-	model: string;
-	sandboxMode: string;
-	reasoningEffort: string;
 };
 
-export type ReviewNode = PositionedNode & {
-	cardType: 'review';
-	agentName: string;
-	role: string;
-	summary: string;
-	instruction: string;
-	outputContract: string;
+export type LoopNode = PositionedNode & {
+	cardType: 'loop';
+	maxAttempts: number;
+	acceptanceCriteria: string;
 };
 
 export type OutputNode = PositionedNode & {
 	cardType: 'output';
-	title: string;
+	outputName: string;
 	outputFormat: string;
+	notes: string;
 };
 
 export type OrchestrationNode =
-	| StartNode
-	| AgentTaskNode
-	| ReviewNode
+	| WorkflowNode
+	| AgentNode
+	| LoopNode
 	| OutputNode;
 
 export type OrchestrationEdge = {
@@ -85,18 +74,6 @@ export type OrchestrationWorkflowSummary = Pick<
 	'workflowId' | 'name' | 'description' | 'updatedAt'
 >;
 
-export type OrchestrationTemplateId =
-	| 'parallel-review'
-	| 'research-plan'
-	| 'research-merge'
-	| 'design-test';
-
-export type OrchestrationTemplate = {
-	id: OrchestrationTemplateId;
-	label: string;
-	description: string;
-};
-
 export type WorkflowIssue = {
 	code: string;
 	message: string;
@@ -109,94 +86,111 @@ export type WorkflowValidationResult = {
 	warnings: WorkflowIssue[];
 };
 
-export const ORCHESTRATION_TEMPLATES: OrchestrationTemplate[] = [
-	{
-		id: 'parallel-review',
-		label: '並列レビュー',
-		description: 'Start、複数 Agent Task、Output で多角的レビューを行います。',
-	},
-	{
-		id: 'research-plan',
-		label: '調査から実装計画',
-		description: '調査結果を実装計画へつなげる流れを作ります。',
-	},
-	{
-		id: 'research-merge',
-		label: '調査2本から統合',
-		description: '2 本の調査結果を統合して結論をまとめます。',
-	},
-	{
-		id: 'design-test',
-		label: '設計からテスト観点',
-		description: '設計のあとにレビューを通してテスト観点を整理します。',
-	},
-];
+type ResolvedLoop = {
+	loop: LoopNode;
+	inAgent: AgentNode;
+	outAgent: AgentNode;
+};
+
+type PromptLocale = 'ja' | 'en';
+
+type PromptStrings = {
+	mainRoleTitle: string;
+	mainRoleBody: string[];
+	policyTitle: string;
+	policyBody: string[];
+	agentListTitle: string;
+	loopTitle: string;
+	requestTitle: string;
+	stepsTitle: string;
+	outputTitle: string;
+	endConditionsTitle: string;
+	agentTableHeaders: string[];
+	loopTableHeaders: string[];
+	requestTableHeaders: string[];
+	endTableHeaders: string[];
+	requestRows: string[][];
+	defaultReportBullets: string[];
+	noLoopRow: string[];
+	noAgentRow: string[];
+	outputFallback: string;
+	endSuccessLabel: string;
+	endSuccessAction: string;
+	endLoopLabel: string;
+	endLoopAction: string;
+	stepLines: string[];
+	fallbackName: string;
+	workflowNameRequired: string;
+	workflowNodeMissing: string;
+	workflowNodeMultiple: string;
+	agentMissing: string;
+	agentNameMissing: string;
+	agentOrderInvalid: string;
+	agentOrderDuplicate: string;
+	loopAttemptsInvalid: string;
+	loopCriteriaMissing: string;
+	outputCannotConnect: string;
+	workflowIncomingForbidden: string;
+	workflowToAgentOnly: string;
+	agentConnectionInvalid: string;
+	loopConnectionInvalid: string;
+	outputIncomingInvalid: string;
+	loopIncomingRequired: string;
+	loopOutgoingRequired: string;
+	loopOrderInvalid: string;
+	unreachableNode: string;
+	cycleDetected: string;
+};
 
 function createId(prefix: string): string {
 	return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
-function createStartNode(
+function createWorkflowNode(
 	nodeId: string,
 	x: number,
 	y: number,
-	goal: string,
-): StartNode {
+): WorkflowNode {
 	return {
 		nodeId,
-		cardType: 'start',
-		title: 'Start',
-		goal,
+		cardType: 'workflow',
 		x,
 		y,
 	};
 }
 
-function createAgentTaskNode(
+function createAgentNode(
 	nodeId: string,
 	x: number,
 	y: number,
-	agentName: string,
-	role: string,
-	summary: string,
-	instruction: string,
-	outputContract: string,
-): AgentTaskNode {
+	order: number,
+	agentName = '',
+): AgentNode {
 	return {
 		nodeId,
-		cardType: 'agentTask',
+		cardType: 'agent',
+		order,
 		agentName,
-		agentSource: '',
-		role,
-		summary,
-		instruction,
-		outputContract,
-		handoffMessage: '',
+		purpose: '',
+		input: '',
+		expectedOutput: '',
 		doneCriteria: '',
-		model: '',
-		sandboxMode: '',
-		reasoningEffort: '',
 		x,
 		y,
 	};
 }
 
-function createReviewNode(
+function createLoopNode(
 	nodeId: string,
 	x: number,
 	y: number,
-	agentName: string,
-	instruction: string,
-	outputContract: string,
-): ReviewNode {
+	maxAttempts = 3,
+): LoopNode {
 	return {
 		nodeId,
-		cardType: 'review',
-		agentName,
-		role: 'Review',
-		summary: '成果物のレビュー',
-		instruction,
-		outputContract,
+		cardType: 'loop',
+		maxAttempts,
+		acceptanceCriteria: '',
 		x,
 		y,
 	};
@@ -206,13 +200,13 @@ function createOutputNode(
 	nodeId: string,
 	x: number,
 	y: number,
-	outputFormat: string,
 ): OutputNode {
 	return {
 		nodeId,
 		cardType: 'output',
-		title: 'Output',
-		outputFormat,
+		outputName: '',
+		outputFormat: '',
+		notes: '',
 		x,
 		y,
 	};
@@ -230,181 +224,26 @@ function createEdge(
 	};
 }
 
-function pickAgentName(
-	availableAgents: string[],
-	index: number,
-	fallback: string,
-): string {
-	return availableAgents[index] ?? fallback;
-}
-
 export function createEmptyWorkflow(
-	name = 'New orchestration',
+	name = '',
 	nowIso = new Date().toISOString(),
 ): OrchestrationWorkflow {
-	const startId = createId('start');
-	const outputId = createId('output');
 	return {
 		version: ORCHESTRATION_SCHEMA_VERSION,
 		workflowId: createId('workflow'),
 		name,
 		description: '',
-		nodes: [
-			createStartNode(startId, 80, 180, ''),
-			createOutputNode(outputId, 760, 180, ''),
-		],
-		edges: [createEdge(createId('edge'), startId, outputId)],
+		nodes: [createWorkflowNode(createId('workflow-node'), 80, 180)],
+		edges: [],
 		createdAt: nowIso,
 		updatedAt: nowIso,
 	};
 }
 
-export function createWorkflowFromTemplate(
-	templateId: OrchestrationTemplateId,
-	availableAgents: string[] = [],
-	nowIso = new Date().toISOString(),
-): OrchestrationWorkflow {
-	const workflow = createEmptyWorkflow(
-		ORCHESTRATION_TEMPLATES.find((template) => template.id === templateId)?.label
-			?? 'New orchestration',
-		nowIso,
-	);
-	const startNode = workflow.nodes.find(
-		(node): node is StartNode => node.cardType === 'start',
-	);
-	const outputNode = workflow.nodes.find(
-		(node): node is OutputNode => node.cardType === 'output',
-	);
-	if (!startNode || !outputNode) {
-		return workflow;
-	}
-	startNode.goal = 'Codex へ渡す作業フローを組み立てる。';
-	outputNode.outputFormat = '最終結果、主要なリスク、次のアクションを箇条書きで返す。';
-	workflow.edges = [];
-
-	if (templateId === 'parallel-review') {
-		const taskA = createAgentTaskNode(
-			createId('agent'),
-			320,
-			80,
-			pickAgentName(availableAgents, 0, 'pr_explorer'),
-			'変更範囲の調査',
-			'差分と関連コードを調べる',
-			'変更範囲と影響箇所を調査してください。',
-			'変更範囲、影響範囲、追加確認事項',
-		);
-		const taskB = createAgentTaskNode(
-			createId('agent'),
-			320,
-			280,
-			pickAgentName(availableAgents, 1, 'reviewer'),
-			'正しさとテスト観点のレビュー',
-			'品質観点のレビューを行う',
-			'正しさ、セキュリティ、テスト不足をレビューしてください。',
-			'重大な問題、修正推奨、追加確認事項',
-		);
-		workflow.nodes = [startNode, taskA, taskB, outputNode];
-		workflow.edges = [
-			createEdge(createId('edge'), startNode.nodeId, taskA.nodeId),
-			createEdge(createId('edge'), startNode.nodeId, taskB.nodeId),
-			createEdge(createId('edge'), taskA.nodeId, outputNode.nodeId),
-			createEdge(createId('edge'), taskB.nodeId, outputNode.nodeId),
-		];
-		return workflow;
-	}
-
-	if (templateId === 'research-plan') {
-		const research = createAgentTaskNode(
-			createId('agent'),
-			280,
-			180,
-			pickAgentName(availableAgents, 0, 'researcher'),
-			'技術調査',
-			'現状と制約を整理する',
-			'関連実装と制約条件を調査してください。',
-			'現状整理、制約、懸念点',
-		);
-		const planning = createAgentTaskNode(
-			createId('agent'),
-			520,
-			180,
-			pickAgentName(availableAgents, 1, 'planner'),
-			'実装計画',
-			'調査結果を計画へ落とす',
-			'調査結果をもとに実装計画へ落とし込んでください。',
-			'実装順序、依存関係、検証方針',
-		);
-		workflow.nodes = [startNode, research, planning, outputNode];
-		workflow.edges = [
-			createEdge(createId('edge'), startNode.nodeId, research.nodeId),
-			createEdge(createId('edge'), research.nodeId, planning.nodeId),
-			createEdge(createId('edge'), planning.nodeId, outputNode.nodeId),
-		];
-		return workflow;
-	}
-
-	if (templateId === 'research-merge') {
-		const researchA = createAgentTaskNode(
-			createId('agent'),
-			320,
-			80,
-			pickAgentName(availableAgents, 0, 'researcher_a'),
-			'調査 A',
-			'パターン A を調査する',
-			'選択肢 A の技術調査をしてください。',
-			'メリット、デメリット、リスク',
-		);
-		const researchB = createAgentTaskNode(
-			createId('agent'),
-			320,
-			280,
-			pickAgentName(availableAgents, 1, 'researcher_b'),
-			'調査 B',
-			'パターン B を調査する',
-			'選択肢 B の技術調査をしてください。',
-			'メリット、デメリット、リスク',
-		);
-		workflow.nodes = [startNode, researchA, researchB, outputNode];
-		workflow.edges = [
-			createEdge(createId('edge'), startNode.nodeId, researchA.nodeId),
-			createEdge(createId('edge'), startNode.nodeId, researchB.nodeId),
-			createEdge(createId('edge'), researchA.nodeId, outputNode.nodeId),
-			createEdge(createId('edge'), researchB.nodeId, outputNode.nodeId),
-		];
-		return workflow;
-	}
-
-	const design = createAgentTaskNode(
-		createId('agent'),
-		280,
-		180,
-		pickAgentName(availableAgents, 0, 'designer'),
-		'設計整理',
-		'設計方針をまとめる',
-		'実装前の設計方針を整理してください。',
-		'設計方針、想定リスク、未確定事項',
-	);
-	const review = createReviewNode(
-		createId('review'),
-		520,
-		180,
-		pickAgentName(availableAgents, 1, 'tester'),
-		'設計内容をレビューし、テスト観点を整理してください。',
-		'レビュー結果、抜け漏れ、テスト観点',
-	);
-	workflow.nodes = [startNode, design, review, outputNode];
-	workflow.edges = [
-		createEdge(createId('edge'), startNode.nodeId, design.nodeId),
-		createEdge(createId('edge'), design.nodeId, review.nodeId),
-		createEdge(createId('edge'), review.nodeId, outputNode.nodeId),
-	];
-	return workflow;
-}
-
 export function getOrchestrationDirectory(
 	codexDir = resolveCodexPaths().codexDir,
 ): string {
-	return path.join(codexDir, ORCHESTRATION_DIRECTORY_NAME);
+	return path.join(codexDir, '.codex-workspace', ORCHESTRATION_DIRECTORY_NAME);
 }
 
 export function listSavedWorkflowSummaries(
@@ -487,11 +326,28 @@ export function deleteWorkflowDefinition(
 export function validateWorkflowDefinition(
 	workflow: OrchestrationWorkflow,
 ): WorkflowValidationResult {
+	const strings = getPromptStrings('ja');
 	const errors: WorkflowIssue[] = [];
 	const warnings: WorkflowIssue[] = [];
 	const nodeIds = new Set<string>();
 	const edgeIds = new Set<string>();
 	const nodeMap = new Map(workflow.nodes.map((node) => [node.nodeId, node]));
+	const workflowNodes = workflow.nodes.filter(
+		(node): node is WorkflowNode => node.cardType === 'workflow',
+	);
+	const agentNodes = getAgentNodes(workflow);
+	const loopNodes = workflow.nodes.filter(
+		(node): node is LoopNode => node.cardType === 'loop',
+	);
+	const orderSet = new Set<number>();
+
+	if (!workflow.name.trim()) {
+		errors.push({
+			code: 'emptyWorkflowName',
+			message: strings.workflowNameRequired,
+			nodeId: workflowNodes[0]?.nodeId,
+		});
+	}
 
 	for (const node of workflow.nodes) {
 		if (nodeIds.has(node.nodeId)) {
@@ -503,71 +359,74 @@ export function validateWorkflowDefinition(
 			continue;
 		}
 		nodeIds.add(node.nodeId);
-		if (node.cardType === 'start' && !node.goal.trim()) {
-			warnings.push({
-				code: 'emptyGoal',
-				message: 'Start カードの目的が未設定です。',
-				nodeId: node.nodeId,
-			});
+		if (node.cardType === 'agent') {
+			if (!node.agentName.trim()) {
+				errors.push({
+					code: 'emptyAgent',
+					message: strings.agentNameMissing,
+					nodeId: node.nodeId,
+				});
+			}
+			if (!Number.isInteger(node.order) || node.order < 1) {
+				errors.push({
+					code: 'invalidAgentOrder',
+					message: strings.agentOrderInvalid,
+					nodeId: node.nodeId,
+				});
+			} else if (orderSet.has(node.order)) {
+				errors.push({
+					code: 'duplicateAgentOrder',
+					message: strings.agentOrderDuplicate,
+					nodeId: node.nodeId,
+				});
+			} else {
+				orderSet.add(node.order);
+			}
 		}
-		if (node.cardType === 'output' && !node.outputFormat.trim()) {
-			errors.push({
-				code: 'emptyOutputFormat',
-				message: 'Output カードの最終出力形式が未設定です。',
-				nodeId: node.nodeId,
-			});
-		}
-		if (
-			(node.cardType === 'agentTask' || node.cardType === 'review')
-			&& !node.agentName.trim()
-		) {
-			errors.push({
-				code: 'emptyAgent',
-				message: `${node.cardType === 'review' ? 'Review' : 'Agent Task'} カードの agent が未設定です。`,
-				nodeId: node.nodeId,
-			});
-		}
-		if (
-			(node.cardType === 'agentTask' || node.cardType === 'review')
-			&& !node.instruction.trim()
-		) {
-			errors.push({
-				code: 'emptyInstruction',
-				message: `${node.cardType === 'review' ? 'Review' : 'Agent Task'} カードの instruction が未設定です。`,
-				nodeId: node.nodeId,
-			});
-		}
-		if (
-			(node.cardType === 'agentTask' || node.cardType === 'review')
-			&& !node.outputContract.trim()
-		) {
-			errors.push({
-				code: 'emptyOutputContract',
-				message: `${node.cardType === 'review' ? 'Review' : 'Agent Task'} カードの output が未設定です。`,
-				nodeId: node.nodeId,
-			});
+		if (node.cardType === 'loop') {
+			if (!Number.isInteger(node.maxAttempts) || node.maxAttempts < 1) {
+				errors.push({
+					code: 'invalidLoopAttempts',
+					message: strings.loopAttemptsInvalid,
+					nodeId: node.nodeId,
+				});
+			}
+			if (!node.acceptanceCriteria.trim()) {
+				warnings.push({
+					code: 'emptyAcceptanceCriteria',
+					message: strings.loopCriteriaMissing,
+					nodeId: node.nodeId,
+				});
+			}
 		}
 	}
 
-	const startCount = workflow.nodes.filter((node) => node.cardType === 'start').length;
-	if (startCount !== 1) {
+	if (workflowNodes.length === 0) {
 		errors.push({
-			code: 'startCount',
-			message:
-				startCount === 0
-					? 'Start カードが存在しません。'
-					: 'Start カードは 1 つだけ配置してください。',
+			code: 'missingWorkflowNode',
+			message: strings.workflowNodeMissing,
 		});
 	}
-	const outputCount = workflow.nodes.filter((node) => node.cardType === 'output').length;
-	if (outputCount === 0) {
+	if (workflowNodes.length > 1) {
 		errors.push({
-			code: 'missingOutput',
-			message: 'Output カードが存在しません。',
+			code: 'multipleWorkflowNodes',
+			message: strings.workflowNodeMultiple,
+		});
+	}
+	if (agentNodes.length === 0) {
+		errors.push({
+			code: 'missingAgent',
+			message: strings.agentMissing,
 		});
 	}
 
-	const outgoingCount = new Map<string, number>();
+	const incoming = new Map<string, OrchestrationEdge[]>();
+	const outgoing = new Map<string, OrchestrationEdge[]>();
+	for (const node of workflow.nodes) {
+		incoming.set(node.nodeId, []);
+		outgoing.set(node.nodeId, []);
+	}
+
 	for (const edge of workflow.edges) {
 		if (edgeIds.has(edge.edgeId)) {
 			errors.push({
@@ -588,44 +447,114 @@ export function validateWorkflowDefinition(
 			});
 			continue;
 		}
+		outgoing.get(source.nodeId)?.push(edge);
+		incoming.get(target.nodeId)?.push(edge);
+
+		if (source.cardType === 'workflow' && target.cardType !== 'agent') {
+			errors.push({
+				code: 'workflowToAgentOnly',
+				message: strings.workflowToAgentOnly,
+				edgeId: edge.edgeId,
+			});
+		}
+		if (target.cardType === 'workflow') {
+			errors.push({
+				code: 'workflowIncomingForbidden',
+				message: strings.workflowIncomingForbidden,
+				edgeId: edge.edgeId,
+			});
+		}
+		if (
+			source.cardType === 'agent'
+			&& target.cardType !== 'loop'
+			&& target.cardType !== 'output'
+		) {
+			errors.push({
+				code: 'invalidAgentConnection',
+				message: strings.agentConnectionInvalid,
+				edgeId: edge.edgeId,
+			});
+		}
+		if (source.cardType === 'loop' && target.cardType !== 'agent') {
+			errors.push({
+				code: 'invalidLoopConnection',
+				message: strings.loopConnectionInvalid,
+				edgeId: edge.edgeId,
+			});
+		}
 		if (source.cardType === 'output') {
 			errors.push({
 				code: 'outputHasOutgoingEdge',
-				message: 'Output カードは出力ポートを持てません。',
+				message: strings.outputCannotConnect,
 				edgeId: edge.edgeId,
 				nodeId: source.nodeId,
 			});
 		}
-		if (target.cardType === 'start') {
+		if (target.cardType === 'output' && source.cardType !== 'agent') {
 			errors.push({
-				code: 'startHasIncomingEdge',
-				message: 'Start カードは入力ポートを持てません。',
+				code: 'invalidOutputIncoming',
+				message: strings.outputIncomingInvalid,
 				edgeId: edge.edgeId,
 				nodeId: target.nodeId,
 			});
 		}
-		outgoingCount.set(
-			edge.sourceNodeId,
-			(outgoingCount.get(edge.sourceNodeId) ?? 0) + 1,
-		);
 	}
 
-	if (workflow.nodes.length > 10) {
-		warnings.push({
-			code: 'nodeCount',
-			message: 'カード数が 10 件を超えています。',
-		});
+	for (const loopNode of loopNodes) {
+		const loopIncoming = (incoming.get(loopNode.nodeId) ?? [])
+			.map((edge) => nodeMap.get(edge.sourceNodeId))
+			.filter((node): node is AgentNode => node?.cardType === 'agent');
+		const loopOutgoing = (outgoing.get(loopNode.nodeId) ?? [])
+			.map((edge) => nodeMap.get(edge.targetNodeId))
+			.filter((node): node is AgentNode => node?.cardType === 'agent');
+		if (loopIncoming.length !== 1) {
+			errors.push({
+				code: 'loopIncomingRequired',
+				message: strings.loopIncomingRequired,
+				nodeId: loopNode.nodeId,
+			});
+		}
+		if (loopOutgoing.length !== 1) {
+			errors.push({
+				code: 'loopOutgoingRequired',
+				message: strings.loopOutgoingRequired,
+				nodeId: loopNode.nodeId,
+			});
+		}
+		if (
+			loopIncoming.length === 1
+			&& loopOutgoing.length === 1
+			&& loopIncoming[0].order >= loopOutgoing[0].order
+		) {
+			errors.push({
+				code: 'invalidLoopOrder',
+				message: strings.loopOrderInvalid,
+				nodeId: loopNode.nodeId,
+			});
+		}
 	}
-	if ([...outgoingCount.values()].some((count) => count > 5)) {
-		warnings.push({
-			code: 'parallelCount',
-			message: '並列分岐数が 5 件を超えています。',
-		});
+
+	const workflowNode = workflowNodes[0];
+	if (workflowNode) {
+		const reachable = collectReachableNodeIds(workflowNode.nodeId, workflow.edges);
+		for (const node of workflow.nodes) {
+			if (node.nodeId === workflowNode.nodeId) {
+				continue;
+			}
+			if (!reachable.has(node.nodeId)) {
+				errors.push({
+					code: 'unreachableNode',
+					message: strings.unreachableNode,
+					nodeId: node.nodeId,
+				});
+			}
+		}
 	}
+
 	if (hasCycle(workflow)) {
 		errors.push({
 			code: 'cycle',
-			message: '循環参照があるためプロンプト生成できません。',
+			message: strings.cycleDetected,
 		});
 	}
 
@@ -634,86 +563,108 @@ export function validateWorkflowDefinition(
 
 export function generateWorkflowPrompt(
 	workflow: OrchestrationWorkflow,
+	language?: string,
 ): { prompt: string; validation: WorkflowValidationResult } {
 	const validation = validateWorkflowDefinition(workflow);
 	if (validation.errors.length > 0) {
 		return { prompt: '', validation };
 	}
 
-	const nodeMap = new Map(workflow.nodes.map((node) => [node.nodeId, node]));
-	const startNode = workflow.nodes.find(
-		(node): node is StartNode => node.cardType === 'start',
-	);
+	const locale = resolvePromptLocale(language);
+	const strings = getPromptStrings(locale);
+	const workflowName = workflow.name.trim() || strings.fallbackName;
+	const workflowDescription = workflow.description.trim();
+	const agentNodes = getAgentNodes(workflow).sort((left, right) => left.order - right.order);
+	const resolvedLoops = resolveLoops(workflow)
+		.sort((left, right) => left.inAgent.order - right.inAgent.order);
 	const outputNodes = workflow.nodes.filter(
 		(node): node is OutputNode => node.cardType === 'output',
 	);
-	const agentNodes = workflow.nodes.filter(
-		(node): node is AgentTaskNode | ReviewNode =>
-			node.cardType === 'agentTask' || node.cardType === 'review',
-	);
-	const executionGroups = buildExecutionGroups(workflow)
-		.map((group) => group.filter((node) => node.cardType !== 'start'))
-		.filter((group) => group.length > 0);
 
 	const lines: string[] = [
-		'次の subagent workflow で作業してください。',
+		'---',
+		`name: ${quoteFrontmatterValue(workflowName)}`,
+		`description: ${quoteFrontmatterValue(workflowDescription)}`,
+		'---',
 		'',
-		'目的:',
-		startNode?.goal.trim() || '目的未設定',
+		`# ${workflowName}`,
 		'',
-		'使用する agent:',
+		`## ${strings.mainRoleTitle}`,
+		'',
+		...strings.mainRoleBody,
+		'',
+		`## ${strings.policyTitle}`,
+		'',
+		...strings.policyBody.map((line) => `- ${line}`),
+		'',
+		`## ${strings.agentListTitle}`,
+		'',
+		renderTable(
+			strings.agentTableHeaders,
+			agentNodes.length > 0
+				? agentNodes.map((node) => [
+					String(node.order),
+					node.agentName || '-',
+					node.purpose || '-',
+					node.input || '-',
+					node.expectedOutput || '-',
+					node.doneCriteria || '-',
+				])
+				: [strings.noAgentRow],
+		),
+		'',
+		`## ${strings.loopTitle}`,
+		'',
+		renderTable(
+			strings.loopTableHeaders,
+			resolvedLoops.length > 0
+				? resolvedLoops.map(({ inAgent, outAgent, loop }) => [
+					inAgent.agentName || '-',
+					outAgent.agentName || '-',
+					String(loop.maxAttempts),
+					loop.acceptanceCriteria || '-',
+				])
+				: [strings.noLoopRow],
+		),
+		'',
+		`## ${strings.requestTitle}`,
+		'',
+		renderTable(strings.requestTableHeaders, strings.requestRows),
+		'',
+		`## ${strings.stepsTitle}`,
+		'',
+		...strings.stepLines.map((line, index) => `${index + 1}. ${line}`),
+		'',
+		`## ${strings.outputTitle}`,
+		'',
 	];
-	for (const node of agentNodes) {
-		const summary =
-			node.cardType === 'review'
-				? 'レビュー担当'
-				: node.summary.trim() || node.role.trim();
-		lines.push(`- ${node.agentName}: ${summary}`);
-	}
-	if (agentNodes.length === 0) {
-		lines.push('- なし');
-	}
 
-	lines.push('', '各 agent への依頼:');
-	for (const node of agentNodes) {
-		lines.push(`- ${describeNodeLabel(node)}`);
-		lines.push(`  依頼: ${node.instruction.trim()}`);
-		lines.push(`  期待出力: ${node.outputContract.trim()}`);
-		if (node.cardType === 'agentTask' && node.handoffMessage.trim()) {
-			lines.push(`  次への引き継ぎ: ${node.handoffMessage.trim()}`);
-		}
-		if (node.cardType === 'agentTask' && node.doneCriteria.trim()) {
-			lines.push(`  完了条件: ${node.doneCriteria.trim()}`);
-		}
-	}
-
-	lines.push('', '実行方法:');
-	let stepNumber = 1;
-	for (const group of executionGroups) {
-		if (group.length === 1) {
-			lines.push(
-				`${stepNumber}. ${describeExecutionNode(group[0], workflow)} を実行してください。`,
-			);
-			} else {
-				lines.push(
-					`${stepNumber}. ${group
-						.map((node) => describeExecutionNode(node, workflow))
-						.join('、')} を並列に起動してください。`,
-				);
+	if (outputNodes.length > 0 && hasSpecialOutput(outputNodes)) {
+		for (const outputNode of outputNodes) {
+			const details = [
+				outputNode.outputName.trim(),
+				outputNode.outputFormat.trim(),
+				outputNode.notes.trim(),
+			].filter(Boolean);
+			if (details.length > 0) {
+				lines.push(`- ${details.join(' / ')}`);
 			}
-		stepNumber += 1;
+		}
 	}
-	lines.push(`${stepNumber}. 各 agent の結果を統合してください。`);
-
-	lines.push('', '出力:');
-	for (const node of outputNodes) {
-		lines.push(`- ${node.outputFormat.trim()}`);
+	lines.push(`- ${strings.outputFallback}`);
+	for (const bullet of strings.defaultReportBullets) {
+		lines.push(`  - ${bullet}`);
 	}
 
-	lines.push('', '注意事項:');
-	lines.push('- 並列ステップは、全結果が揃ってから次に進んでください。');
-	lines.push('- Review カードは入力元の成果物をレビュー対象として扱ってください。');
-	lines.push('- 拡張機能側では agent を直接実行しません。必要な subagent 起動と結果統合は Codex 側で行ってください。');
+	lines.push(
+		'',
+		`## ${strings.endConditionsTitle}`,
+		'',
+		renderTable(strings.endTableHeaders, [
+			[strings.endSuccessLabel, strings.endSuccessAction],
+			[strings.endLoopLabel, strings.endLoopAction],
+		]),
+	);
 
 	return {
 		prompt: lines.join('\n'),
@@ -721,85 +672,260 @@ export function generateWorkflowPrompt(
 	};
 }
 
-function describeNodeLabel(node: AgentTaskNode | ReviewNode): string {
-	return `${node.agentName} (${node.role.trim() || (node.cardType === 'review' ? 'Review' : 'Task')})`;
+function hasSpecialOutput(outputNodes: OutputNode[]): boolean {
+	return outputNodes.some((node) =>
+		[node.outputName, node.outputFormat, node.notes].some((value) => value.trim()),
+	);
 }
 
-function describeExecutionNode(
-	node: OrchestrationNode,
-	workflow: OrchestrationWorkflow,
-): string {
-	if (node.cardType === 'agentTask' || node.cardType === 'review') {
-		return describeNodeLabel(node);
-	}
-	if (node.cardType === 'output') {
-		const parents = workflow.edges
-			.filter((edge) => edge.targetNodeId === node.nodeId)
-			.map((edge) => edge.sourceNodeId);
-		return parents.length > 0
-			? `最終出力を ${node.title} にまとめる`
-			: node.title;
-	}
-	return node.title;
+function renderTable(headers: string[], rows: string[][]): string {
+	const normalizedRows = rows.map((row) => row.map((cell) => sanitizeTableCell(cell)));
+	return [
+		`| ${headers.join(' | ')} |`,
+		`| ${headers.map(() => '---').join(' | ')} |`,
+		...normalizedRows.map((row) => `| ${row.join(' | ')} |`),
+	].join('\n');
 }
 
-function buildExecutionGroups(
-	workflow: OrchestrationWorkflow,
-): OrchestrationNode[][] {
-	const nodeMap = new Map(workflow.nodes.map((node) => [node.nodeId, node]));
-	const indegree = new Map<string, number>();
+function sanitizeTableCell(value: string): string {
+	return value
+		.replace(/\r?\n/g, '<br>')
+		.replace(/\|/g, '\\|')
+		.trim() || '-';
+}
+
+function quoteFrontmatterValue(value: string): string {
+	return JSON.stringify(value);
+}
+
+function collectReachableNodeIds(
+	startNodeId: string,
+	edges: OrchestrationEdge[],
+): Set<string> {
 	const adjacency = new Map<string, string[]>();
-
-	for (const node of workflow.nodes) {
-		indegree.set(node.nodeId, 0);
-		adjacency.set(node.nodeId, []);
+	for (const edge of edges) {
+		const list = adjacency.get(edge.sourceNodeId) ?? [];
+		list.push(edge.targetNodeId);
+		adjacency.set(edge.sourceNodeId, list);
 	}
-
-	for (const edge of workflow.edges) {
-		if (!nodeMap.has(edge.sourceNodeId) || !nodeMap.has(edge.targetNodeId)) {
+	const visited = new Set<string>();
+	const queue = [startNodeId];
+	while (queue.length > 0) {
+		const current = queue.shift();
+		if (!current || visited.has(current)) {
 			continue;
 		}
-		adjacency.get(edge.sourceNodeId)?.push(edge.targetNodeId);
-		indegree.set(
-			edge.targetNodeId,
-			(indegree.get(edge.targetNodeId) ?? 0) + 1,
-		);
-	}
-
-	let current = workflow.nodes
-		.filter((node) => (indegree.get(node.nodeId) ?? 0) === 0)
-		.sort(compareNodes);
-	const groups: OrchestrationNode[][] = [];
-
-	while (current.length > 0) {
-		groups.push(current);
-		const nextIds = new Set<string>();
-		for (const node of current) {
-			for (const targetId of adjacency.get(node.nodeId) ?? []) {
-				const nextIndegree = (indegree.get(targetId) ?? 0) - 1;
-				indegree.set(targetId, nextIndegree);
-				if (nextIndegree === 0) {
-					nextIds.add(targetId);
-				}
+		visited.add(current);
+		for (const next of adjacency.get(current) ?? []) {
+			if (!visited.has(next)) {
+				queue.push(next);
 			}
 		}
-		current = [...nextIds]
-			.map((nodeId) => nodeMap.get(nodeId))
-			.filter((node): node is OrchestrationNode => Boolean(node))
-			.sort(compareNodes);
 	}
-
-	return groups;
+	return visited;
 }
 
-function compareNodes(left: OrchestrationNode, right: OrchestrationNode): number {
-	if (left.x !== right.x) {
-		return left.x - right.x;
+function getWorkflowNode(
+	workflow: OrchestrationWorkflow,
+): WorkflowNode | undefined {
+	return workflow.nodes.find(
+		(node): node is WorkflowNode => node.cardType === 'workflow',
+	);
+}
+
+function getAgentNodes(
+	workflow: OrchestrationWorkflow,
+): AgentNode[] {
+	return workflow.nodes.filter(
+		(node): node is AgentNode => node.cardType === 'agent',
+	);
+}
+
+function resolveLoops(workflow: OrchestrationWorkflow): ResolvedLoop[] {
+	const nodeMap = new Map(workflow.nodes.map((node) => [node.nodeId, node]));
+	return workflow.nodes
+		.filter((node): node is LoopNode => node.cardType === 'loop')
+		.map((loop) => {
+			const inEdge = workflow.edges.find((edge) => edge.targetNodeId === loop.nodeId);
+			const outEdge = workflow.edges.find((edge) => edge.sourceNodeId === loop.nodeId);
+			const inAgent = inEdge ? nodeMap.get(inEdge.sourceNodeId) : undefined;
+			const outAgent = outEdge ? nodeMap.get(outEdge.targetNodeId) : undefined;
+			if (inAgent?.cardType !== 'agent' || outAgent?.cardType !== 'agent') {
+				return undefined;
+			}
+			return {
+				loop,
+				inAgent,
+				outAgent,
+			};
+		})
+		.filter((value): value is ResolvedLoop => Boolean(value));
+}
+
+function resolvePromptLocale(language?: string): PromptLocale {
+	return (language ?? 'en').toLowerCase().startsWith('ja') ? 'ja' : 'en';
+}
+
+function getPromptStrings(locale: PromptLocale): PromptStrings {
+	if (locale === 'ja') {
+		return {
+			mainRoleTitle: '🎯 目的',
+			mainRoleBody: [
+				'あなたは、オーケストレーターとして、メインエージェントからサブエージェントへの委譲、結果の受け取り、差し戻し判断、終了判定のみを管理する。',
+				'',
+				'各サブエージェントが実施すべき詳細作業は、各サブエージェントの定義または関連スキルに委譲する。',
+			],
+			policyTitle: '🧑‍✈️ 基本方針',
+			policyBody: [
+				'メインエージェントは、オーケストレーターとしてのみ振る舞うこと。',
+				'メインエージェントは、自身で作業を行わず、作業を必ずサブエージェントへ委譲すること。',
+				'メインエージェントが担当するのは、ユーザー依頼の整理、委譲、結果の受け取り、差し戻し判断、中間報告、最終結果の要約のみとすること。',
+				'サブエージェントへの依頼は、目的、入力、期待する出力、完了条件に絞る。',
+				'サブエージェント固有の作業手順は、各サブエージェントの定義または関連スキルに任せる。',
+				'起動順は、サブエージェント一覧の `No` 昇順を基本とする。',
+				'あるサブエージェントの結果を受けて次のサブエージェントを起動するかどうかは、常にメインエージェントが判断すること。',
+				'特別な出力指定がない場合でも、最後の起動エージェントの完了条件を満たしたらタスクを完了し、ユーザーへ報告すること。',
+			],
+			agentListTitle: '🤖 起動するサブエージェント',
+			loopTitle: '🔄 差し戻し設定',
+			requestTitle: '📤 サブエージェントへの依頼形式',
+			stepsTitle: '🔁 オーケストレーション手順',
+			outputTitle: '🧾 出力',
+			endConditionsTitle: '✅ 終了条件',
+			agentTableHeaders: ['No', 'サブエージェント', '目的', '入力', '期待する出力', '完了条件'],
+			loopTableHeaders: ['作業エージェント', '確認エージェント', '最大試行回数', '受け入れ基準'],
+			requestTableHeaders: ['項目', '内容'],
+			endTableHeaders: ['条件', '終了時の対応'],
+			requestRows: [
+				['目的', 'サブエージェントに依頼する内容'],
+				['入力', '判断または作業に必要な情報'],
+				['期待する出力', 'オーケストレーターが次の判断に使う結果'],
+				['完了条件', 'そのサブエージェントの作業を完了とみなす条件'],
+			],
+			defaultReportBullets: [
+				'最終結果',
+				'途中で行った主な委譲',
+				'差し戻しが発生した場合の内容と解消状況',
+				'未解決事項または残課題',
+			],
+			noLoopRow: ['-', '-', '-', '-'],
+			noAgentRow: ['-', '-', '-', '-', '-', '-'],
+			outputFallback: '特別な出力形式の指定がある場合は、その形式で最終結果をまとめること。指定がない場合は、少なくとも以下を含めて報告すること。',
+			endSuccessLabel: '最後の起動エージェントの完了条件を満たした',
+			endSuccessAction: 'ユーザーへ最終結果を報告して終了する',
+			endLoopLabel: '差し戻しが最大試行回数に達した',
+			endLoopAction: '未達理由と現時点の成果物をまとめて報告し終了する',
+			stepLines: [
+				'サブエージェント一覧の `No` 昇順に従ってサブエージェントを起動し、表に定義された `目的`、`入力`、`期待する出力`、`完了条件` を渡して委譲する。',
+				'各サブエージェントの結果を受け取り、次に起動すべきサブエージェントをメインエージェントが判断する。',
+				'差し戻し設定がある場合は、対応する `確認エージェント` を起動する。',
+				'`確認エージェント` の結果が `受け入れ基準` を満たさない場合は、対応する `作業エージェント` に差し戻す。',
+				'差し戻しは `最大試行回数` に達するまで繰り返す。',
+				'`受け入れ基準` を満たした場合は、次の `No` のサブエージェントへ進む。',
+				'最後の起動エージェントの完了条件を満たしたら、タスクを完了しユーザーへ報告する。',
+			],
+			fallbackName: 'New orchestration',
+			workflowNameRequired: 'Workflow の名前は必須です。',
+			workflowNodeMissing: 'Workflow カードが存在しません。',
+			workflowNodeMultiple: 'Workflow カードは 1 つだけ配置してください。',
+			agentMissing: 'Agent カードを 1 つ以上配置してください。',
+			agentNameMissing: 'Agent カードの使用エージェントが未設定です。',
+			agentOrderInvalid: 'Agent カードの No は 1 以上の整数で指定してください。',
+			agentOrderDuplicate: 'Agent カードの No が重複しています。',
+			loopAttemptsInvalid: 'Loop カードの最大試行回数は 1 以上の整数で指定してください。',
+			loopCriteriaMissing: 'Loop カードの受け入れ基準が未設定です。',
+			outputCannotConnect: 'Output カードは出力ポートを持てません。',
+			workflowIncomingForbidden: 'Workflow カードは入力ポートを持てません。',
+			workflowToAgentOnly: 'Workflow カードは Agent カードにのみ接続できます。',
+			agentConnectionInvalid: 'Agent カードは Loop または Output カードにのみ接続できます。',
+			loopConnectionInvalid: 'Loop カードは Agent カードにのみ接続できます。',
+			outputIncomingInvalid: 'Output カードは Agent カードからのみ接続できます。',
+			loopIncomingRequired: 'Loop カードには作業 Agent からの入力接続が 1 つ必要です。',
+			loopOutgoingRequired: 'Loop カードには確認 Agent への出力接続が 1 つ必要です。',
+			loopOrderInvalid: 'Loop の作業 Agent は確認 Agent より小さい No である必要があります。',
+			unreachableNode: 'Workflow カードから到達できないカードがあります。',
+			cycleDetected: '循環参照があるためプロンプト生成できません。',
+		};
 	}
-	if (left.y !== right.y) {
-		return left.y - right.y;
-	}
-	return left.nodeId.localeCompare(right.nodeId);
+
+	return {
+		mainRoleTitle: 'Goal',
+		mainRoleBody: [
+			'You are acting as the orchestrator. Your job is limited to delegating from the main agent to subagents, receiving results, deciding whether work must be sent back, and deciding when the task is complete.',
+			'',
+			'The detailed work executed by each subagent should be delegated to that subagent definition or its related skills.',
+		],
+		policyTitle: 'Operating policy',
+		policyBody: [
+			'The main agent must behave only as an orchestrator.',
+			'The main agent must not perform the work itself and must always delegate the work to subagents.',
+			'The main agent is responsible only for organizing the user request, delegating, receiving results, deciding whether to send work back, giving interim updates, and summarizing the final result.',
+			'Each subagent request must be limited to purpose, input, expected output, and done criteria.',
+			'Leave subagent-specific procedures to the subagent definition or related skills.',
+			'Use the ascending `No` order in the subagent table as the default launch order.',
+			'The main agent must always decide whether to launch the next subagent after receiving a result.',
+			'Even when there is no special output format, complete the task and report to the user once the last launched agent satisfies its done criteria.',
+		],
+		agentListTitle: 'Subagents to launch',
+		loopTitle: 'Review and retry settings',
+		requestTitle: 'Delegation format for subagents',
+		stepsTitle: 'Orchestration steps',
+		outputTitle: 'Output',
+		endConditionsTitle: 'Exit conditions',
+		agentTableHeaders: ['No', 'Subagent', 'Purpose', 'Input', 'Expected output', 'Done criteria'],
+		loopTableHeaders: ['Worker agent', 'Reviewer agent', 'Max attempts', 'Acceptance criteria'],
+		requestTableHeaders: ['Field', 'Meaning'],
+		endTableHeaders: ['Condition', 'Action'],
+		requestRows: [
+			['Purpose', 'What the subagent is being asked to do'],
+			['Input', 'Information needed for judgment or execution'],
+			['Expected output', 'The result the orchestrator will use for the next decision'],
+			['Done criteria', 'What must be true for the subagent task to count as complete'],
+		],
+		defaultReportBullets: [
+			'Final result',
+			'Major delegations performed',
+			'If retries happened, what was sent back and how it was resolved',
+			'Open issues or remaining work',
+		],
+		noLoopRow: ['-', '-', '-', '-'],
+		noAgentRow: ['-', '-', '-', '-', '-', '-'],
+		outputFallback: 'If a special output format is specified, use it for the final answer. Otherwise, report at least the following items.',
+		endSuccessLabel: 'The last launched agent satisfies its done criteria',
+		endSuccessAction: 'Report the final result to the user and finish',
+		endLoopLabel: 'A retry reaches the maximum number of attempts',
+		endLoopAction: 'Report the reason for the incomplete result together with the current artifacts and finish',
+		stepLines: [
+			'Launch subagents in ascending `No` order and delegate using the `Purpose`, `Input`, `Expected output`, and `Done criteria` defined in the table.',
+			'Receive each subagent result and let the main agent decide which subagent should be launched next.',
+			'If review and retry settings exist, launch the corresponding reviewer agent.',
+			'If the reviewer result does not satisfy the acceptance criteria, send the work back to the corresponding worker agent.',
+			'Repeat the retry until the maximum number of attempts is reached.',
+			'If the acceptance criteria are satisfied, continue to the next subagent by `No` order.',
+			'When the last launched agent satisfies its done criteria, complete the task and report back to the user.',
+		],
+		fallbackName: 'New orchestration',
+		workflowNameRequired: 'The workflow name is required.',
+		workflowNodeMissing: 'A Workflow card is required.',
+		workflowNodeMultiple: 'Only one Workflow card can exist.',
+		agentMissing: 'At least one Agent card is required.',
+		agentNameMissing: 'Each Agent card must select a subagent.',
+		agentOrderInvalid: 'Each Agent card No must be an integer greater than or equal to 1.',
+		agentOrderDuplicate: 'Agent card No values must be unique.',
+		loopAttemptsInvalid: 'Loop max attempts must be an integer greater than or equal to 1.',
+		loopCriteriaMissing: 'The Loop acceptance criteria are empty.',
+		outputCannotConnect: 'An Output card cannot have outgoing connectors.',
+		workflowIncomingForbidden: 'A Workflow card cannot have incoming connectors.',
+		workflowToAgentOnly: 'A Workflow card can connect only to Agent cards.',
+		agentConnectionInvalid: 'An Agent card can connect only to a Loop or Output card.',
+		loopConnectionInvalid: 'A Loop card can connect only to an Agent card.',
+		outputIncomingInvalid: 'An Output card can receive connections only from Agent cards.',
+		loopIncomingRequired: 'A Loop card needs exactly one incoming connection from a worker Agent.',
+		loopOutgoingRequired: 'A Loop card needs exactly one outgoing connection to a reviewer Agent.',
+		loopOrderInvalid: 'The worker Agent connected to a Loop must have a smaller No than the reviewer Agent.',
+		unreachableNode: 'There is a card that cannot be reached from the Workflow card.',
+		cycleDetected: 'Prompt generation is blocked because the graph contains a cycle.',
+	};
 }
 
 function hasCycle(workflow: OrchestrationWorkflow): boolean {
@@ -877,6 +1003,8 @@ function assertWorkflowDefinition(value: unknown): OrchestrationWorkflow {
 	if (!Array.isArray(record.edges)) {
 		throw new Error('edges must be an array.');
 	}
+	const nodes = record.nodes.map(assertNodeDefinition);
+	const edges = record.edges.map(assertEdgeDefinition);
 	return {
 		version:
 			typeof record.version === 'number'
@@ -886,8 +1014,8 @@ function assertWorkflowDefinition(value: unknown): OrchestrationWorkflow {
 		name: record.name,
 		description:
 			typeof record.description === 'string' ? record.description : '',
-		nodes: record.nodes.map(assertNodeDefinition),
-		edges: record.edges.map(assertEdgeDefinition),
+		nodes,
+		edges,
 		createdAt:
 			typeof record.createdAt === 'string'
 				? record.createdAt
@@ -910,51 +1038,40 @@ function assertNodeDefinition(value: unknown): OrchestrationNode {
 		x: typeof record.x === 'number' ? record.x : 0,
 		y: typeof record.y === 'number' ? record.y : 0,
 	};
-	if (common.cardType === 'start') {
+	if (common.cardType === 'workflow') {
 		return {
 			...common,
-			cardType: 'start',
-			title: stringOrDefault(record.title, 'Start'),
-			goal: stringOrDefault(record.goal, ''),
+			cardType: 'workflow',
 		};
 	}
-	if (common.cardType === 'agentTask') {
+	if (common.cardType === 'agent') {
 		return {
 			...common,
-			cardType: 'agentTask',
+			cardType: 'agent',
+			order: typeof record.order === 'number' ? record.order : 0,
 			agentName: stringOrDefault(record.agentName, ''),
-			agentSource: stringOrDefault(
-				record.agentSource,
-				'',
-			) as OrchestrationAgentSource,
-			role: stringOrDefault(record.role, ''),
-			summary: stringOrDefault(record.summary, ''),
-			instruction: stringOrDefault(record.instruction, ''),
-			outputContract: stringOrDefault(record.outputContract, ''),
-			handoffMessage: stringOrDefault(record.handoffMessage, ''),
+			purpose: stringOrDefault(record.purpose, ''),
+			input: stringOrDefault(record.input, ''),
+			expectedOutput: stringOrDefault(record.expectedOutput, ''),
 			doneCriteria: stringOrDefault(record.doneCriteria, ''),
-			model: stringOrDefault(record.model, ''),
-			sandboxMode: stringOrDefault(record.sandboxMode, ''),
-			reasoningEffort: stringOrDefault(record.reasoningEffort, ''),
 		};
 	}
-	if (common.cardType === 'review') {
+	if (common.cardType === 'loop') {
 		return {
 			...common,
-			cardType: 'review',
-			agentName: stringOrDefault(record.agentName, ''),
-			role: stringOrDefault(record.role, 'Review'),
-			summary: stringOrDefault(record.summary, ''),
-			instruction: stringOrDefault(record.instruction, ''),
-			outputContract: stringOrDefault(record.outputContract, ''),
+			cardType: 'loop',
+			maxAttempts:
+				typeof record.maxAttempts === 'number' ? record.maxAttempts : 0,
+			acceptanceCriteria: stringOrDefault(record.acceptanceCriteria, ''),
 		};
 	}
 	if (common.cardType === 'output') {
 		return {
 			...common,
 			cardType: 'output',
-			title: stringOrDefault(record.title, 'Output'),
+			outputName: stringOrDefault(record.outputName, ''),
 			outputFormat: stringOrDefault(record.outputFormat, ''),
+			notes: stringOrDefault(record.notes, ''),
 		};
 	}
 	throw new Error(`Unsupported cardType: ${String(record.cardType)}`);

@@ -124,6 +124,66 @@ function buildHtml(
 		workflow: initialWorkflow,
 		savedWorkflows: listSavedWorkflowSummaries(),
 		orchestrationDirectory: getOrchestrationDirectory(),
+		uiText: {
+			agentsTab: messages.agentManagerAgentsTab,
+			orchestrationTab: messages.agentManagerOrchestrationTab,
+			workflowPlaceholder: messages.agentManagerWorkflowPlaceholder,
+			workflow: messages.agentManagerWorkflow,
+			description: messages.agentManagerDescription,
+			noSavedWorkflow: messages.agentManagerNoSavedWorkflow,
+			promptPreview: messages.agentManagerPromptPreview,
+			hidePreview: messages.agentManagerHidePreview,
+			showPreview: messages.agentManagerShowPreview,
+			hideInspector: messages.agentManagerHideInspector,
+			showInspector: messages.agentManagerShowInspector,
+			newLabel: messages.agentManagerNew,
+			loadLabel: messages.agentManagerLoad,
+			saveLabel: messages.agentManagerSave,
+			deleteLabel: messages.agentManagerDelete,
+			generatePrompt: messages.agentManagerGeneratePrompt,
+			copyLabel: messages.agentManagerCopy,
+			addAgent: messages.agentManagerAddAgent,
+			addLoop: messages.agentManagerAddLoop,
+			addOutput: messages.agentManagerAddOutput,
+			canvasHint: messages.agentManagerCanvasHint,
+			connector: messages.agentManagerConnector,
+			source: messages.agentManagerSource,
+			target: messages.agentManagerTarget,
+			kind: messages.agentManagerKind,
+			connectorDescription: messages.agentManagerConnectorDescription,
+			deleteCard: messages.agentManagerDeleteCard,
+			deleteConnector: messages.agentManagerDeleteConnector,
+			agent: messages.agentManagerAgent,
+			loop: messages.agentManagerLoop,
+			output: messages.agentManagerOutput,
+			name: messages.agentManagerName,
+			number: messages.agentManagerNumber,
+			purpose: messages.agentManagerPurpose,
+			input: messages.agentManagerInput,
+			expectedOutput: messages.agentManagerExpectedOutput,
+			doneCriteria: messages.agentManagerDoneCriteria,
+			maxAttempts: messages.agentManagerMaxAttempts,
+			acceptanceCriteria: messages.agentManagerAcceptanceCriteria,
+			outputFormat: messages.agentManagerOutputFormat,
+			notes: messages.agentManagerNotes,
+			savedIn: messages.agentManagerSavedIn,
+			cards: messages.agentManagerCards,
+			connectors: messages.agentManagerConnectors,
+			errors: messages.agentManagerErrors,
+			warnings: messages.agentManagerWarnings,
+			retryControl: messages.agentManagerRetryControl,
+			subagent: messages.agentManagerSubagent,
+			optionalOutput: messages.agentManagerOptionalOutput,
+			specialOutputHint: messages.agentManagerSpecialOutputHint,
+			acceptanceCriteriaHint: messages.agentManagerAcceptanceCriteriaHint,
+			delegationHint: messages.agentManagerDelegationHint,
+			noPromptToCopy: messages.agentManagerNoPromptToCopy,
+			noSavedWorkflowSelected: messages.agentManagerNoSavedWorkflowSelected,
+			cardDeleted: messages.agentManagerCardDeleted,
+			connectorDeleted: messages.agentManagerConnectorDeleted,
+			cardAdded: messages.agentManagerCardAdded,
+			connectorAdded: messages.agentManagerConnectorAdded,
+		},
 	});
 
 	return `<!DOCTYPE html>
@@ -137,13 +197,18 @@ function buildHtml(
 	<style>
 		:root {
 			--card-width: 220px;
-			--card-height: 112px;
+			--card-height: 124px;
 		}
 		body {
 			margin: 0;
+			display: flex;
+			flex-direction: column;
+			height: 100vh;
+			min-height: 0;
 			font-family: ${webviewFontFamily};
 			color: var(--vscode-foreground);
 			background: var(--vscode-editor-background);
+			overflow: hidden;
 		}
 		button,
 		input,
@@ -172,6 +237,11 @@ function buildHtml(
 			background: var(--vscode-button-background);
 			color: var(--vscode-button-foreground);
 			border-color: transparent;
+		}
+		.icon-only {
+			width: 28px;
+			padding: 0;
+			gap: 0;
 		}
 		.toolbar-input,
 		.toolbar-select,
@@ -223,10 +293,12 @@ function buildHtml(
 		}
 		.panel-section {
 			display: none;
-			min-height: calc(100vh - 48px);
+			flex: 1;
+			min-height: 0;
 		}
 		.panel-section.active {
-			display: block;
+			display: flex;
+			flex-direction: column;
 		}
 		.agents-toolbar {
 			padding: 10px 12px;
@@ -322,8 +394,9 @@ function buildHtml(
 		}
 		.orch-layout {
 			display: grid;
-			grid-template-rows: auto auto 1fr auto;
-			min-height: calc(100vh - 48px);
+			grid-template-rows: auto minmax(0, 1fr) auto;
+			flex: 1;
+			min-height: 0;
 		}
 		.orch-toolbar,
 		.card-toolbar {
@@ -332,6 +405,13 @@ function buildHtml(
 			gap: 8px;
 			padding: 10px 12px;
 			border-bottom: 1px solid var(--vscode-panel-border);
+			align-items: center;
+		}
+		.orch-actions {
+			display: inline-flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			align-items: center;
 		}
 		.orch-toolbar .toolbar-select,
 		.orch-toolbar .toolbar-input {
@@ -342,16 +422,19 @@ function buildHtml(
 			display: grid;
 			grid-template-columns: minmax(0, 1fr) auto;
 			min-height: 0;
+			height: 100%;
 		}
 		.canvas-column {
 			min-height: 0;
+			height: 100%;
 			display: grid;
 			grid-template-rows: auto 1fr;
 			border-right: 1px solid var(--vscode-panel-border);
 		}
 		.canvas-shell {
 			position: relative;
-			min-height: 520px;
+			min-height: 0;
+			height: 100%;
 			overflow: auto;
 			background:
 				radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--vscode-descriptionForeground) 18%, transparent) 1px, transparent 0) 0 0 / 18px 18px,
@@ -362,10 +445,8 @@ function buildHtml(
 			position: absolute;
 			inset: 0;
 			min-width: 1200px;
-			min-height: 720px;
-		}
-		#edgeLayer {
-			pointer-events: none;
+			min-height: 100%;
+			height: 100%;
 		}
 		#edgeLayer .edge-hit {
 			pointer-events: stroke;
@@ -374,7 +455,7 @@ function buildHtml(
 		.flow-card {
 			position: absolute;
 			width: var(--card-width);
-			min-height: var(--card-height);
+			height: var(--card-height);
 			border-radius: 16px;
 			border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 76%, var(--vscode-focusBorder) 24%);
 			background: color-mix(in srgb, var(--vscode-editorWidget-background) 94%, var(--vscode-editor-background) 6%);
@@ -393,38 +474,45 @@ function buildHtml(
 		.flow-card.has-warning {
 			border-color: var(--vscode-testing-iconQueued);
 		}
-		.flow-card.review {
-			background: color-mix(in srgb, var(--vscode-editorWidget-background) 80%, var(--vscode-testing-iconQueued) 20%);
-		}
 		.flow-card.output {
 			background: color-mix(in srgb, var(--vscode-editorWidget-background) 86%, var(--vscode-testing-iconPassed) 14%);
 		}
-		.flow-card.start {
+		.flow-card.workflow {
 			background: color-mix(in srgb, var(--vscode-editorWidget-background) 84%, var(--vscode-terminal-ansiBlue) 16%);
+		}
+		.flow-card.loop {
+			background: color-mix(in srgb, var(--vscode-editorWidget-background) 80%, var(--vscode-testing-iconQueued) 20%);
 		}
 		.card-head {
 			display: flex;
 			align-items: center;
 			gap: 10px;
 			cursor: grab;
+			min-height: 24px;
 		}
 		.card-head:active {
 			cursor: grabbing;
 		}
 		.card-icon {
-			width: 28px;
-			height: 28px;
+			width: 24px;
+			height: 24px;
 			border-radius: 10px;
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
 			background: color-mix(in srgb, var(--vscode-editor-background) 78%, transparent);
+			flex: none;
+			font-size: 14px;
+			line-height: 1;
 		}
 		.card-title {
 			font-weight: 700;
 			font-size: 13px;
 			line-height: 1.3;
 			flex: 1;
+			display: flex;
+			align-items: center;
+			min-width: 0;
 		}
 		.card-dot {
 			width: 10px;
@@ -456,6 +544,13 @@ function buildHtml(
 			-webkit-line-clamp: 2;
 			-webkit-box-orient: vertical;
 			overflow: hidden;
+		}
+		.card-meta {
+			position: absolute;
+			right: 16px;
+			bottom: 12px;
+			font-size: 11px;
+			color: var(--vscode-descriptionForeground);
 		}
 		.port {
 			position: absolute;
@@ -527,6 +622,12 @@ function buildHtml(
 			align-content: start;
 			gap: 10px;
 		}
+		.card-headline {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 8px;
+		}
 		.inspector h3,
 		.preview-panel h3 {
 			margin: 0;
@@ -565,12 +666,21 @@ function buildHtml(
 			display: grid;
 			grid-template-columns: minmax(0, 1fr);
 			border-top: 1px solid var(--vscode-panel-border);
-			min-height: 220px;
+			height: clamp(220px, 30vh, 420px);
+			min-height: 0;
+			overflow: hidden;
+		}
+		.preview-layout.collapsed {
+			display: none;
 		}
 		.preview-panel {
-			padding: 14px;
+			padding: 10px 14px 12px;
 			display: grid;
-			gap: 10px;
+			grid-template-rows: auto minmax(0, 1fr);
+			gap: 6px;
+			height: 100%;
+			min-height: 0;
+			overflow: hidden;
 		}
 		.preview-content {
 			margin: 0;
@@ -580,7 +690,8 @@ function buildHtml(
 			background: color-mix(in srgb, var(--vscode-editorWidget-background) 98%, transparent);
 			font-size: 12px;
 			line-height: 1.55;
-			min-height: 180px;
+			min-height: 0;
+			overflow: auto;
 		}
 		.markdown-content h1,
 		.markdown-content h2,
@@ -654,15 +765,15 @@ function buildHtml(
 </head>
 <body>
 	<nav class="manager-tabs" aria-label="AGENTS Manager Tabs">
-		<button class="manager-tab active" data-tab-target="agents" type="button"><span class="codicon codicon-hubot" aria-hidden="true"></span>Agents</button>
-		<button class="manager-tab" data-tab-target="orchestration" type="button"><span class="codicon codicon-graph" aria-hidden="true"></span>Orchestration</button>
+		<button class="manager-tab active" data-tab-target="agents" type="button"><span class="codicon codicon-hubot" aria-hidden="true"></span>${escapeHtml(messages.agentManagerAgentsTab)}</button>
+		<button class="manager-tab" data-tab-target="orchestration" type="button"><span class="codicon codicon-graph" aria-hidden="true"></span>${escapeHtml(messages.agentManagerOrchestrationTab)}</button>
 	</nav>
 
 	<section id="agentsPanel" class="panel-section active">
 		<div class="agents-toolbar">
 			<input id="searchInput" class="toolbar-input" type="text" placeholder="${escapeHtml(messages.agentManagerSearchPlaceholder)}" />
-			<button id="clearSearch" class="icon-button" type="button" title="${escapeHtml(messages.historyClear)}" aria-label="${escapeHtml(messages.historyClear)}"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
-			<button id="refreshList" class="icon-button" type="button" title="${escapeHtml(messages.commandRefresh)}" aria-label="${escapeHtml(messages.commandRefresh)}"><span class="codicon codicon-refresh" aria-hidden="true"></span></button>
+			<button id="clearSearch" class="icon-button icon-only" type="button" title="${escapeHtml(messages.historyClear)}" aria-label="${escapeHtml(messages.historyClear)}"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
+			<button id="refreshList" class="icon-button icon-only" type="button" title="${escapeHtml(messages.commandRefresh)}" aria-label="${escapeHtml(messages.commandRefresh)}"><span class="codicon codicon-refresh" aria-hidden="true"></span></button>
 		</div>
 		<div id="agentsList" class="agents-body"></div>
 	</section>
@@ -671,24 +782,27 @@ function buildHtml(
 		<div id="statusBanner" class="status-banner"></div>
 		<div class="orch-layout">
 			<div class="orch-toolbar">
-				<button id="newWorkflowButton" class="secondary-button" type="button"><span class="codicon codicon-file-add" aria-hidden="true"></span>New</button>
 				<select id="savedWorkflowSelect" class="toolbar-select"></select>
-				<button id="loadWorkflowButton" class="secondary-button" type="button"><span class="codicon codicon-folder-opened" aria-hidden="true"></span>Load</button>
-				<button id="saveWorkflowButton" class="secondary-button" type="button"><span class="codicon codicon-save" aria-hidden="true"></span>Save</button>
-				<button id="deleteWorkflowButton" class="secondary-button" type="button"><span class="codicon codicon-trash" aria-hidden="true"></span>Delete</button>
-				<button id="toggleInspectorButton" class="secondary-button" type="button"><span class="codicon codicon-layout-sidebar-right" aria-hidden="true"></span>Hide Inspector</button>
-				<button id="generatePromptButton" class="primary-button" type="button"><span class="codicon codicon-play" aria-hidden="true"></span>Generate Prompt</button>
-				<button id="copyPromptButton" class="secondary-button" type="button"><span class="codicon codicon-copy" aria-hidden="true"></span>Copy</button>
+				<div class="orch-actions">
+					<button id="newWorkflowButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerNew)}" aria-label="${escapeHtml(messages.agentManagerNew)}"><span class="codicon codicon-file-add" aria-hidden="true"></span></button>
+					<button id="loadWorkflowButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerLoad)}" aria-label="${escapeHtml(messages.agentManagerLoad)}"><span class="codicon codicon-folder-opened" aria-hidden="true"></span></button>
+					<button id="saveWorkflowButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerSave)}" aria-label="${escapeHtml(messages.agentManagerSave)}"><span class="codicon codicon-save" aria-hidden="true"></span></button>
+					<button id="deleteWorkflowButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerDelete)}" aria-label="${escapeHtml(messages.agentManagerDelete)}"><span class="codicon codicon-trash" aria-hidden="true"></span></button>
+					<button id="generatePromptButton" class="primary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerGeneratePrompt)}" aria-label="${escapeHtml(messages.agentManagerGeneratePrompt)}"><span class="codicon codicon-play" aria-hidden="true"></span></button>
+					<button id="copyPromptButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerCopy)}" aria-label="${escapeHtml(messages.agentManagerCopy)}"><span class="codicon codicon-copy" aria-hidden="true"></span></button>
+					<button id="toggleInspectorButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerHideInspector)}" aria-label="${escapeHtml(messages.agentManagerHideInspector)}"><span class="codicon codicon-layout-sidebar-right" aria-hidden="true"></span></button>
+					<button id="togglePreviewButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerHidePreview)}" aria-label="${escapeHtml(messages.agentManagerHidePreview)}"><span class="codicon codicon-layout-panel" aria-hidden="true"></span></button>
+				</div>
 			</div>
 			<div class="orch-main">
 				<div class="canvas-column">
 					<div class="card-toolbar">
-						<button class="secondary-button" data-add-card="start" type="button">Add Start</button>
-						<button class="secondary-button" data-add-card="agentTask" type="button">Add Agent Task</button>
-						<button class="secondary-button" data-add-card="output" type="button">Add Output</button>
+						<button class="secondary-button" data-add-card="agent" type="button"><span class="codicon codicon-hubot" aria-hidden="true"></span>${escapeHtml(messages.agentManagerAddAgent)}</button>
+						<button class="secondary-button" data-add-card="loop" type="button"><span class="codicon codicon-sync" aria-hidden="true"></span>${escapeHtml(messages.agentManagerAddLoop)}</button>
+						<button class="secondary-button" data-add-card="output" type="button"><span class="codicon codicon-inbox" aria-hidden="true"></span>${escapeHtml(messages.agentManagerAddOutput)}</button>
 					</div>
 					<div id="canvasShell" class="canvas-shell">
-						<div class="canvas-hint"><span class="codicon codicon-debug-alt-small" aria-hidden="true"></span>Drag cards. Connect from the right port to the left port.</div>
+						<div class="canvas-hint"><span class="codicon codicon-debug-alt-small" aria-hidden="true"></span>${escapeHtml(messages.agentManagerCanvasHint)}</div>
 						<svg id="edgeLayer"></svg>
 						<div id="canvas"></div>
 					</div>
@@ -699,7 +813,7 @@ function buildHtml(
 			</div>
 			<div class="preview-layout single">
 				<div class="preview-panel">
-					<h3>Prompt Preview</h3>
+					<h3>${escapeHtml(messages.agentManagerPromptPreview)}</h3>
 					<div id="promptPreview" class="markdown-content preview-content"></div>
 				</div>
 			</div>
@@ -710,7 +824,7 @@ function buildHtml(
 		const vscode = acquireVsCodeApi();
 		const initialPayload = ${payload};
 		const cardWidth = 220;
-		const cardHeight = 112;
+		const cardHeight = 124;
 		const appState = {
 			activeTab: 'agents',
 			agentSearch: '',
@@ -725,6 +839,8 @@ function buildHtml(
 			savedWorkflows: initialPayload.savedWorkflows,
 			orchestrationDirectory: initialPayload.orchestrationDirectory,
 			inspectorCollapsed: false,
+			previewCollapsed: false,
+			isComposing: false,
 			connectDraft: null,
 			dragState: null,
 		};
@@ -742,6 +858,9 @@ function buildHtml(
 		const statusBanner = document.getElementById('statusBanner');
 		const copyPromptButton = document.getElementById('copyPromptButton');
 		const toggleInspectorButton = document.getElementById('toggleInspectorButton');
+		const togglePreviewButton = document.getElementById('togglePreviewButton');
+		const previewLayout = document.querySelector('.preview-layout');
+		const uiText = initialPayload.uiText;
 
 		function escapeHtmlClient(value) {
 			return String(value)
@@ -761,6 +880,12 @@ function buildHtml(
 			return appState.agents.map((agent) => agent.name);
 		}
 
+		function nextAgentOrder() {
+			return appState.workflow.nodes
+				.filter((node) => node.cardType === 'agent')
+				.reduce((maxOrder, node) => Math.max(maxOrder, Number(node.order) || 0), 0) + 1;
+		}
+
 		function createNode(cardType) {
 			const base = {
 				nodeId: makeId(cardType),
@@ -768,37 +893,26 @@ function buildHtml(
 				x: 120 + (appState.workflow.nodes.length % 4) * 220,
 				y: 80 + Math.floor(appState.workflow.nodes.length / 4) * 150,
 			};
-			if (cardType === 'start') {
-				return { ...base, cardType: 'start', title: 'Start', goal: '' };
-			}
 			if (cardType === 'output') {
-				return { ...base, cardType: 'output', title: 'Output', outputFormat: '' };
+				return { ...base, cardType: 'output', outputName: '', outputFormat: '', notes: '' };
 			}
-			if (cardType === 'review') {
+			if (cardType === 'loop') {
 				return {
 					...base,
-					cardType: 'review',
-					agentName: getAgentNames()[0] || '',
-					role: 'Review',
-					summary: '成果物のレビュー',
-					instruction: '',
-					outputContract: '',
+					cardType: 'loop',
+					maxAttempts: 3,
+					acceptanceCriteria: '',
 				};
 			}
 			return {
 				...base,
-				cardType: 'agentTask',
+				cardType: 'agent',
+				order: nextAgentOrder(),
 				agentName: getAgentNames()[0] || '',
-				agentSource: '',
-				role: '',
-				summary: '',
-				instruction: '',
-				outputContract: '',
-				handoffMessage: '',
+				purpose: '',
+				input: '',
+				expectedOutput: '',
 				doneCriteria: '',
-				model: '',
-				sandboxMode: '',
-				reasoningEffort: '',
 			};
 		}
 
@@ -891,7 +1005,7 @@ function buildHtml(
 		function renderWorkflowSelectors() {
 			if (appState.savedWorkflows.length === 0) {
 				appState.selectedWorkflowId = '';
-				savedWorkflowSelect.innerHTML = '<option value="">No saved workflows</option>';
+				savedWorkflowSelect.innerHTML = '<option value="">' + escapeHtmlClient(uiText.noSavedWorkflow) + '</option>';
 				savedWorkflowSelect.disabled = true;
 				return;
 			}
@@ -966,11 +1080,11 @@ function buildHtml(
 		}
 
 		function getNodeIcon(node) {
-			if (node.cardType === 'start') {
+			if (node.cardType === 'workflow') {
 				return 'codicon-debug-start';
 			}
-			if (node.cardType === 'review') {
-				return 'codicon-eye';
+			if (node.cardType === 'loop') {
+				return 'codicon-sync';
 			}
 			if (node.cardType === 'output') {
 				return 'codicon-inbox';
@@ -979,73 +1093,104 @@ function buildHtml(
 		}
 
 		function getNodeTitle(node) {
-			if (node.cardType === 'start') {
-				return node.title;
+			if (node.cardType === 'workflow') {
+				return appState.workflow.name || 'Workflow';
 			}
 			if (node.cardType === 'output') {
-				return node.title;
+				return node.outputName || 'Output';
 			}
-			return node.agentName || (node.cardType === 'review' ? 'Review' : 'Agent Task');
+			if (node.cardType === 'loop') {
+				return 'Loop';
+			}
+			return (node.order ? 'No.' + node.order + ' ' : '') + (node.agentName || 'Agent');
 		}
 
 		function getNodeRole(node) {
-			if (node.cardType === 'start') {
-				return 'Workflow goal';
+			if (node.cardType === 'workflow') {
+				return uiText.workflow;
 			}
 			if (node.cardType === 'output') {
-				return 'Final output';
+				return uiText.optionalOutput;
 			}
-			return node.cardType === 'review' ? 'Review' : 'Task';
+			return node.cardType === 'loop' ? uiText.retryControl : uiText.subagent;
 		}
 
 		function getNodeSummary(node) {
-			if (node.cardType === 'start') {
-				return node.goal || 'Set the workflow goal in the inspector.';
+			if (node.cardType === 'workflow') {
+				return appState.workflow.description || uiText.description;
 			}
 			if (node.cardType === 'output') {
-				return node.outputFormat || 'Describe the final response format.';
+				return node.outputFormat || node.notes || uiText.specialOutputHint;
 			}
-			return node.instruction || 'Describe the task in the inspector.';
+			if (node.cardType === 'loop') {
+				return node.acceptanceCriteria || uiText.acceptanceCriteriaHint;
+			}
+			return node.purpose || node.expectedOutput || uiText.delegationHint;
+		}
+
+		function getNodeMeta(node) {
+			if (node.cardType === 'loop') {
+				return 'x' + String(node.maxAttempts || 1);
+			}
+			return '';
 		}
 
 		function getNodeStatus(node) {
-			if (node.cardType === 'start') {
-				return node.goal.trim() ? 'valid' : 'warning';
+			if (node.cardType === 'workflow') {
+				return (appState.workflow.name || '').trim() ? 'valid' : 'warning';
 			}
 			if (node.cardType === 'output') {
-				return node.outputFormat.trim() ? 'valid' : 'warning';
+				return node.outputFormat.trim() || node.notes.trim() || node.outputName.trim()
+					? 'valid'
+					: 'warning';
 			}
-			return node.agentName.trim() && node.instruction.trim() && node.outputContract.trim()
-				? 'valid'
-				: 'warning';
+			if (node.cardType === 'loop') {
+				return Number(node.maxAttempts) >= 1 ? 'valid' : 'warning';
+			}
+			return node.agentName.trim() && Number(node.order) >= 1 ? 'valid' : 'warning';
 		}
 
 		function portPosition(node, side) {
+			const loopUsesInputSide = node.cardType === 'loop';
 			return {
-				x: node.x + (side === 'output' ? cardWidth : 0),
+				x: node.x + (side === 'output' && !loopUsesInputSide ? cardWidth : 0),
 				y: node.y + cardHeight / 2,
 			};
 		}
 
-		function edgePath(edge) {
+		function getEdgeEndpoints(edge) {
 			const source = getNodeById(edge.sourceNodeId);
 			const target = getNodeById(edge.targetNodeId);
 			if (!source || !target) {
+				return null;
+			}
+			if (source.cardType === 'loop' && target.cardType === 'agent') {
+				return {
+					from: portPosition(target, 'output'),
+					to: portPosition(source, 'input'),
+				};
+			}
+			return {
+				from: portPosition(source, 'output'),
+				to: portPosition(target, 'input'),
+			};
+		}
+
+		function edgePath(edge) {
+			const endpoints = getEdgeEndpoints(edge);
+			if (!endpoints) {
 				return '';
 			}
-			const from = portPosition(source, 'output');
-			const to = portPosition(target, 'input');
+			const from = endpoints.from;
+			const to = endpoints.to;
 			const delta = Math.max(80, Math.abs(to.x - from.x) / 2);
 			return 'M ' + from.x + ' ' + from.y + ' C ' + (from.x + delta) + ' ' + from.y + ', ' + (to.x - delta) + ' ' + to.y + ', ' + to.x + ' ' + to.y;
 		}
 
 		function inferEdgeKind(edge) {
+			const source = getNodeById(edge.sourceNodeId);
 			const target = getNodeById(edge.targetNodeId);
-			if (target && target.cardType === 'review') {
-				return 'review';
-			}
-			const sourceBranchCount = appState.workflow.edges.filter((item) => item.sourceNodeId === edge.sourceNodeId).length;
-			return sourceBranchCount > 1 ? 'parallel' : 'sequential';
+			return (source ? source.cardType : '?') + ' -> ' + (target ? target.cardType : '?');
 		}
 
 		function renderCanvas() {
@@ -1055,8 +1200,9 @@ function buildHtml(
 					const validationLevel = getValidationLevelForNode(node.nodeId);
 					const validationClass = validationLevel ? ' has-' + validationLevel : '';
 					const summary = getNodeSummary(node);
+					const meta = getNodeMeta(node);
 					return '<article class="flow-card ' + escapeHtmlClient(node.cardType) + selected + validationClass + '" data-node-id="' + escapeHtmlClient(node.nodeId) + '" style="left:' + node.x + 'px;top:' + node.y + 'px;">' +
-						'<button class="port" data-port="input" data-node-id="' + escapeHtmlClient(node.nodeId) + '" ' + (node.cardType === 'start' ? 'hidden' : '') + '></button>' +
+						'<button class="port" data-port="input" data-node-id="' + escapeHtmlClient(node.nodeId) + '" ' + (node.cardType === 'workflow' ? 'hidden' : '') + '></button>' +
 						'<div class="card-head" data-drag-handle="' + escapeHtmlClient(node.nodeId) + '">' +
 							'<span class="card-icon codicon ' + getNodeIcon(node) + '" aria-hidden="true"></span>' +
 							'<div class="card-title">' + escapeHtmlClient(getNodeTitle(node)) + '</div>' +
@@ -1064,7 +1210,8 @@ function buildHtml(
 						'</div>' +
 						'<div class="card-role">' + escapeHtmlClient(getNodeRole(node)) + '</div>' +
 						'<div class="card-summary">' + escapeHtmlClient(summary) + '</div>' +
-						'<button class="port" data-port="output" data-node-id="' + escapeHtmlClient(node.nodeId) + '" ' + (node.cardType === 'output' ? 'hidden' : '') + '></button>' +
+						(meta ? '<div class="card-meta">' + escapeHtmlClient(meta) + '</div>' : '') +
+						'<button class="port" data-port="output" data-node-id="' + escapeHtmlClient(node.nodeId) + '" ' + (node.cardType === 'output' || node.cardType === 'loop' ? 'hidden' : '') + '></button>' +
 					'</article>';
 				})
 				.join('');
@@ -1168,7 +1315,7 @@ function buildHtml(
 		function renderPreview() {
 			promptPreview.innerHTML = appState.prompt
 				? renderMarkdown(appState.prompt)
-				: '<p>Generated prompt will appear here.</p>';
+				: '<p>' + escapeHtmlClient(uiText.promptPreview) + '</p>';
 			copyPromptButton.disabled = !appState.prompt;
 		}
 
@@ -1275,25 +1422,37 @@ function buildHtml(
 		function renderInspectorShell() {
 			inspectorShell.classList.toggle('collapsed', appState.inspectorCollapsed);
 			toggleInspectorButton.innerHTML = appState.inspectorCollapsed
-				? '<span class="codicon codicon-layout-sidebar-right" aria-hidden="true"></span>Show Inspector'
-				: '<span class="codicon codicon-layout-sidebar-right" aria-hidden="true"></span>Hide Inspector';
+				? '<span class="codicon codicon-layout-sidebar-right" aria-hidden="true"></span>'
+				: '<span class="codicon codicon-layout-sidebar-right" aria-hidden="true"></span>';
+			toggleInspectorButton.title = appState.inspectorCollapsed ? uiText.showInspector : uiText.hideInspector;
+			toggleInspectorButton.setAttribute('aria-label', toggleInspectorButton.title);
+		}
+
+		function renderPreviewShell() {
+			previewLayout.classList.toggle('collapsed', appState.previewCollapsed);
+			togglePreviewButton.innerHTML = '<span class="codicon codicon-layout-panel" aria-hidden="true"></span>';
+			togglePreviewButton.title = appState.previewCollapsed ? uiText.showPreview : uiText.hidePreview;
+			togglePreviewButton.setAttribute('aria-label', togglePreviewButton.title);
 		}
 
 		function buildWorkflowInspector() {
 			const validation = appState.validation;
 			const deleteButton = appState.selectedWorkflowId
-				? '<button class="secondary-button" data-delete-workflow="' + escapeHtmlClient(appState.selectedWorkflowId) + '" type="button"><span class="codicon codicon-trash" aria-hidden="true"></span>Delete saved workflow</button>'
+				? '<button class="icon-button icon-only inspector-delete" data-delete-workflow="' + escapeHtmlClient(appState.selectedWorkflowId) + '" type="button" title="' + escapeHtmlClient(uiText.deleteLabel) + '" aria-label="' + escapeHtmlClient(uiText.deleteLabel) + '"><span class="codicon codicon-trash" aria-hidden="true"></span></button>'
 				: '';
 			return '<div class="inspector-card">' +
-				'<h3>Workflow</h3>' +
+				'<div class="card-headline"><h3>' + escapeHtmlClient(uiText.workflow) + '</h3>' + deleteButton + '</div>' +
 				'<div class="field-group">' +
-					'<label class="field-label" for="workflowName">Name</label>' +
-					'<input id="workflowName" data-workflow-field="name" value="' + escapeHtmlClient(appState.workflow.name || '') + '" />' +
+					'<label class="field-label" for="workflowName">' + escapeHtmlClient(uiText.name) + '</label>' +
+					'<input id="workflowName" data-workflow-field="name" value="' + escapeHtmlClient(appState.workflow.name || '') + '" placeholder="' + escapeHtmlClient(uiText.workflowPlaceholder) + '" />' +
 				'</div>' +
-				'<div class="field-help">Cards: ' + appState.workflow.nodes.length + ' / Connectors: ' + appState.workflow.edges.length + '</div>' +
-				'<div class="field-help">Errors: ' + validation.errors.length + ' / Warnings: ' + validation.warnings.length + '</div>' +
-				'<div class="field-help">Saved in: ' + escapeHtmlClient(appState.orchestrationDirectory) + '</div>' +
-				deleteButton +
+				'<div class="field-group">' +
+					'<label class="field-label" for="workflowDescription">' + escapeHtmlClient(uiText.description) + '</label>' +
+					'<textarea id="workflowDescription" data-workflow-field="description">' + escapeHtmlClient(appState.workflow.description || '') + '</textarea>' +
+				'</div>' +
+				'<div class="field-help">' + escapeHtmlClient(uiText.cards) + ': ' + appState.workflow.nodes.length + ' / ' + escapeHtmlClient(uiText.connectors) + ': ' + appState.workflow.edges.length + '</div>' +
+				'<div class="field-help">' + escapeHtmlClient(uiText.errors) + ': ' + validation.errors.length + ' / ' + escapeHtmlClient(uiText.warnings) + ': ' + validation.warnings.length + '</div>' +
+				'<div class="field-help">' + escapeHtmlClient(uiText.savedIn) + ': ' + escapeHtmlClient(appState.orchestrationDirectory) + '</div>' +
 			'</div>' +
 			buildInspectorValidation(getValidationItemsForSelection({ kind: 'workflow' }));
 		}
@@ -1301,25 +1460,29 @@ function buildHtml(
 		function buildEdgeInspector(edge) {
 			const source = getNodeById(edge.sourceNodeId);
 			const target = getNodeById(edge.targetNodeId);
-			const kind = inferEdgeKind(edge);
-			const kindDescription = kind === 'parallel'
-				? '同じカードから複数カードへ分岐するため、プロンプト生成時は並列実行として扱います。'
-				: kind === 'review'
-					? 'レビューカードへ渡す接続です。入力元カードの成果物をレビュー対象として扱います。'
-					: '前段の結果を次のカードへ順次渡す接続です。';
+			const kind = (source ? source.cardType : '?') + ' -> ' + (target ? target.cardType : '?');
+			const kindDescription =
+				source && source.cardType === 'workflow'
+					? 'Workflow から Agent への開始接続です。'
+					: source && source.cardType === 'agent' && target && target.cardType === 'loop'
+						? 'Agent の結果を Loop へ渡す接続です。'
+						: source && source.cardType === 'loop' && target && target.cardType === 'agent'
+							? 'Loop の結果で次に評価・再実行する Agent を示す接続です。'
+							: source && source.cardType === 'agent' && target && target.cardType === 'output'
+								? '特別な最終出力指定へ渡す接続です。'
+								: '接続ルールを validation が確認します。';
 			return '<div class="inspector-card">' +
-				'<h3>Connector</h3>' +
-				'<div class="field-group"><div class="field-label">Source</div><div>' + escapeHtmlClient(source ? getNodeTitle(source) : edge.sourceNodeId) + '</div></div>' +
-				'<div class="field-group"><div class="field-label">Target</div><div>' + escapeHtmlClient(target ? getNodeTitle(target) : edge.targetNodeId) + '</div></div>' +
-				'<div class="field-group"><div class="field-label">Kind</div><div>' + escapeHtmlClient(kind) + '</div></div>' +
-				'<div class="field-group"><div class="field-label">Description</div><div>' + escapeHtmlClient(kindDescription) + '</div></div>' +
-				'<button class="secondary-button" data-delete-edge="' + escapeHtmlClient(edge.edgeId) + '" type="button"><span class="codicon codicon-trash" aria-hidden="true"></span>Delete connector</button>' +
+				'<div class="card-headline"><h3>' + escapeHtmlClient(uiText.connector) + '</h3><button class="icon-button icon-only inspector-delete" data-delete-edge="' + escapeHtmlClient(edge.edgeId) + '" type="button" title="' + escapeHtmlClient(uiText.deleteConnector) + '" aria-label="' + escapeHtmlClient(uiText.deleteConnector) + '"><span class="codicon codicon-trash" aria-hidden="true"></span></button></div>' +
+				'<div class="field-group"><div class="field-label">' + escapeHtmlClient(uiText.source) + '</div><div>' + escapeHtmlClient(source ? getNodeTitle(source) : edge.sourceNodeId) + '</div></div>' +
+				'<div class="field-group"><div class="field-label">' + escapeHtmlClient(uiText.target) + '</div><div>' + escapeHtmlClient(target ? getNodeTitle(target) : edge.targetNodeId) + '</div></div>' +
+				'<div class="field-group"><div class="field-label">' + escapeHtmlClient(uiText.kind) + '</div><div>' + escapeHtmlClient(kind) + '</div></div>' +
+				'<div class="field-group"><div class="field-label">' + escapeHtmlClient(uiText.connectorDescription) + '</div><div>' + escapeHtmlClient(kindDescription) + '</div></div>' +
 			'</div>' +
 			buildInspectorValidation(getValidationItemsForSelection({ kind: 'edge', edgeId: edge.edgeId }));
 		}
 
 		function buildAgentOptions(selectedValue) {
-			const options = ['<option value="">Select an agent</option>'];
+			const options = ['<option value="">' + escapeHtmlClient(uiText.agent) + '</option>'];
 			for (const agent of appState.agents) {
 				const selected = agent.name === selectedValue ? 'selected' : '';
 				options.push('<option value="' + escapeHtmlClient(agent.name) + '" ' + selected + '>' + escapeHtmlClient(agent.name) + '</option>');
@@ -1328,32 +1491,43 @@ function buildHtml(
 		}
 
 		function buildNodeInspector(node) {
-			if (node.cardType === 'start') {
-				return '<div class="inspector-card">' +
-					'<h3>Start</h3>' +
-					'<div class="field-group">' +
-						'<label class="field-label" for="startGoal">Goal</label>' +
-						'<textarea id="startGoal" data-node-field="goal" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.goal) + '</textarea>' +
-					'</div>' +
-					'<button class="secondary-button" data-delete-node="' + escapeHtmlClient(node.nodeId) + '" type="button"><span class="codicon codicon-trash" aria-hidden="true"></span>Delete card</button>' +
-				'</div>';
+			if (node.cardType === 'workflow') {
+				return buildWorkflowInspector();
 			}
 			if (node.cardType === 'output') {
 				return '<div class="inspector-card">' +
-					'<h3>Output</h3>' +
+					'<div class="card-headline"><h3>' + escapeHtmlClient(uiText.output) + '</h3><button class="icon-button icon-only inspector-delete" data-delete-node="' + escapeHtmlClient(node.nodeId) + '" type="button" title="' + escapeHtmlClient(uiText.deleteCard) + '" aria-label="' + escapeHtmlClient(uiText.deleteCard) + '"><span class="codicon codicon-trash" aria-hidden="true"></span></button></div>' +
 					'<div class="field-group">' +
-						'<label class="field-label" for="outputFormat">Final output</label>' +
+						'<label class="field-label" for="outputName">' + escapeHtmlClient(uiText.name) + '</label>' +
+						'<input id="outputName" data-node-field="outputName" data-node-id="' + escapeHtmlClient(node.nodeId) + '" value="' + escapeHtmlClient(node.outputName) + '" />' +
+					'</div>' +
+					'<div class="field-group">' +
+						'<label class="field-label" for="outputFormat">' + escapeHtmlClient(uiText.outputFormat) + '</label>' +
 						'<textarea id="outputFormat" data-node-field="outputFormat" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.outputFormat) + '</textarea>' +
 					'</div>' +
-					'<button class="secondary-button" data-delete-node="' + escapeHtmlClient(node.nodeId) + '" type="button"><span class="codicon codicon-trash" aria-hidden="true"></span>Delete card</button>' +
-				'</div>';
+					'<div class="field-group">' +
+						'<label class="field-label" for="outputNotes">' + escapeHtmlClient(uiText.notes) + '</label>' +
+						'<textarea id="outputNotes" data-node-field="notes" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.notes) + '</textarea>' +
+					'</div>' +
+				'</div>' +
+				buildInspectorValidation(getValidationItemsForSelection({ kind: 'node', nodeId: node.nodeId }));
+			}
+			if (node.cardType === 'loop') {
+				return '<div class="inspector-card">' +
+					'<div class="card-headline"><h3>' + escapeHtmlClient(uiText.loop) + '</h3><button class="icon-button icon-only inspector-delete" data-delete-node="' + escapeHtmlClient(node.nodeId) + '" type="button" title="' + escapeHtmlClient(uiText.deleteCard) + '" aria-label="' + escapeHtmlClient(uiText.deleteCard) + '"><span class="codicon codicon-trash" aria-hidden="true"></span></button></div>' +
+					'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.maxAttempts) + '</label><input type="number" min="1" data-node-field="maxAttempts" data-node-id="' + escapeHtmlClient(node.nodeId) + '" value="' + escapeHtmlClient(String(node.maxAttempts || 1)) + '" /></div>' +
+					'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.acceptanceCriteria) + '</label><textarea data-node-field="acceptanceCriteria" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.acceptanceCriteria) + '</textarea></div>' +
+				'</div>' +
+				buildInspectorValidation(getValidationItemsForSelection({ kind: 'node', nodeId: node.nodeId }));
 			}
 			return '<div class="inspector-card">' +
-				'<h3>' + escapeHtmlClient(node.cardType === 'review' ? 'Review' : 'Agent Task') + '</h3>' +
-				'<div class="field-group"><label class="field-label">Agent</label><select data-node-field="agentName" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + buildAgentOptions(node.agentName) + '</select></div>' +
-				'<div class="field-group"><label class="field-label">Instruction</label><textarea data-node-field="instruction" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.instruction) + '</textarea></div>' +
-				'<div class="field-group"><label class="field-label">Expected output</label><textarea data-node-field="outputContract" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.outputContract) + '</textarea></div>' +
-				'<button class="secondary-button" data-delete-node="' + escapeHtmlClient(node.nodeId) + '" type="button"><span class="codicon codicon-trash" aria-hidden="true"></span>Delete card</button>' +
+				'<div class="card-headline"><h3>' + escapeHtmlClient(uiText.agent) + '</h3><button class="icon-button icon-only inspector-delete" data-delete-node="' + escapeHtmlClient(node.nodeId) + '" type="button" title="' + escapeHtmlClient(uiText.deleteCard) + '" aria-label="' + escapeHtmlClient(uiText.deleteCard) + '"><span class="codicon codicon-trash" aria-hidden="true"></span></button></div>' +
+				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.number) + '</label><input type="number" min="1" data-node-field="order" data-node-id="' + escapeHtmlClient(node.nodeId) + '" value="' + escapeHtmlClient(String(node.order || 1)) + '" /></div>' +
+				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.agent) + '</label><select data-node-field="agentName" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + buildAgentOptions(node.agentName) + '</select></div>' +
+				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.purpose) + '</label><textarea data-node-field="purpose" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.purpose) + '</textarea></div>' +
+				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.input) + '</label><textarea data-node-field="input" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.input) + '</textarea></div>' +
+				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.expectedOutput) + '</label><textarea data-node-field="expectedOutput" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.expectedOutput) + '</textarea></div>' +
+				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.doneCriteria) + '</label><textarea data-node-field="doneCriteria" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.doneCriteria) + '</textarea></div>' +
 			'</div>' +
 			buildInspectorValidation(getValidationItemsForSelection({ kind: 'node', nodeId: node.nodeId }));
 		}
@@ -1366,6 +1540,7 @@ function buildHtml(
 			renderCanvas();
 			renderInspector();
 			renderInspectorShell();
+			renderPreviewShell();
 			renderPreview();
 			renderStatus();
 			persistState();
@@ -1397,7 +1572,7 @@ function buildHtml(
 			appState.workflow.edges = appState.workflow.edges.filter((edge) => edge.sourceNodeId !== nodeId && edge.targetNodeId !== nodeId);
 			appState.prompt = '';
 			selectWorkflow();
-			setStatus('Card deleted.');
+			setStatus(uiText.cardDeleted);
 			renderAll();
 			requestValidation();
 		}
@@ -1406,7 +1581,7 @@ function buildHtml(
 			appState.workflow.edges = appState.workflow.edges.filter((edge) => edge.edgeId !== edgeId);
 			appState.prompt = '';
 			selectWorkflow();
-			setStatus('Connector deleted.');
+			setStatus(uiText.connectorDeleted);
 			renderAll();
 			requestValidation();
 		}
@@ -1414,8 +1589,11 @@ function buildHtml(
 		function updateWorkflowField(field, value) {
 			appState.workflow[field] = value;
 			appState.prompt = '';
+			renderCanvas();
 			persistState();
-			requestValidation();
+			if (!appState.isComposing) {
+				requestValidation();
+			}
 		}
 
 		function updateNodeField(nodeId, field, value) {
@@ -1423,24 +1601,26 @@ function buildHtml(
 			if (!node) {
 				return;
 			}
-			node[field] = value;
+			if (field === 'order' || field === 'maxAttempts') {
+				node[field] = Number(value);
+			} else {
+				node[field] = value;
+			}
 			appState.prompt = '';
 			renderCanvas();
 			persistState();
-			requestValidation();
+			if (!appState.isComposing) {
+				requestValidation();
+			}
 		}
 
 		function addNode(cardType) {
-			if (cardType === 'start' && appState.workflow.nodes.some((node) => node.cardType === 'start')) {
-				setStatus('Start card already exists.');
-				return;
-			}
 			const node = createNode(cardType);
 			appState.workflow.nodes.push(node);
 			appState.selection = { kind: 'node', nodeId: node.nodeId };
 			appState.prompt = '';
 			renderAll();
-			setStatus('Card added.');
+			setStatus(uiText.cardAdded);
 			requestValidation();
 		}
 
@@ -1469,29 +1649,49 @@ function buildHtml(
 			renderCanvas();
 		}
 
+		function normalizeConnection(sourceNodeId, targetNodeId) {
+			const source = getNodeById(sourceNodeId);
+			const target = getNodeById(targetNodeId);
+			if (!source || !target) {
+				return { sourceNodeId, targetNodeId };
+			}
+			if (source.cardType === 'agent' && target.cardType === 'loop') {
+				const incomingAgent = appState.workflow.edges
+					.map((edge) =>
+						edge.targetNodeId === target.nodeId ? getNodeById(edge.sourceNodeId) : null,
+					)
+					.find((node) => node && node.cardType === 'agent');
+				if (incomingAgent && source.order > incomingAgent.order) {
+					return { sourceNodeId: target.nodeId, targetNodeId: source.nodeId };
+				}
+			}
+			return { sourceNodeId, targetNodeId };
+		}
+
 		function finishConnection(targetNodeId) {
 			if (!appState.connectDraft) {
 				return;
 			}
-			const sourceNodeId = appState.connectDraft.sourceNodeId;
+			const draftSourceNodeId = appState.connectDraft.sourceNodeId;
 			appState.connectDraft = null;
-			if (sourceNodeId === targetNodeId) {
+			if (draftSourceNodeId === targetNodeId) {
 				renderCanvas();
 				return;
 			}
-			if (appState.workflow.edges.some((edge) => edge.sourceNodeId === sourceNodeId && edge.targetNodeId === targetNodeId)) {
+			const { sourceNodeId, targetNodeId: normalizedTargetNodeId } = normalizeConnection(draftSourceNodeId, targetNodeId);
+			if (appState.workflow.edges.some((edge) => edge.sourceNodeId === sourceNodeId && edge.targetNodeId === normalizedTargetNodeId)) {
 				renderCanvas();
 				return;
 			}
 			appState.workflow.edges.push({
 				edgeId: makeId('edge'),
 				sourceNodeId,
-				targetNodeId,
+				targetNodeId: normalizedTargetNodeId,
 			});
 			appState.prompt = '';
 			renderCanvas();
 			persistState();
-			setStatus('Connector added.');
+			setStatus(uiText.connectorAdded);
 			requestValidation();
 		}
 
@@ -1629,7 +1829,7 @@ function buildHtml(
 
 		document.getElementById('loadWorkflowButton').addEventListener('click', () => {
 			if (!savedWorkflowSelect.value) {
-				setStatus('No saved workflow selected.');
+				setStatus(uiText.noSavedWorkflowSelected);
 				return;
 			}
 			vscode.postMessage({ type: 'loadWorkflow', workflowId: savedWorkflowSelect.value });
@@ -1641,7 +1841,7 @@ function buildHtml(
 
 		document.getElementById('deleteWorkflowButton').addEventListener('click', () => {
 			if (!savedWorkflowSelect.value) {
-				setStatus('No saved workflow selected.');
+				setStatus(uiText.noSavedWorkflowSelected);
 				return;
 			}
 			vscode.postMessage({ type: 'deleteWorkflow', workflowId: savedWorkflowSelect.value });
@@ -1656,9 +1856,14 @@ function buildHtml(
 			renderInspectorShell();
 		});
 
+		togglePreviewButton.addEventListener('click', () => {
+			appState.previewCollapsed = !appState.previewCollapsed;
+			renderPreviewShell();
+		});
+
 		copyPromptButton.addEventListener('click', () => {
 			if (!appState.prompt) {
-				setStatus('No prompt to copy.');
+				setStatus(uiText.noPromptToCopy);
 				return;
 			}
 			vscode.postMessage({ type: 'copyPrompt', prompt: appState.prompt });
@@ -1716,7 +1921,28 @@ function buildHtml(
 			}
 		});
 
+		inspector.addEventListener('compositionstart', () => {
+			appState.isComposing = true;
+		});
+
+		inspector.addEventListener('compositionend', (event) => {
+			appState.isComposing = false;
+			const target = event.target;
+			if (target && target.dataset && target.dataset.workflowField) {
+				updateWorkflowField(target.dataset.workflowField, target.value);
+				requestValidation();
+				return;
+			}
+			if (target && target.dataset && target.dataset.nodeField && target.dataset.nodeId) {
+				updateNodeField(target.dataset.nodeId, target.dataset.nodeField, target.value);
+				requestValidation();
+			}
+		});
+
 		inspector.addEventListener('input', (event) => {
+			if (appState.isComposing) {
+				return;
+			}
 			const target = event.target;
 			if (target && target.dataset && target.dataset.workflowField) {
 				updateWorkflowField(target.dataset.workflowField, target.value);
@@ -1862,7 +2088,7 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 					workflow,
 					savedWorkflows: listSavedWorkflowSummaries(),
 					validation: validateWorkflowDefinition(workflow),
-					status: 'Workflow saved to .codex/orchestrations.',
+					status: 'Workflow saved to .codex/.codex-workspace/orchestrations.',
 				});
 			} catch (error) {
 				this.postToWebview({
@@ -1924,7 +2150,7 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 			return;
 		}
 		if (message.type === 'generatePrompt') {
-			const result = generateWorkflowPrompt(message.workflow);
+			const result = generateWorkflowPrompt(message.workflow, vscode.env.language);
 			this.postToWebview({
 				type: 'workflowPrompt',
 				prompt: result.prompt,
