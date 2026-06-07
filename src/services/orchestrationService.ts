@@ -9,8 +9,7 @@ export const ORCHESTRATION_DIRECTORY_NAME = 'orchestrations';
 export type OrchestrationCardType =
 	| 'workflow'
 	| 'agent'
-	| 'loop'
-	| 'output';
+	| 'loop';
 
 type PositionedNode = {
 	nodeId: string;
@@ -39,18 +38,10 @@ export type LoopNode = PositionedNode & {
 	acceptanceCriteria: string;
 };
 
-export type OutputNode = PositionedNode & {
-	cardType: 'output';
-	outputName: string;
-	outputFormat: string;
-	notes: string;
-};
-
 export type OrchestrationNode =
 	| WorkflowNode
 	| AgentNode
-	| LoopNode
-	| OutputNode;
+	| LoopNode;
 
 export type OrchestrationEdge = {
 	edgeId: string;
@@ -63,6 +54,7 @@ export type OrchestrationWorkflow = {
 	workflowId: string;
 	name: string;
 	description: string;
+	finalOutputFormat: string;
 	nodes: OrchestrationNode[];
 	edges: OrchestrationEdge[];
 	createdAt: string;
@@ -101,6 +93,7 @@ type PromptStrings = {
 	policyBody: string[];
 	agentListTitle: string;
 	loopTitle: string;
+	outputFormatTitle: string;
 	requestTitle: string;
 	stepsTitle: string;
 	outputTitle: string;
@@ -129,12 +122,10 @@ type PromptStrings = {
 	agentOrderDuplicate: string;
 	loopAttemptsInvalid: string;
 	loopCriteriaMissing: string;
-	outputCannotConnect: string;
 	workflowIncomingForbidden: string;
 	workflowToAgentOnly: string;
 	agentConnectionInvalid: string;
 	loopConnectionInvalid: string;
-	outputIncomingInvalid: string;
 	loopIncomingRequired: string;
 	loopOutgoingRequired: string;
 	loopOrderInvalid: string;
@@ -196,22 +187,6 @@ function createLoopNode(
 	};
 }
 
-function createOutputNode(
-	nodeId: string,
-	x: number,
-	y: number,
-): OutputNode {
-	return {
-		nodeId,
-		cardType: 'output',
-		outputName: '',
-		outputFormat: '',
-		notes: '',
-		x,
-		y,
-	};
-}
-
 function createEdge(
 	edgeId: string,
 	sourceNodeId: string,
@@ -233,6 +208,7 @@ export function createEmptyWorkflow(
 		workflowId: createId('workflow'),
 		name,
 		description: '',
+		finalOutputFormat: '',
 		nodes: [createWorkflowNode(createId('workflow-node'), 80, 180)],
 		edges: [],
 		createdAt: nowIso,
@@ -467,7 +443,6 @@ export function validateWorkflowDefinition(
 		if (
 			source.cardType === 'agent'
 			&& target.cardType !== 'loop'
-			&& target.cardType !== 'output'
 		) {
 			errors.push({
 				code: 'invalidAgentConnection',
@@ -480,22 +455,6 @@ export function validateWorkflowDefinition(
 				code: 'invalidLoopConnection',
 				message: strings.loopConnectionInvalid,
 				edgeId: edge.edgeId,
-			});
-		}
-		if (source.cardType === 'output') {
-			errors.push({
-				code: 'outputHasOutgoingEdge',
-				message: strings.outputCannotConnect,
-				edgeId: edge.edgeId,
-				nodeId: source.nodeId,
-			});
-		}
-		if (target.cardType === 'output' && source.cardType !== 'agent') {
-			errors.push({
-				code: 'invalidOutputIncoming',
-				message: strings.outputIncomingInvalid,
-				edgeId: edge.edgeId,
-				nodeId: target.nodeId,
 			});
 		}
 	}
@@ -574,12 +533,10 @@ export function generateWorkflowPrompt(
 	const strings = getPromptStrings(locale);
 	const workflowName = workflow.name.trim() || strings.fallbackName;
 	const workflowDescription = workflow.description.trim();
+	const finalOutputFormat = workflow.finalOutputFormat.trim();
 	const agentNodes = getAgentNodes(workflow).sort((left, right) => left.order - right.order);
 	const resolvedLoops = resolveLoops(workflow)
 		.sort((left, right) => left.inAgent.order - right.inAgent.order);
-	const outputNodes = workflow.nodes.filter(
-		(node): node is OutputNode => node.cardType === 'output',
-	);
 
 	const lines: string[] = [
 		'---',
@@ -634,24 +591,22 @@ export function generateWorkflowPrompt(
 		`## ${strings.stepsTitle}`,
 		'',
 		...strings.stepLines.map((line, index) => `${index + 1}. ${line}`),
+	];
+
+	if (finalOutputFormat) {
+		lines.push(
+			'',
+			`## ${strings.outputFormatTitle}`,
+			'',
+			`- ${finalOutputFormat}`,
+		);
+	}
+	lines.push(
 		'',
 		`## ${strings.outputTitle}`,
 		'',
-	];
-
-	if (outputNodes.length > 0 && hasSpecialOutput(outputNodes)) {
-		for (const outputNode of outputNodes) {
-			const details = [
-				outputNode.outputName.trim(),
-				outputNode.outputFormat.trim(),
-				outputNode.notes.trim(),
-			].filter(Boolean);
-			if (details.length > 0) {
-				lines.push(`- ${details.join(' / ')}`);
-			}
-		}
-	}
-	lines.push(`- ${strings.outputFallback}`);
+		`- ${strings.outputFallback}`,
+	);
 	for (const bullet of strings.defaultReportBullets) {
 		lines.push(`  - ${bullet}`);
 	}
@@ -670,12 +625,6 @@ export function generateWorkflowPrompt(
 		prompt: lines.join('\n'),
 		validation,
 	};
-}
-
-function hasSpecialOutput(outputNodes: OutputNode[]): boolean {
-	return outputNodes.some((node) =>
-		[node.outputName, node.outputFormat, node.notes].some((value) => value.trim()),
-	);
 }
 
 function renderTable(headers: string[], rows: string[][]): string {
@@ -788,6 +737,7 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 			],
 			agentListTitle: '🤖 起動するサブエージェント',
 			loopTitle: '🔄 差し戻し設定',
+			outputFormatTitle: '🧾 出力形式',
 			requestTitle: '📤 サブエージェントへの依頼形式',
 			stepsTitle: '🔁 オーケストレーション手順',
 			outputTitle: '🧾 出力',
@@ -810,7 +760,7 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 			],
 			noLoopRow: ['-', '-', '-', '-'],
 			noAgentRow: ['-', '-', '-', '-', '-', '-'],
-			outputFallback: '特別な出力形式の指定がある場合は、その形式で最終結果をまとめること。指定がない場合は、少なくとも以下を含めて報告すること。',
+			outputFallback: '最終結果の報告では、少なくとも以下を含めること。',
 			endSuccessLabel: '最後の起動エージェントの完了条件を満たした',
 			endSuccessAction: 'ユーザーへ最終結果を報告して終了する',
 			endLoopLabel: '差し戻しが最大試行回数に達した',
@@ -834,12 +784,10 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 			agentOrderDuplicate: 'Agent カードの No が重複しています。',
 			loopAttemptsInvalid: 'Loop カードの最大試行回数は 1 以上の整数で指定してください。',
 			loopCriteriaMissing: 'Loop カードの受け入れ基準が未設定です。',
-			outputCannotConnect: 'Output カードは出力ポートを持てません。',
 			workflowIncomingForbidden: 'Workflow カードは入力ポートを持てません。',
 			workflowToAgentOnly: 'Workflow カードは Agent カードにのみ接続できます。',
-			agentConnectionInvalid: 'Agent カードは Loop または Output カードにのみ接続できます。',
+			agentConnectionInvalid: 'Agent カードは Loop カードにのみ接続できます。',
 			loopConnectionInvalid: 'Loop カードは Agent カードにのみ接続できます。',
-			outputIncomingInvalid: 'Output カードは Agent カードからのみ接続できます。',
 			loopIncomingRequired: 'Loop カードには作業 Agent からの入力接続が 1 つ必要です。',
 			loopOutgoingRequired: 'Loop カードには確認 Agent への出力接続が 1 つ必要です。',
 			loopOrderInvalid: 'Loop の作業 Agent は確認 Agent より小さい No である必要があります。',
@@ -868,6 +816,7 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 		],
 		agentListTitle: 'Subagents to launch',
 		loopTitle: 'Review and retry settings',
+		outputFormatTitle: 'Output format',
 		requestTitle: 'Delegation format for subagents',
 		stepsTitle: 'Orchestration steps',
 		outputTitle: 'Output',
@@ -890,7 +839,7 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 		],
 		noLoopRow: ['-', '-', '-', '-'],
 		noAgentRow: ['-', '-', '-', '-', '-', '-'],
-		outputFallback: 'If a special output format is specified, use it for the final answer. Otherwise, report at least the following items.',
+		outputFallback: 'Include at least the following items in the final report.',
 		endSuccessLabel: 'The last launched agent satisfies its done criteria',
 		endSuccessAction: 'Report the final result to the user and finish',
 		endLoopLabel: 'A retry reaches the maximum number of attempts',
@@ -914,12 +863,10 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 		agentOrderDuplicate: 'Agent card No values must be unique.',
 		loopAttemptsInvalid: 'Loop max attempts must be an integer greater than or equal to 1.',
 		loopCriteriaMissing: 'The Loop acceptance criteria are empty.',
-		outputCannotConnect: 'An Output card cannot have outgoing connectors.',
 		workflowIncomingForbidden: 'A Workflow card cannot have incoming connectors.',
 		workflowToAgentOnly: 'A Workflow card can connect only to Agent cards.',
-		agentConnectionInvalid: 'An Agent card can connect only to a Loop or Output card.',
+		agentConnectionInvalid: 'An Agent card can connect only to a Loop card.',
 		loopConnectionInvalid: 'A Loop card can connect only to an Agent card.',
-		outputIncomingInvalid: 'An Output card can receive connections only from Agent cards.',
 		loopIncomingRequired: 'A Loop card needs exactly one incoming connection from a worker Agent.',
 		loopOutgoingRequired: 'A Loop card needs exactly one outgoing connection to a reviewer Agent.',
 		loopOrderInvalid: 'The worker Agent connected to a Loop must have a smaller No than the reviewer Agent.',
@@ -980,6 +927,7 @@ function normalizeWorkflowDefinition(
 		workflowId: workflow.workflowId || createId('workflow'),
 		name: workflow.name.trim() || 'New orchestration',
 		description: workflow.description ?? '',
+		finalOutputFormat: workflow.finalOutputFormat ?? '',
 		createdAt: workflow.createdAt || nowIso,
 		updatedAt: nowIso,
 	});
@@ -1003,8 +951,7 @@ function assertWorkflowDefinition(value: unknown): OrchestrationWorkflow {
 	if (!Array.isArray(record.edges)) {
 		throw new Error('edges must be an array.');
 	}
-	const nodes = record.nodes.map(assertNodeDefinition);
-	const edges = record.edges.map(assertEdgeDefinition);
+	const migrated = migrateLegacyOutputNodes(record.nodes, record.edges);
 	return {
 		version:
 			typeof record.version === 'number'
@@ -1014,8 +961,12 @@ function assertWorkflowDefinition(value: unknown): OrchestrationWorkflow {
 		name: record.name,
 		description:
 			typeof record.description === 'string' ? record.description : '',
-		nodes,
-		edges,
+		finalOutputFormat:
+			typeof record.finalOutputFormat === 'string'
+				? record.finalOutputFormat
+				: migrated.finalOutputFormat,
+		nodes: migrated.nodes,
+		edges: migrated.edges,
 		createdAt:
 			typeof record.createdAt === 'string'
 				? record.createdAt
@@ -1065,16 +1016,51 @@ function assertNodeDefinition(value: unknown): OrchestrationNode {
 			acceptanceCriteria: stringOrDefault(record.acceptanceCriteria, ''),
 		};
 	}
-	if (common.cardType === 'output') {
-		return {
-			...common,
-			cardType: 'output',
-			outputName: stringOrDefault(record.outputName, ''),
-			outputFormat: stringOrDefault(record.outputFormat, ''),
-			notes: stringOrDefault(record.notes, ''),
-		};
-	}
 	throw new Error(`Unsupported cardType: ${String(record.cardType)}`);
+}
+
+function migrateLegacyOutputNodes(
+	rawNodes: unknown[],
+	rawEdges: unknown[],
+): {
+	nodes: OrchestrationNode[];
+	edges: OrchestrationEdge[];
+	finalOutputFormat: string;
+} {
+	const legacyOutputIds = new Set<string>();
+	const legacyOutputDetails: string[] = [];
+	const nodes = rawNodes.flatMap((value) => {
+		if (!value || typeof value !== 'object') {
+			return [assertNodeDefinition(value)];
+		}
+		const record = value as Record<string, unknown>;
+		if (record.cardType !== 'output') {
+			return [assertNodeDefinition(value)];
+		}
+		const nodeId = requireString(record.nodeId, 'nodeId');
+		legacyOutputIds.add(nodeId);
+		const parts = [
+			stringOrDefault(record.outputFormat, '').trim(),
+			stringOrDefault(record.notes, '').trim(),
+			stringOrDefault(record.outputName, '').trim(),
+		].filter(Boolean);
+		if (parts.length > 0) {
+			legacyOutputDetails.push(parts.join(' / '));
+		}
+		return [];
+	});
+	const edges = rawEdges
+		.map(assertEdgeDefinition)
+		.filter(
+			(edge) =>
+				!legacyOutputIds.has(edge.sourceNodeId)
+				&& !legacyOutputIds.has(edge.targetNodeId),
+		);
+	return {
+		nodes,
+		edges,
+		finalOutputFormat: legacyOutputDetails.join('\n'),
+	};
 }
 
 function assertEdgeDefinition(value: unknown): OrchestrationEdge {

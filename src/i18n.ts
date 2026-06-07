@@ -418,6 +418,10 @@ export const messages = {
 		'message.agentManagerWorkflowDescriptionPlaceholder',
 		'Describe what this workflow is meant to accomplish.',
 	),
+	agentManagerWorkflowOutputFormatPlaceholder: localize(
+		'message.agentManagerWorkflowOutputFormatPlaceholder',
+		'If there is a special output format instruction, enter it here.',
+	),
 	agentManagerOutputNamePlaceholder: localize(
 		'message.agentManagerOutputNamePlaceholder',
 		'Name the final artifact or section.',

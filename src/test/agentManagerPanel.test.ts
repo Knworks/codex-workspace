@@ -115,7 +115,12 @@ suite('Agent manager panel', () => {
 		assert.ok(source.includes('appState.previewCollapsed = false'));
 		assert.ok(source.includes('workflowCardDefaultTitle'));
 		assert.ok(source.includes('workflowCardDefaultSummary'));
+		assert.ok(source.includes('data-workflow-field="finalOutputFormat"'));
+		assert.ok(source.includes('workflowOutputFormatPlaceholder'));
 		assert.ok(source.includes('function isMarkdownTable('));
+		assert.ok(source.includes('function getCanvasExtent()'));
+		assert.ok(!source.includes("edgeLayer.setAttribute('width', '1600');"));
+		assert.ok(!source.includes("edgeLayer.setAttribute('height', '960');"));
 		assert.ok(source.includes("return '<table><thead>'"));
 		assert.ok(!source.includes("return 'x' + String(node.maxAttempts || 1);"));
 		assert.ok(source.includes("savedWorkflowSelect.addEventListener('change'"));
@@ -129,6 +134,7 @@ suite('Agent manager panel', () => {
 		assert.ok(source.includes('overflow-wrap: anywhere;'));
 		assert.ok(source.includes('min-width: 0;'));
 		assert.ok(!source.includes('applyTemplateButton'));
+		assert.ok(!source.includes('data-add-card="output"'));
 		assert.ok(!source.includes('data-add-card="review"'));
 		assert.ok(!source.includes('validateWorkflowButton'));
 		assert.ok(!source.includes('Agent source'));

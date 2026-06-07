@@ -142,6 +142,7 @@
   "message.agentManagerConfirmDeleteCard": "Delete this card?",
   "message.agentManagerConfirmDeleteConnector": "Delete this connector?",
   "message.agentManagerWorkflowDescriptionPlaceholder": "Describe what this workflow is meant to accomplish.",
+  "message.agentManagerWorkflowOutputFormatPlaceholder": "If there is a special output format instruction, enter it here.",
   "message.agentManagerOutputNamePlaceholder": "Name the final artifact or section.",
   "message.agentManagerOutputFormatPlaceholder": "Explain the expected output format, structure, or template.",
   "message.agentManagerNotesPlaceholder": "Add optional notes or delivery constraints.",

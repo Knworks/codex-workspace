@@ -25,6 +25,7 @@ function withTempDir(run: (root: string) => void): void {
 function createWorkflowFixture(): OrchestrationWorkflow {
 	const workflow = createEmptyWorkflow('Review loop');
 	workflow.description = 'Implement and review the task.';
+	workflow.finalOutputFormat = 'Markdown summary / Include risks and remaining work.';
 	const workflowNode = workflow.nodes.find((node) => node.cardType === 'workflow');
 	assert.ok(workflowNode);
 	if (!workflowNode) {
@@ -64,15 +65,6 @@ function createWorkflowFixture(): OrchestrationWorkflow {
 			x: 760,
 			y: 120,
 		},
-		{
-			nodeId: 'output-final',
-			cardType: 'output',
-			outputName: 'Final report',
-			outputFormat: 'Markdown summary',
-			notes: 'Include risks and remaining work.',
-			x: 980,
-			y: 120,
-		},
 	);
 	workflow.edges.push(
 		{
@@ -95,11 +87,6 @@ function createWorkflowFixture(): OrchestrationWorkflow {
 			sourceNodeId: 'loop-review',
 			targetNodeId: 'agent-reviewer',
 		},
-		{
-			edgeId: 'edge-reviewer-output',
-			sourceNodeId: 'agent-reviewer',
-			targetNodeId: 'output-final',
-		},
 	);
 	return workflow;
 }
@@ -121,9 +108,78 @@ suite('Orchestration service', () => {
 
 			assert.strictEqual(reloaded.workflowId, saved.workflowId);
 			assert.strictEqual(reloaded.name, saved.name);
+			assert.strictEqual(
+				reloaded.finalOutputFormat,
+				'Markdown summary / Include risks and remaining work.',
+			);
 			assert.strictEqual(reloaded.updatedAt, '2026-06-06T12:30:00.000Z');
 			assert.strictEqual(summaries.length, 1);
 			assert.strictEqual(summaries[0].workflowId, saved.workflowId);
+		});
+	});
+
+	test('loads legacy output nodes into workflow final output format', () => {
+		withTempDir((root) => {
+			const codexDir = path.join(root, '.codex');
+			const orchestrationDir = path.join(codexDir, 'orchestrations');
+			fs.mkdirSync(orchestrationDir, { recursive: true });
+			fs.writeFileSync(
+				path.join(orchestrationDir, 'legacy.json'),
+				JSON.stringify({
+					version: 2,
+					workflowId: 'legacy',
+					name: 'Legacy workflow',
+					description: 'Legacy output migration test.',
+					nodes: [
+						{ nodeId: 'workflow-node', cardType: 'workflow', x: 80, y: 120 },
+						{
+							nodeId: 'agent-1',
+							cardType: 'agent',
+							order: 1,
+							agentName: 'implementer',
+							purpose: '',
+							input: '',
+							expectedOutput: '',
+							doneCriteria: '',
+							x: 320,
+							y: 120,
+						},
+						{
+							nodeId: 'output-1',
+							cardType: 'output',
+							outputName: 'Final report',
+							outputFormat: 'Markdown summary',
+							notes: 'Include risks and remaining work.',
+							x: 540,
+							y: 120,
+						},
+					],
+					edges: [
+						{
+							edgeId: 'edge-workflow-agent',
+							sourceNodeId: 'workflow-node',
+							targetNodeId: 'agent-1',
+						},
+						{
+							edgeId: 'edge-agent-output',
+							sourceNodeId: 'agent-1',
+							targetNodeId: 'output-1',
+						},
+					],
+					createdAt: '2026-06-06T12:00:00.000Z',
+					updatedAt: '2026-06-06T12:00:00.000Z',
+				}),
+				'utf8',
+			);
+
+			const loaded = loadWorkflowDefinition('legacy', codexDir);
+
+			assert.strictEqual(
+				loaded.finalOutputFormat,
+				'Markdown summary / Include risks and remaining work. / Final report',
+			);
+			assert.ok(loaded.nodes.every((node) => node.nodeId !== 'output-1'));
+			assert.ok(loaded.edges.every((edge) => edge.targetNodeId !== 'output-1'));
 		});
 	});
 
@@ -187,6 +243,8 @@ suite('Orchestration service', () => {
 		assert.ok(result.prompt.includes('## 🎯 目的'));
 		assert.ok(result.prompt.includes('implementer'));
 		assert.ok(result.prompt.includes('reviewer'));
+		assert.ok(result.prompt.includes('## 🧾 出力形式'));
+		assert.ok(result.prompt.includes('Markdown summary / Include risks and remaining work.'));
 		assert.ok(result.prompt.includes('差し戻し設定'));
 		assert.ok(result.prompt.includes('The review result is PASS.'));
 	});
@@ -199,6 +257,7 @@ suite('Orchestration service', () => {
 		assert.strictEqual(result.validation.errors.length, 0);
 		assert.ok(result.prompt.includes('## Goal'));
 		assert.ok(result.prompt.includes('## Review and retry settings'));
+		assert.ok(result.prompt.includes('## Output format'));
 		assert.ok(result.prompt.includes('Launch subagents in ascending `No` order'));
 		assert.ok(result.prompt.includes('Markdown summary'));
 	});

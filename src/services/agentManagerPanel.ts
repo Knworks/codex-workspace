@@ -151,7 +151,6 @@ function buildHtml(
 			copyLabel: messages.agentManagerCopy,
 			addAgent: messages.agentManagerAddAgent,
 			addLoop: messages.agentManagerAddLoop,
-			addOutput: messages.agentManagerAddOutput,
 			canvasHint: messages.agentManagerCanvasHint,
 			connector: messages.agentManagerConnector,
 			source: messages.agentManagerSource,
@@ -162,7 +161,6 @@ function buildHtml(
 			deleteConnector: messages.agentManagerDeleteConnector,
 			agent: messages.agentManagerAgent,
 			loop: messages.agentManagerLoop,
-			output: messages.agentManagerOutput,
 			name: messages.agentManagerName,
 			number: messages.agentManagerNumber,
 			purpose: messages.agentManagerPurpose,
@@ -170,9 +168,7 @@ function buildHtml(
 			expectedOutput: messages.agentManagerExpectedOutput,
 			doneCriteria: messages.agentManagerDoneCriteria,
 			maxAttempts: messages.agentManagerMaxAttempts,
-			acceptanceCriteria: messages.agentManagerAcceptanceCriteria,
 			outputFormat: messages.agentManagerOutputFormat,
-			notes: messages.agentManagerNotes,
 			savedIn: messages.agentManagerSavedIn,
 			cards: messages.agentManagerCards,
 			connectors: messages.agentManagerConnectors,
@@ -180,8 +176,6 @@ function buildHtml(
 			warnings: messages.agentManagerWarnings,
 			retryControl: messages.agentManagerRetryControl,
 			subagent: messages.agentManagerSubagent,
-			optionalOutput: messages.agentManagerOptionalOutput,
-			specialOutputHint: messages.agentManagerSpecialOutputHint,
 			acceptanceCriteriaHint: messages.agentManagerAcceptanceCriteriaHint,
 			delegationHint: messages.agentManagerDelegationHint,
 			noPromptToCopy: messages.agentManagerNoPromptToCopy,
@@ -196,9 +190,8 @@ function buildHtml(
 			cancelLabel: messages.mcpManagerCancel,
 			workflowDescriptionPlaceholder:
 				messages.agentManagerWorkflowDescriptionPlaceholder,
-			outputNamePlaceholder: messages.agentManagerOutputNamePlaceholder,
-			outputFormatPlaceholder: messages.agentManagerOutputFormatPlaceholder,
-			notesPlaceholder: messages.agentManagerNotesPlaceholder,
+			workflowOutputFormatPlaceholder:
+				messages.agentManagerWorkflowOutputFormatPlaceholder,
 			acceptanceCriteriaPlaceholder:
 				messages.agentManagerAcceptanceCriteriaPlaceholder,
 			purposePlaceholder: messages.agentManagerPurposePlaceholder,
@@ -921,7 +914,6 @@ function buildHtml(
 					<div class="card-toolbar">
 						<button class="secondary-button" data-add-card="agent" type="button"><span class="codicon codicon-hubot" aria-hidden="true"></span>${escapeHtml(messages.agentManagerAddAgent)}</button>
 						<button class="secondary-button" data-add-card="loop" type="button"><span class="codicon codicon-sync" aria-hidden="true"></span>${escapeHtml(messages.agentManagerAddLoop)}</button>
-						<button class="secondary-button" data-add-card="output" type="button"><span class="codicon codicon-inbox" aria-hidden="true"></span>${escapeHtml(messages.agentManagerAddOutput)}</button>
 						<button id="generatePromptButton" class="primary-button push-right" type="button" title="${escapeHtml(messages.agentManagerGeneratePrompt)}" aria-label="${escapeHtml(messages.agentManagerGeneratePrompt)}"><span class="codicon codicon-play" aria-hidden="true"></span>${escapeHtml(messages.agentManagerGeneratePrompt)}</button>
 					</div>
 					<div id="canvasShell" class="canvas-shell">
@@ -1041,9 +1033,6 @@ function buildHtml(
 				x: 120 + (appState.workflow.nodes.length % 4) * 220,
 				y: 80 + Math.floor(appState.workflow.nodes.length / 4) * 150,
 			};
-			if (cardType === 'output') {
-				return { ...base, cardType: 'output', outputName: '', outputFormat: '', notes: '' };
-			}
 			if (cardType === 'loop') {
 				return {
 					...base,
@@ -1273,18 +1262,12 @@ function buildHtml(
 			if (node.cardType === 'loop') {
 				return 'codicon-sync';
 			}
-			if (node.cardType === 'output') {
-				return 'codicon-inbox';
-			}
 			return 'codicon-hubot';
 		}
 
 		function getNodeTitle(node) {
 			if (node.cardType === 'workflow') {
 				return appState.workflow.name || uiText.workflowCardDefaultTitle;
-			}
-			if (node.cardType === 'output') {
-				return node.outputName || 'Output';
 			}
 			if (node.cardType === 'loop') {
 				return 'Loop';
@@ -1296,18 +1279,12 @@ function buildHtml(
 			if (node.cardType === 'workflow') {
 				return uiText.workflow;
 			}
-			if (node.cardType === 'output') {
-				return uiText.optionalOutput;
-			}
 			return node.cardType === 'loop' ? uiText.retryControl : uiText.subagent;
 		}
 
 		function getNodeSummary(node) {
 			if (node.cardType === 'workflow') {
-				return appState.workflow.description || uiText.workflowCardDefaultSummary;
-			}
-			if (node.cardType === 'output') {
-				return node.outputFormat || node.notes || uiText.specialOutputHint;
+				return appState.workflow.description || appState.workflow.finalOutputFormat || uiText.workflowCardDefaultSummary;
 			}
 			if (node.cardType === 'loop') {
 				return node.acceptanceCriteria || uiText.acceptanceCriteriaHint;
@@ -1322,11 +1299,6 @@ function buildHtml(
 		function getNodeStatus(node) {
 			if (node.cardType === 'workflow') {
 				return (appState.workflow.name || '').trim() ? 'valid' : 'warning';
-			}
-			if (node.cardType === 'output') {
-				return node.outputFormat.trim() || node.notes.trim() || node.outputName.trim()
-					? 'valid'
-					: 'warning';
 			}
 			if (node.cardType === 'loop') {
 				return Number(node.maxAttempts) >= 1 ? 'valid' : 'warning';
@@ -1371,6 +1343,23 @@ function buildHtml(
 			return 'M ' + from.x + ' ' + from.y + ' C ' + (from.x + delta) + ' ' + from.y + ', ' + (to.x - delta) + ' ' + to.y + ', ' + to.x + ' ' + to.y;
 		}
 
+		function getCanvasExtent() {
+			const shellWidth = canvasShell.clientWidth || 0;
+			const shellHeight = canvasShell.clientHeight || 0;
+			const maxX = appState.workflow.nodes.reduce(
+				(max, node) => Math.max(max, node.x + cardWidth),
+				0,
+			);
+			const maxY = appState.workflow.nodes.reduce(
+				(max, node) => Math.max(max, node.y + cardHeight),
+				0,
+			);
+			return {
+				width: Math.max(1200, shellWidth, maxX + 160),
+				height: Math.max(shellHeight, maxY + 160),
+			};
+		}
+
 		function inferEdgeKind(edge) {
 			const source = getNodeById(edge.sourceNodeId);
 			const target = getNodeById(edge.targetNodeId);
@@ -1378,6 +1367,9 @@ function buildHtml(
 		}
 
 		function renderCanvas() {
+			const extent = getCanvasExtent();
+			canvas.style.width = extent.width + 'px';
+			canvas.style.height = extent.height + 'px';
 			canvas.innerHTML = appState.workflow.nodes
 				.map((node) => {
 					const selected = appState.selection.kind === 'node' && appState.selection.nodeId === node.nodeId ? ' selected' : '';
@@ -1395,7 +1387,7 @@ function buildHtml(
 						'<div class="card-role">' + escapeHtmlClient(getNodeRole(node)) + '</div>' +
 						'<div class="card-summary">' + escapeHtmlClient(summary) + '</div>' +
 						(meta ? '<div class="card-meta">' + escapeHtmlClient(meta) + '</div>' : '') +
-						'<button class="port" data-port="output" data-node-id="' + escapeHtmlClient(node.nodeId) + '" ' + (node.cardType === 'output' || node.cardType === 'loop' ? 'hidden' : '') + '></button>' +
+						'<button class="port" data-port="output" data-node-id="' + escapeHtmlClient(node.nodeId) + '" ' + (node.cardType === 'loop' ? 'hidden' : '') + '></button>' +
 					'</article>';
 				})
 				.join('');
@@ -1433,8 +1425,10 @@ function buildHtml(
 					return '<path d="' + path + '" stroke="var(--vscode-focusBorder)" stroke-width="2" stroke-dasharray="6 6" fill="none"></path>';
 				})()
 				: '';
-			edgeLayer.setAttribute('width', '1600');
-			edgeLayer.setAttribute('height', '960');
+			edgeLayer.style.width = extent.width + 'px';
+			edgeLayer.style.height = extent.height + 'px';
+			edgeLayer.setAttribute('width', String(extent.width));
+			edgeLayer.setAttribute('height', String(extent.height));
 			edgeLayer.innerHTML = edges + draft;
 		}
 
@@ -1634,6 +1628,10 @@ function buildHtml(
 					'<label class="field-label" for="workflowDescription">' + escapeHtmlClient(uiText.description) + '</label>' +
 					'<textarea id="workflowDescription" data-workflow-field="description" placeholder="' + escapeHtmlClient(uiText.workflowDescriptionPlaceholder) + '">' + escapeHtmlClient(appState.workflow.description || '') + '</textarea>' +
 				'</div>' +
+				'<div class="field-group">' +
+					'<label class="field-label" for="workflowFinalOutputFormat">' + escapeHtmlClient(uiText.outputFormat) + '</label>' +
+					'<textarea id="workflowFinalOutputFormat" data-workflow-field="finalOutputFormat" placeholder="' + escapeHtmlClient(uiText.workflowOutputFormatPlaceholder) + '">' + escapeHtmlClient(appState.workflow.finalOutputFormat || '') + '</textarea>' +
+				'</div>' +
 			'</div>' +
 			buildInspectorValidation(getValidationItemsForSelection({ kind: 'workflow' }));
 		}
@@ -1649,8 +1647,6 @@ function buildHtml(
 						? 'Agent の結果を Loop へ渡す接続です。'
 						: source && source.cardType === 'loop' && target && target.cardType === 'agent'
 							? 'Loop の結果で次に評価・再実行する Agent を示す接続です。'
-							: source && source.cardType === 'agent' && target && target.cardType === 'output'
-								? '特別な最終出力指定へ渡す接続です。'
 								: '接続ルールを validation が確認します。';
 			return '<div class="inspector-card">' +
 				'<div class="card-headline"><h3>' + escapeHtmlClient(uiText.connector) + '</h3><button class="icon-button icon-only inspector-delete" data-delete-edge="' + escapeHtmlClient(edge.edgeId) + '" type="button" title="' + escapeHtmlClient(uiText.deleteConnector) + '" aria-label="' + escapeHtmlClient(uiText.deleteConnector) + '"><span class="codicon codicon-trash" aria-hidden="true"></span></button></div>' +
@@ -1674,24 +1670,6 @@ function buildHtml(
 		function buildNodeInspector(node) {
 			if (node.cardType === 'workflow') {
 				return buildWorkflowInspector();
-			}
-			if (node.cardType === 'output') {
-				return '<div class="inspector-card">' +
-					'<div class="card-headline"><h3>' + escapeHtmlClient(uiText.output) + '</h3><button class="icon-button icon-only inspector-delete" data-delete-node="' + escapeHtmlClient(node.nodeId) + '" type="button" title="' + escapeHtmlClient(uiText.deleteCard) + '" aria-label="' + escapeHtmlClient(uiText.deleteCard) + '"><span class="codicon codicon-trash" aria-hidden="true"></span></button></div>' +
-					'<div class="field-group">' +
-						'<label class="field-label" for="outputName">' + escapeHtmlClient(uiText.name) + '</label>' +
-						'<input id="outputName" data-node-field="outputName" data-node-id="' + escapeHtmlClient(node.nodeId) + '" value="' + escapeHtmlClient(node.outputName) + '" placeholder="' + escapeHtmlClient(uiText.outputNamePlaceholder) + '" />' +
-					'</div>' +
-					'<div class="field-group">' +
-						'<label class="field-label" for="outputFormat">' + escapeHtmlClient(uiText.outputFormat) + '</label>' +
-						'<textarea id="outputFormat" data-node-field="outputFormat" data-node-id="' + escapeHtmlClient(node.nodeId) + '" placeholder="' + escapeHtmlClient(uiText.outputFormatPlaceholder) + '">' + escapeHtmlClient(node.outputFormat) + '</textarea>' +
-					'</div>' +
-					'<div class="field-group">' +
-						'<label class="field-label" for="outputNotes">' + escapeHtmlClient(uiText.notes) + '</label>' +
-						'<textarea id="outputNotes" data-node-field="notes" data-node-id="' + escapeHtmlClient(node.nodeId) + '" placeholder="' + escapeHtmlClient(uiText.notesPlaceholder) + '">' + escapeHtmlClient(node.notes) + '</textarea>' +
-					'</div>' +
-				'</div>' +
-				buildInspectorValidation(getValidationItemsForSelection({ kind: 'node', nodeId: node.nodeId }));
 			}
 			if (node.cardType === 'loop') {
 				return '<div class="inspector-card">' +

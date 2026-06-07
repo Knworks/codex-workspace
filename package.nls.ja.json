@@ -142,6 +142,7 @@
   "message.agentManagerConfirmDeleteCard": "このカードを削除しますか？",
   "message.agentManagerConfirmDeleteConnector": "このコネクタを削除しますか？",
   "message.agentManagerWorkflowDescriptionPlaceholder": "このワークフローで実現したい流れを説明します。",
+  "message.agentManagerWorkflowOutputFormatPlaceholder": "特別な出力形式の指示がある場合は、ここに入力します。",
   "message.agentManagerOutputNamePlaceholder": "最終成果物やセクション名を入力します。",
   "message.agentManagerOutputFormatPlaceholder": "期待する出力形式や構成、テンプレートを説明します。",
   "message.agentManagerNotesPlaceholder": "補足条件や納品上の注意があれば入力します。",
