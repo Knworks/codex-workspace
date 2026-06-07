@@ -53,6 +53,7 @@ codex-workspace/
 │   │   ├── historyService.ts
 │   │   ├── mcpManagerPanel.ts
 │   │   ├── mcpManagerService.ts
+│   │   ├── orchestrationService.ts
 │   │   ├── mcpService.ts
 │   │   ├── pluginService.ts
 │   │   ├── petRateLimitService.ts
@@ -133,7 +134,12 @@ codex-workspace/
   - 作成、編集、有効化後は `upsertAgentConfigMetadata()` で `description` と `config_file` を実体へ同期する
   - 無効化時は block を `agents-disabled.json` に退避する
   - 同期や整理の前後では `agentConfigRepairService.ts` と `agentSyncCleanupService.ts` が `config.toml` を補正する
-  - AGENTS Manager は `agentManagerService.ts` が一覧モデルを作る
+  - AGENTS Manager は `agentManagerService.ts` が Agents タブの一覧モデルを作る
+  - `agentManagerPanel.ts` は `Agents` / `Orchestration` の 2 タブを持つ Webview を提供する
+  - `orchestrationService.ts` が workflow JSON の保存、読込、削除、一覧化、バリデーション、prompt 生成を担当する
+  - workflow は `~/.codex/.codex-workspace/orchestrations/<workflowId>.json` に保存し、schema version 付きで管理する
+  - `Orchestration` タブの canvas は workflow / agent / loop card と edge を保持し、Inspector で各 node/edge の詳細を編集する
+  - prompt 生成は workflow グラフを解決し、現在の VS Code UI 言語に応じて日英プロンプトを組み立てる
 
 - **MCP Manager**
   - `mcpManagerPanel.ts` が左 list / 右 form の Webview を提供する
@@ -173,6 +179,10 @@ codex-workspace/
 | `SkillRecord` | `id` / `name` / `description` / `skillPath` / `enabled` | object | Skill Manager 行 |
 | `AgentLocation` | `kind` / `label` / `rootPath` / `createPath` / `priority` | object | Sub Agents 保存場所 |
 | `AgentManagerRecord` | `id` / `name` / `description` / `model` / `reasoningEffort` / `sandboxMode` / `agentPath` / `configFile` / `location` / `enabled` | object | AGENTS Manager 行 |
+| `OrchestrationWorkflow` | `version` / `workflowId` / `name` / `description` / `finalOutputFormat` / `nodes` / `edges` / `createdAt` / `updatedAt` | object | Orchestration 保存モデル |
+| `OrchestrationNode` | `nodeId` / `cardType` / `x` / `y` + card 種別ごとの属性 | object | canvas 上の card |
+| `OrchestrationEdge` | `edgeId` / `sourceNodeId` / `targetNodeId` | object | card 間の接続 |
+| `WorkflowValidationResult` | `errors` / `warnings` | object | workflow バリデーション結果 |
 | `McpFormModel` | `id` / `transport` / `command` / `args` / `url` / `env` / `httpHeaders` / `envHttpHeaders` / `tools` / `required` / `startupTimeoutSec` / `toolTimeoutSec` / `enabledTools` / `disabledTools` / `enabled` | object | MCP Manager 編集モデル |
 | `HistoryTurnRecord` | `turnId` / `sessionId` / `dateKey` / `userMessage` / `agentMessages` / `reasoningMessages` / `aiTimeline` | object | 会話履歴 1 タスク分 |
 | `AgentsChainNode` | `status` / `kind` / `type` / `fileName` / `absolutePath` / `reason` | object | AGENTS Loading Chain 診断ノード |
@@ -236,9 +246,17 @@ codex-workspace/
   - 行要素: icon / title / description / path / location / switch / open button
 
 - **AGENTS Manager**
-  - 上部: search / clear / refresh
-  - 本体: list row
-  - 行要素: icon / name / description / model / reasoningEffort / sandboxMode / path / location / switch / open button
+  - タブ: Agents / Orchestration
+  - Agents タブ
+    - 上部: search / clear / refresh
+    - 本体: list row
+    - 行要素: icon / name / description / model / reasoningEffort / sandboxMode / path / location / switch / open button
+  - Orchestration タブ
+    - 上部: saved workflow select / new / open folder / save / delete
+    - 中央: workflow / agent / loop card を置く canvas
+    - 右: Inspector
+    - 下部: prompt preview / copy
+    - card 編集: workflow の名前、説明、最終出力形式、agent の入力・期待出力・完了条件、loop の最大試行回数・受け入れ条件
 
 - **MCP Manager**
   - 上部: search / clear / refresh
@@ -292,6 +310,7 @@ flowchart TB
 
 - **ファイルシステム**
   - `~/.codex`
+  - `~/.codex/.codex-workspace/orchestrations`
   - `workspace/.agents/skills`
   - `workspace/.codex/skills`
   - `workspace/.codex/agents`
@@ -323,6 +342,7 @@ flowchart TB
   - `skillLocations.test.ts` / `agentLocations.test.ts`: 保存場所解決
   - `skillConfigService.test.ts` / `agentConfigService.test.ts`: `config.toml` 更新
   - `agentConfigRepairService.test.ts` / `disabledAgentsStore.test.ts`: Agent metadata 修復と disabled store
+  - `orchestrationService.test.ts` / `agentManagerPanel.test.ts`: workflow 保存・検証・prompt 生成と AGENTS Manager orchestration UI
   - `mcpService.test.ts` / `mcpManagerService.test.ts` / `mcpManagerPanel.test.ts`: MCP 読み書きとパネル挙動
   - `historyService.test.ts` / `historyPanel.test.ts`: 履歴抽出と Core Webview state
   - `coreDiagnosticsService.test.ts` / `coreManagerConfigService.test.ts`: Core 診断と設定更新
