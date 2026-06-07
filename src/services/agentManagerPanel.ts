@@ -33,6 +33,7 @@ type InboundMessage =
 	| { type: 'openAgent'; agentPath: string }
 	| { type: 'toggleAgent'; name: string; enabled: boolean }
 	| { type: 'createWorkflow' }
+	| { type: 'openWorkflowFolder' }
 	| { type: 'saveWorkflow'; workflow: OrchestrationWorkflow }
 	| { type: 'loadWorkflow'; workflowId: string }
 	| { type: 'deleteWorkflow'; workflowId: string }
@@ -131,6 +132,7 @@ function buildHtml(
 			workflow: messages.agentManagerWorkflow,
 			description: messages.agentManagerDescription,
 			noSavedWorkflow: messages.agentManagerNoSavedWorkflow,
+			selectWorkflow: messages.agentManagerSelectWorkflow,
 			promptPreview: messages.agentManagerPromptPreview,
 			hidePreview: messages.agentManagerHidePreview,
 			showPreview: messages.agentManagerShowPreview,
@@ -140,6 +142,7 @@ function buildHtml(
 			loadLabel: messages.agentManagerLoad,
 			saveLabel: messages.agentManagerSave,
 			deleteLabel: messages.agentManagerDelete,
+			openFolder: messages.agentManagerOpenFolder,
 			generatePrompt: messages.agentManagerGeneratePrompt,
 			copyLabel: messages.agentManagerCopy,
 			addAgent: messages.agentManagerAddAgent,
@@ -183,6 +186,22 @@ function buildHtml(
 			connectorDeleted: messages.agentManagerConnectorDeleted,
 			cardAdded: messages.agentManagerCardAdded,
 			connectorAdded: messages.agentManagerConnectorAdded,
+			confirmDeleteWorkflow: messages.agentManagerConfirmDeleteWorkflow,
+			confirmDeleteCard: messages.agentManagerConfirmDeleteCard,
+			confirmDeleteConnector: messages.agentManagerConfirmDeleteConnector,
+			cancelLabel: messages.mcpManagerCancel,
+			workflowDescriptionPlaceholder:
+				messages.agentManagerWorkflowDescriptionPlaceholder,
+			outputNamePlaceholder: messages.agentManagerOutputNamePlaceholder,
+			outputFormatPlaceholder: messages.agentManagerOutputFormatPlaceholder,
+			notesPlaceholder: messages.agentManagerNotesPlaceholder,
+			acceptanceCriteriaPlaceholder:
+				messages.agentManagerAcceptanceCriteriaPlaceholder,
+			purposePlaceholder: messages.agentManagerPurposePlaceholder,
+			inputPlaceholder: messages.agentManagerInputPlaceholder,
+			expectedOutputPlaceholder:
+				messages.agentManagerExpectedOutputPlaceholder,
+			doneCriteriaPlaceholder: messages.agentManagerDoneCriteriaPlaceholder,
 		},
 	});
 
@@ -413,6 +432,12 @@ function buildHtml(
 			gap: 8px;
 			align-items: center;
 		}
+		.orch-actions--meta {
+			margin-left: auto;
+		}
+		.card-toolbar .push-right {
+			margin-left: auto;
+		}
 		.orch-toolbar .toolbar-select,
 		.orch-toolbar .toolbar-input {
 			min-width: 180px;
@@ -475,13 +500,15 @@ function buildHtml(
 			border-color: var(--vscode-testing-iconQueued);
 		}
 		.flow-card.output {
-			background: color-mix(in srgb, var(--vscode-editorWidget-background) 86%, var(--vscode-testing-iconPassed) 14%);
+			background:
+				linear-gradient(145deg, color-mix(in srgb, var(--vscode-editorWidget-background) 88%, var(--vscode-terminal-ansiGreen) 12%), color-mix(in srgb, var(--vscode-editorWidget-background) 94%, var(--vscode-terminal-ansiCyan) 6%));
 		}
 		.flow-card.workflow {
 			background: color-mix(in srgb, var(--vscode-editorWidget-background) 84%, var(--vscode-terminal-ansiBlue) 16%);
 		}
 		.flow-card.loop {
-			background: color-mix(in srgb, var(--vscode-editorWidget-background) 80%, var(--vscode-testing-iconQueued) 20%);
+			background:
+				linear-gradient(145deg, color-mix(in srgb, var(--vscode-editorWidget-background) 89%, var(--vscode-terminal-ansiYellow) 11%), color-mix(in srgb, var(--vscode-editorWidget-background) 95%, var(--vscode-terminal-ansiMagenta) 5%));
 		}
 		.card-head {
 			display: flex;
@@ -504,6 +531,10 @@ function buildHtml(
 			flex: none;
 			font-size: 14px;
 			line-height: 1;
+			vertical-align: middle;
+		}
+		.card-icon.codicon::before {
+			line-height: 24px;
 		}
 		.card-title {
 			font-weight: 700;
@@ -666,7 +697,7 @@ function buildHtml(
 			display: grid;
 			grid-template-columns: minmax(0, 1fr);
 			border-top: 1px solid var(--vscode-panel-border);
-			height: clamp(220px, 30vh, 420px);
+			height: clamp(238px, 32vh, 436px);
 			min-height: 0;
 			overflow: hidden;
 		}
@@ -674,7 +705,8 @@ function buildHtml(
 			display: none;
 		}
 		.preview-panel {
-			padding: 10px 14px 12px;
+			padding: 10px 14px 18px;
+			box-sizing: border-box;
 			display: grid;
 			grid-template-rows: auto minmax(0, 1fr);
 			gap: 6px;
@@ -682,15 +714,36 @@ function buildHtml(
 			min-height: 0;
 			overflow: hidden;
 		}
-		.preview-content {
-			margin: 0;
-			padding: 14px;
+		.preview-header {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+		}
+		.preview-card {
+			position: relative;
+			min-height: 0;
+			padding: 12px 12px 14px;
 			border-radius: 12px;
 			border: 1px solid var(--vscode-panel-border);
 			background: color-mix(in srgb, var(--vscode-editorWidget-background) 98%, transparent);
+			box-sizing: border-box;
+		}
+		.preview-card > .icon-button,
+		.preview-card > .secondary-button,
+		.preview-card > .primary-button {
+			position: absolute;
+			top: 10px;
+			right: 10px;
+			z-index: 1;
+		}
+		.preview-content {
+			margin: 0;
+			padding: 12px 44px 12px 12px;
 			font-size: 12px;
 			line-height: 1.55;
+			height: 100%;
 			min-height: 0;
+			box-sizing: border-box;
 			overflow: auto;
 		}
 		.markdown-content h1,
@@ -708,6 +761,26 @@ function buildHtml(
 		.markdown-content ul,
 		.markdown-content ol {
 			padding-left: 18px;
+		}
+		.markdown-content table {
+			width: 100%;
+			border-collapse: collapse;
+			margin: 0 0 10px;
+			font-size: 12px;
+		}
+		.markdown-content th,
+		.markdown-content td {
+			padding: 8px 10px;
+			border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
+			text-align: left;
+			vertical-align: top;
+		}
+		.markdown-content th {
+			background: color-mix(in srgb, var(--vscode-editorWidget-background) 86%, var(--vscode-focusBorder) 14%);
+			font-weight: 700;
+		}
+		.markdown-content tbody tr:nth-child(even) td {
+			background: color-mix(in srgb, var(--vscode-editorWidget-background) 94%, transparent);
 		}
 		.markdown-content pre {
 			margin: 0 0 10px;
@@ -747,6 +820,39 @@ function buildHtml(
 		.status-banner:empty {
 			display: none;
 		}
+		.confirm-overlay {
+			position: fixed;
+			inset: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 20px;
+			background: color-mix(in srgb, var(--vscode-editor-background) 45%, transparent);
+			backdrop-filter: blur(4px);
+			z-index: 20;
+		}
+		.confirm-overlay[hidden] {
+			display: none;
+		}
+		.confirm-dialog {
+			width: min(360px, 100%);
+			padding: 16px;
+			border-radius: 14px;
+			border: 1px solid var(--vscode-panel-border);
+			background: var(--vscode-editorWidget-background);
+			box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+			display: grid;
+			gap: 14px;
+		}
+		.confirm-dialog p {
+			margin: 0;
+			line-height: 1.5;
+		}
+		.confirm-actions {
+			display: flex;
+			justify-content: flex-end;
+			gap: 8px;
+		}
 		@media (max-width: 1000px) {
 			.orch-main,
 			.preview-layout {
@@ -780,16 +886,25 @@ function buildHtml(
 
 	<section id="orchestrationPanel" class="panel-section">
 		<div id="statusBanner" class="status-banner"></div>
+		<div id="confirmOverlay" class="confirm-overlay" hidden>
+			<div class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmMessage">
+				<p id="confirmMessage"></p>
+				<div class="confirm-actions">
+					<button id="confirmCancelButton" class="secondary-button" type="button"></button>
+					<button id="confirmDeleteButton" class="primary-button" type="button"></button>
+				</div>
+			</div>
+		</div>
 		<div class="orch-layout">
 			<div class="orch-toolbar">
 				<select id="savedWorkflowSelect" class="toolbar-select"></select>
 				<div class="orch-actions">
 					<button id="newWorkflowButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerNew)}" aria-label="${escapeHtml(messages.agentManagerNew)}"><span class="codicon codicon-file-add" aria-hidden="true"></span></button>
-					<button id="loadWorkflowButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerLoad)}" aria-label="${escapeHtml(messages.agentManagerLoad)}"><span class="codicon codicon-folder-opened" aria-hidden="true"></span></button>
+					<button id="openWorkflowFolderButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerOpenFolder)}" aria-label="${escapeHtml(messages.agentManagerOpenFolder)}"><span class="codicon codicon-folder-opened" aria-hidden="true"></span></button>
 					<button id="saveWorkflowButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerSave)}" aria-label="${escapeHtml(messages.agentManagerSave)}"><span class="codicon codicon-save" aria-hidden="true"></span></button>
 					<button id="deleteWorkflowButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerDelete)}" aria-label="${escapeHtml(messages.agentManagerDelete)}"><span class="codicon codicon-trash" aria-hidden="true"></span></button>
-					<button id="generatePromptButton" class="primary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerGeneratePrompt)}" aria-label="${escapeHtml(messages.agentManagerGeneratePrompt)}"><span class="codicon codicon-play" aria-hidden="true"></span></button>
-					<button id="copyPromptButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerCopy)}" aria-label="${escapeHtml(messages.agentManagerCopy)}"><span class="codicon codicon-copy" aria-hidden="true"></span></button>
+				</div>
+				<div class="orch-actions orch-actions--meta">
 					<button id="toggleInspectorButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerHideInspector)}" aria-label="${escapeHtml(messages.agentManagerHideInspector)}"><span class="codicon codicon-layout-sidebar-right" aria-hidden="true"></span></button>
 					<button id="togglePreviewButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerHidePreview)}" aria-label="${escapeHtml(messages.agentManagerHidePreview)}"><span class="codicon codicon-layout-panel" aria-hidden="true"></span></button>
 				</div>
@@ -800,6 +915,7 @@ function buildHtml(
 						<button class="secondary-button" data-add-card="agent" type="button"><span class="codicon codicon-hubot" aria-hidden="true"></span>${escapeHtml(messages.agentManagerAddAgent)}</button>
 						<button class="secondary-button" data-add-card="loop" type="button"><span class="codicon codicon-sync" aria-hidden="true"></span>${escapeHtml(messages.agentManagerAddLoop)}</button>
 						<button class="secondary-button" data-add-card="output" type="button"><span class="codicon codicon-inbox" aria-hidden="true"></span>${escapeHtml(messages.agentManagerAddOutput)}</button>
+						<button id="generatePromptButton" class="primary-button push-right" type="button" title="${escapeHtml(messages.agentManagerGeneratePrompt)}" aria-label="${escapeHtml(messages.agentManagerGeneratePrompt)}"><span class="codicon codicon-play" aria-hidden="true"></span>${escapeHtml(messages.agentManagerGeneratePrompt)}</button>
 					</div>
 					<div id="canvasShell" class="canvas-shell">
 						<div class="canvas-hint"><span class="codicon codicon-debug-alt-small" aria-hidden="true"></span>${escapeHtml(messages.agentManagerCanvasHint)}</div>
@@ -813,8 +929,13 @@ function buildHtml(
 			</div>
 			<div class="preview-layout single">
 				<div class="preview-panel">
-					<h3>${escapeHtml(messages.agentManagerPromptPreview)}</h3>
-					<div id="promptPreview" class="markdown-content preview-content"></div>
+					<div class="preview-header">
+						<h3>${escapeHtml(messages.agentManagerPromptPreview)}</h3>
+					</div>
+					<div class="preview-card">
+						<button id="copyPromptButton" class="secondary-button icon-only" type="button" title="${escapeHtml(messages.agentManagerCopy)}" aria-label="${escapeHtml(messages.agentManagerCopy)}"><span class="codicon codicon-copy" aria-hidden="true"></span></button>
+						<div id="promptPreview" class="markdown-content preview-content"></div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -839,7 +960,7 @@ function buildHtml(
 			savedWorkflows: initialPayload.savedWorkflows,
 			orchestrationDirectory: initialPayload.orchestrationDirectory,
 			inspectorCollapsed: false,
-			previewCollapsed: false,
+			previewCollapsed: true,
 			isComposing: false,
 			connectDraft: null,
 			dragState: null,
@@ -860,7 +981,12 @@ function buildHtml(
 		const toggleInspectorButton = document.getElementById('toggleInspectorButton');
 		const togglePreviewButton = document.getElementById('togglePreviewButton');
 		const previewLayout = document.querySelector('.preview-layout');
+		const confirmOverlay = document.getElementById('confirmOverlay');
+		const confirmMessage = document.getElementById('confirmMessage');
+		const confirmCancelButton = document.getElementById('confirmCancelButton');
+		const confirmDeleteButton = document.getElementById('confirmDeleteButton');
 		const uiText = initialPayload.uiText;
+		let pendingConfirmAction = null;
 
 		function escapeHtmlClient(value) {
 			return String(value)
@@ -868,6 +994,20 @@ function buildHtml(
 				.replace(/</g, '&lt;')
 				.replace(/>/g, '&gt;')
 				.replace(/"/g, '&quot;');
+		}
+
+		function openConfirmDialog(message, onConfirm) {
+			pendingConfirmAction = onConfirm;
+			confirmMessage.textContent = message;
+			confirmCancelButton.textContent = uiText.cancelLabel;
+			confirmDeleteButton.textContent = uiText.deleteLabel;
+			confirmOverlay.hidden = false;
+			confirmDeleteButton.focus();
+		}
+
+		function closeConfirmDialog() {
+			pendingConfirmAction = null;
+			confirmOverlay.hidden = true;
 		}
 
 		function persistState() {}
@@ -1009,17 +1149,18 @@ function buildHtml(
 				savedWorkflowSelect.disabled = true;
 				return;
 			}
+			const hasSelectedWorkflow = appState.savedWorkflows.some(
+				(workflow) => workflow.workflowId === appState.selectedWorkflowId,
+			);
 			savedWorkflowSelect.disabled = false;
-			savedWorkflowSelect.innerHTML = appState.savedWorkflows
-				.map((workflow) => {
+			savedWorkflowSelect.innerHTML = [
+				'<option value="">' + escapeHtmlClient(uiText.selectWorkflow) + '</option>',
+				...appState.savedWorkflows.map((workflow) => {
 					const selected = workflow.workflowId === appState.selectedWorkflowId ? 'selected' : '';
 					return '<option value="' + escapeHtmlClient(workflow.workflowId) + '" ' + selected + '>' + escapeHtmlClient(workflow.name) + '</option>';
-				})
-				.join('');
-			if (!appState.selectedWorkflowId) {
-				appState.selectedWorkflowId = appState.savedWorkflows[0].workflowId;
-			}
-			savedWorkflowSelect.value = appState.selectedWorkflowId;
+				}),
+			].join('');
+			savedWorkflowSelect.value = hasSelectedWorkflow ? appState.selectedWorkflowId : '';
 		}
 
 		function renderInlineMarkdown(markdown) {
@@ -1028,6 +1169,41 @@ function buildHtml(
 				.replace(new RegExp(tick + '([^' + tick + ']+)' + tick, 'g'), '<code>$1</code>')
 				.replace(new RegExp('\\\\*\\\\*([^*]+)\\\\*\\\\*', 'g'), '<strong>$1</strong>')
 				.replace(new RegExp('\\\\*([^*]+)\\\\*', 'g'), '<em>$1</em>');
+		}
+
+		function isMarkdownTable(block, newline) {
+			const lines = block
+				.split(newline)
+				.map((line) => line.trim())
+				.filter(Boolean);
+			if (lines.length < 2) {
+				return false;
+			}
+			if (!lines[0].includes('|')) {
+				return false;
+			}
+			return new RegExp('^\\\\|?(?:\\\\s*:?-{3,}:?\\\\s*\\\\|)+\\\\s*:?-{3,}:?\\\\s*\\\\|?$').test(lines[1]);
+		}
+
+		function parseTableRow(line) {
+			const trimmed = line.trim();
+			const normalized = trimmed.startsWith('|') ? trimmed.slice(1) : trimmed;
+			const withoutTrailing = normalized.endsWith('|') ? normalized.slice(0, -1) : normalized;
+			return withoutTrailing.split('|').map((cell) => cell.trim());
+		}
+
+		function renderMarkdownTable(block, newline) {
+			const lines = block
+				.split(newline)
+				.map((line) => line.trim())
+				.filter(Boolean);
+			const headerCells = parseTableRow(lines[0]);
+			const bodyRows = lines.slice(2).map(parseTableRow);
+			const headerHtml = '<tr>' + headerCells.map((cell) => '<th>' + renderInlineMarkdown(cell) + '</th>').join('') + '</tr>';
+			const bodyHtml = bodyRows
+				.map((cells) => '<tr>' + cells.map((cell) => '<td>' + renderInlineMarkdown(cell) + '</td>').join('') + '</tr>')
+				.join('');
+			return '<table><thead>' + headerHtml + '</thead><tbody>' + bodyHtml + '</tbody></table>';
 		}
 
 		function renderMarkdown(markdown) {
@@ -1070,6 +1246,9 @@ function buildHtml(
 						.map((item) => '<li>' + renderInlineMarkdown(item) + '</li>')
 						.join('');
 					return '<ul>' + items + '</ul>';
+				}
+				if (isMarkdownTable(block, newline)) {
+					return renderMarkdownTable(block, newline);
 				}
 				return '<p>' + renderInlineMarkdown(block).replaceAll(newline, '<br />') + '</p>';
 			});
@@ -1129,9 +1308,6 @@ function buildHtml(
 		}
 
 		function getNodeMeta(node) {
-			if (node.cardType === 'loop') {
-				return 'x' + String(node.maxAttempts || 1);
-			}
 			return '';
 		}
 
@@ -1436,7 +1612,6 @@ function buildHtml(
 		}
 
 		function buildWorkflowInspector() {
-			const validation = appState.validation;
 			const deleteButton = appState.selectedWorkflowId
 				? '<button class="icon-button icon-only inspector-delete" data-delete-workflow="' + escapeHtmlClient(appState.selectedWorkflowId) + '" type="button" title="' + escapeHtmlClient(uiText.deleteLabel) + '" aria-label="' + escapeHtmlClient(uiText.deleteLabel) + '"><span class="codicon codicon-trash" aria-hidden="true"></span></button>'
 				: '';
@@ -1448,11 +1623,8 @@ function buildHtml(
 				'</div>' +
 				'<div class="field-group">' +
 					'<label class="field-label" for="workflowDescription">' + escapeHtmlClient(uiText.description) + '</label>' +
-					'<textarea id="workflowDescription" data-workflow-field="description">' + escapeHtmlClient(appState.workflow.description || '') + '</textarea>' +
+					'<textarea id="workflowDescription" data-workflow-field="description" placeholder="' + escapeHtmlClient(uiText.workflowDescriptionPlaceholder) + '">' + escapeHtmlClient(appState.workflow.description || '') + '</textarea>' +
 				'</div>' +
-				'<div class="field-help">' + escapeHtmlClient(uiText.cards) + ': ' + appState.workflow.nodes.length + ' / ' + escapeHtmlClient(uiText.connectors) + ': ' + appState.workflow.edges.length + '</div>' +
-				'<div class="field-help">' + escapeHtmlClient(uiText.errors) + ': ' + validation.errors.length + ' / ' + escapeHtmlClient(uiText.warnings) + ': ' + validation.warnings.length + '</div>' +
-				'<div class="field-help">' + escapeHtmlClient(uiText.savedIn) + ': ' + escapeHtmlClient(appState.orchestrationDirectory) + '</div>' +
 			'</div>' +
 			buildInspectorValidation(getValidationItemsForSelection({ kind: 'workflow' }));
 		}
@@ -1499,15 +1671,15 @@ function buildHtml(
 					'<div class="card-headline"><h3>' + escapeHtmlClient(uiText.output) + '</h3><button class="icon-button icon-only inspector-delete" data-delete-node="' + escapeHtmlClient(node.nodeId) + '" type="button" title="' + escapeHtmlClient(uiText.deleteCard) + '" aria-label="' + escapeHtmlClient(uiText.deleteCard) + '"><span class="codicon codicon-trash" aria-hidden="true"></span></button></div>' +
 					'<div class="field-group">' +
 						'<label class="field-label" for="outputName">' + escapeHtmlClient(uiText.name) + '</label>' +
-						'<input id="outputName" data-node-field="outputName" data-node-id="' + escapeHtmlClient(node.nodeId) + '" value="' + escapeHtmlClient(node.outputName) + '" />' +
+						'<input id="outputName" data-node-field="outputName" data-node-id="' + escapeHtmlClient(node.nodeId) + '" value="' + escapeHtmlClient(node.outputName) + '" placeholder="' + escapeHtmlClient(uiText.outputNamePlaceholder) + '" />' +
 					'</div>' +
 					'<div class="field-group">' +
 						'<label class="field-label" for="outputFormat">' + escapeHtmlClient(uiText.outputFormat) + '</label>' +
-						'<textarea id="outputFormat" data-node-field="outputFormat" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.outputFormat) + '</textarea>' +
+						'<textarea id="outputFormat" data-node-field="outputFormat" data-node-id="' + escapeHtmlClient(node.nodeId) + '" placeholder="' + escapeHtmlClient(uiText.outputFormatPlaceholder) + '">' + escapeHtmlClient(node.outputFormat) + '</textarea>' +
 					'</div>' +
 					'<div class="field-group">' +
 						'<label class="field-label" for="outputNotes">' + escapeHtmlClient(uiText.notes) + '</label>' +
-						'<textarea id="outputNotes" data-node-field="notes" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.notes) + '</textarea>' +
+						'<textarea id="outputNotes" data-node-field="notes" data-node-id="' + escapeHtmlClient(node.nodeId) + '" placeholder="' + escapeHtmlClient(uiText.notesPlaceholder) + '">' + escapeHtmlClient(node.notes) + '</textarea>' +
 					'</div>' +
 				'</div>' +
 				buildInspectorValidation(getValidationItemsForSelection({ kind: 'node', nodeId: node.nodeId }));
@@ -1516,7 +1688,7 @@ function buildHtml(
 				return '<div class="inspector-card">' +
 					'<div class="card-headline"><h3>' + escapeHtmlClient(uiText.loop) + '</h3><button class="icon-button icon-only inspector-delete" data-delete-node="' + escapeHtmlClient(node.nodeId) + '" type="button" title="' + escapeHtmlClient(uiText.deleteCard) + '" aria-label="' + escapeHtmlClient(uiText.deleteCard) + '"><span class="codicon codicon-trash" aria-hidden="true"></span></button></div>' +
 					'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.maxAttempts) + '</label><input type="number" min="1" data-node-field="maxAttempts" data-node-id="' + escapeHtmlClient(node.nodeId) + '" value="' + escapeHtmlClient(String(node.maxAttempts || 1)) + '" /></div>' +
-					'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.acceptanceCriteria) + '</label><textarea data-node-field="acceptanceCriteria" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.acceptanceCriteria) + '</textarea></div>' +
+					'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.acceptanceCriteria) + '</label><textarea data-node-field="acceptanceCriteria" data-node-id="' + escapeHtmlClient(node.nodeId) + '" placeholder="' + escapeHtmlClient(uiText.acceptanceCriteriaPlaceholder) + '">' + escapeHtmlClient(node.acceptanceCriteria) + '</textarea></div>' +
 				'</div>' +
 				buildInspectorValidation(getValidationItemsForSelection({ kind: 'node', nodeId: node.nodeId }));
 			}
@@ -1524,10 +1696,10 @@ function buildHtml(
 				'<div class="card-headline"><h3>' + escapeHtmlClient(uiText.agent) + '</h3><button class="icon-button icon-only inspector-delete" data-delete-node="' + escapeHtmlClient(node.nodeId) + '" type="button" title="' + escapeHtmlClient(uiText.deleteCard) + '" aria-label="' + escapeHtmlClient(uiText.deleteCard) + '"><span class="codicon codicon-trash" aria-hidden="true"></span></button></div>' +
 				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.number) + '</label><input type="number" min="1" data-node-field="order" data-node-id="' + escapeHtmlClient(node.nodeId) + '" value="' + escapeHtmlClient(String(node.order || 1)) + '" /></div>' +
 				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.agent) + '</label><select data-node-field="agentName" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + buildAgentOptions(node.agentName) + '</select></div>' +
-				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.purpose) + '</label><textarea data-node-field="purpose" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.purpose) + '</textarea></div>' +
-				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.input) + '</label><textarea data-node-field="input" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.input) + '</textarea></div>' +
-				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.expectedOutput) + '</label><textarea data-node-field="expectedOutput" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.expectedOutput) + '</textarea></div>' +
-				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.doneCriteria) + '</label><textarea data-node-field="doneCriteria" data-node-id="' + escapeHtmlClient(node.nodeId) + '">' + escapeHtmlClient(node.doneCriteria) + '</textarea></div>' +
+				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.purpose) + '</label><textarea data-node-field="purpose" data-node-id="' + escapeHtmlClient(node.nodeId) + '" placeholder="' + escapeHtmlClient(uiText.purposePlaceholder) + '">' + escapeHtmlClient(node.purpose) + '</textarea></div>' +
+				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.input) + '</label><textarea data-node-field="input" data-node-id="' + escapeHtmlClient(node.nodeId) + '" placeholder="' + escapeHtmlClient(uiText.inputPlaceholder) + '">' + escapeHtmlClient(node.input) + '</textarea></div>' +
+				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.expectedOutput) + '</label><textarea data-node-field="expectedOutput" data-node-id="' + escapeHtmlClient(node.nodeId) + '" placeholder="' + escapeHtmlClient(uiText.expectedOutputPlaceholder) + '">' + escapeHtmlClient(node.expectedOutput) + '</textarea></div>' +
+				'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.doneCriteria) + '</label><textarea data-node-field="doneCriteria" data-node-id="' + escapeHtmlClient(node.nodeId) + '" placeholder="' + escapeHtmlClient(uiText.doneCriteriaPlaceholder) + '">' + escapeHtmlClient(node.doneCriteria) + '</textarea></div>' +
 			'</div>' +
 			buildInspectorValidation(getValidationItemsForSelection({ kind: 'node', nodeId: node.nodeId }));
 		}
@@ -1767,8 +1939,10 @@ function buildHtml(
 			if (message.type === 'workflowPrompt') {
 				appState.validation = message.validation;
 				appState.prompt = message.prompt;
+				appState.previewCollapsed = false;
 				setStatus(message.status || 'Prompt generated.');
 				renderInspector();
+				renderPreviewShell();
 				renderPreview();
 				renderCanvas();
 				persistState();
@@ -1827,12 +2001,8 @@ function buildHtml(
 			vscode.postMessage({ type: 'createWorkflow' });
 		});
 
-		document.getElementById('loadWorkflowButton').addEventListener('click', () => {
-			if (!savedWorkflowSelect.value) {
-				setStatus(uiText.noSavedWorkflowSelected);
-				return;
-			}
-			vscode.postMessage({ type: 'loadWorkflow', workflowId: savedWorkflowSelect.value });
+		document.getElementById('openWorkflowFolderButton').addEventListener('click', () => {
+			vscode.postMessage({ type: 'openWorkflowFolder' });
 		});
 
 		document.getElementById('saveWorkflowButton').addEventListener('click', () => {
@@ -1844,7 +2014,9 @@ function buildHtml(
 				setStatus(uiText.noSavedWorkflowSelected);
 				return;
 			}
-			vscode.postMessage({ type: 'deleteWorkflow', workflowId: savedWorkflowSelect.value });
+			openConfirmDialog(uiText.confirmDeleteWorkflow, () => {
+				vscode.postMessage({ type: 'deleteWorkflow', workflowId: savedWorkflowSelect.value });
+			});
 		});
 
 		document.getElementById('generatePromptButton').addEventListener('click', () => {
@@ -1869,8 +2041,29 @@ function buildHtml(
 			vscode.postMessage({ type: 'copyPrompt', prompt: appState.prompt });
 		});
 
+		confirmCancelButton.addEventListener('click', () => {
+			closeConfirmDialog();
+		});
+
+		confirmDeleteButton.addEventListener('click', () => {
+			const action = pendingConfirmAction;
+			closeConfirmDialog();
+			if (typeof action === 'function') {
+				action();
+			}
+		});
+
+		confirmOverlay.addEventListener('click', (event) => {
+			if (event.target === confirmOverlay) {
+				closeConfirmDialog();
+			}
+		});
+
 		savedWorkflowSelect.addEventListener('change', () => {
 			appState.selectedWorkflowId = savedWorkflowSelect.value;
+			if (appState.selectedWorkflowId) {
+				vscode.postMessage({ type: 'loadWorkflow', workflowId: appState.selectedWorkflowId });
+			}
 			persistState();
 		});
 
@@ -1967,17 +2160,29 @@ function buildHtml(
 			}
 			const deleteNodeButton = target.closest('[data-delete-node]');
 			if (deleteNodeButton && deleteNodeButton.dataset && deleteNodeButton.dataset.deleteNode) {
-				removeSelectedNode(deleteNodeButton.dataset.deleteNode);
+				openConfirmDialog(uiText.confirmDeleteCard, () => {
+					removeSelectedNode(deleteNodeButton.dataset.deleteNode);
+				});
 				return;
 			}
 			const deleteEdgeButton = target.closest('[data-delete-edge]');
 			if (deleteEdgeButton && deleteEdgeButton.dataset && deleteEdgeButton.dataset.deleteEdge) {
-				removeSelectedEdge(deleteEdgeButton.dataset.deleteEdge);
+				openConfirmDialog(uiText.confirmDeleteConnector, () => {
+					removeSelectedEdge(deleteEdgeButton.dataset.deleteEdge);
+				});
 				return;
 			}
 			const deleteWorkflowButton = target.closest('[data-delete-workflow]');
 			if (deleteWorkflowButton && deleteWorkflowButton.dataset && deleteWorkflowButton.dataset.deleteWorkflow) {
-				vscode.postMessage({ type: 'deleteWorkflow', workflowId: deleteWorkflowButton.dataset.deleteWorkflow });
+				openConfirmDialog(uiText.confirmDeleteWorkflow, () => {
+					vscode.postMessage({ type: 'deleteWorkflow', workflowId: deleteWorkflowButton.dataset.deleteWorkflow });
+				});
+			}
+		});
+
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape' && !confirmOverlay.hidden) {
+				closeConfirmDialog();
 			}
 		});
 
@@ -2078,6 +2283,12 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 				validation: validateWorkflowDefinition(workflow),
 				status: 'New workflow created.',
 			});
+			return;
+		}
+		if (message.type === 'openWorkflowFolder') {
+			void vscode.env.openExternal(
+				vscode.Uri.file(getOrchestrationDirectory()),
+			);
 			return;
 		}
 		if (message.type === 'saveWorkflow') {

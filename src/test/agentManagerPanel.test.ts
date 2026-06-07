@@ -104,7 +104,19 @@ suite('Agent manager panel', () => {
 		const source = fs.readFileSync(sourcePath, 'utf8');
 
 		assert.ok(source.includes('deleteWorkflowButton'));
+		assert.ok(source.includes('openWorkflowFolderButton'));
 		assert.ok(source.includes('toggleInspectorButton'));
+		assert.ok(source.includes('preview-header'));
+		assert.ok(source.includes('preview-card'));
+		assert.ok(source.includes('confirmOverlay'));
+		assert.ok(source.includes('openConfirmDialog(uiText.confirmDeleteWorkflow'));
+		assert.ok(source.includes('previewCollapsed: true'));
+		assert.ok(source.includes('uiText.selectWorkflow'));
+		assert.ok(source.includes('appState.previewCollapsed = false'));
+		assert.ok(source.includes('function isMarkdownTable('));
+		assert.ok(source.includes("return '<table><thead>'"));
+		assert.ok(!source.includes("return 'x' + String(node.maxAttempts || 1);"));
+		assert.ok(source.includes("savedWorkflowSelect.addEventListener('change'"));
 		assert.ok(source.includes('data-delete-workflow'));
 		assert.ok(source.includes('class="markdown-content preview-content"'));
 		assert.ok(source.includes('retainContextWhenHidden: false'));

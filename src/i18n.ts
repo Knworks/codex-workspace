@@ -232,6 +232,10 @@ export const messages = {
 		'message.agentManagerNoSavedWorkflow',
 		'No saved workflows',
 	),
+	agentManagerSelectWorkflow: localize(
+		'message.agentManagerSelectWorkflow',
+		'Select workflow',
+	),
 	agentManagerPromptPreview: localize(
 		'message.agentManagerPromptPreview',
 		'Prompt Preview',
@@ -256,6 +260,10 @@ export const messages = {
 	agentManagerLoad: localize('message.agentManagerLoad', 'Load'),
 	agentManagerSave: localize('message.agentManagerSave', 'Save'),
 	agentManagerDelete: localize('message.agentManagerDelete', 'Delete'),
+	agentManagerOpenFolder: localize(
+		'message.agentManagerOpenFolder',
+		'Open folder',
+	),
 	agentManagerGeneratePrompt: localize(
 		'message.agentManagerGeneratePrompt',
 		'Generate Prompt',
@@ -385,6 +393,54 @@ export const messages = {
 	agentManagerConnectorAdded: localize(
 		'message.agentManagerConnectorAdded',
 		'Connector added.',
+	),
+	agentManagerConfirmDeleteWorkflow: localize(
+		'message.agentManagerConfirmDeleteWorkflow',
+		'Delete the selected workflow?',
+	),
+	agentManagerConfirmDeleteCard: localize(
+		'message.agentManagerConfirmDeleteCard',
+		'Delete this card?',
+	),
+	agentManagerConfirmDeleteConnector: localize(
+		'message.agentManagerConfirmDeleteConnector',
+		'Delete this connector?',
+	),
+	agentManagerWorkflowDescriptionPlaceholder: localize(
+		'message.agentManagerWorkflowDescriptionPlaceholder',
+		'Describe what this workflow is meant to accomplish.',
+	),
+	agentManagerOutputNamePlaceholder: localize(
+		'message.agentManagerOutputNamePlaceholder',
+		'Name the final artifact or section.',
+	),
+	agentManagerOutputFormatPlaceholder: localize(
+		'message.agentManagerOutputFormatPlaceholder',
+		'Explain the expected output format, structure, or template.',
+	),
+	agentManagerNotesPlaceholder: localize(
+		'message.agentManagerNotesPlaceholder',
+		'Add optional notes or delivery constraints.',
+	),
+	agentManagerAcceptanceCriteriaPlaceholder: localize(
+		'message.agentManagerAcceptanceCriteriaPlaceholder',
+		'Describe how the loop decides whether it can stop.',
+	),
+	agentManagerPurposePlaceholder: localize(
+		'message.agentManagerPurposePlaceholder',
+		'Describe what this agent is responsible for.',
+	),
+	agentManagerInputPlaceholder: localize(
+		'message.agentManagerInputPlaceholder',
+		'List the context, files, or inputs this agent should use.',
+	),
+	agentManagerExpectedOutputPlaceholder: localize(
+		'message.agentManagerExpectedOutputPlaceholder',
+		'Describe the output this agent should return.',
+	),
+	agentManagerDoneCriteriaPlaceholder: localize(
+		'message.agentManagerDoneCriteriaPlaceholder',
+		'Explain how to judge whether this agent is done.',
 	),
 	agentManagerOverwritten: (agentName: string) =>
 		localize(
