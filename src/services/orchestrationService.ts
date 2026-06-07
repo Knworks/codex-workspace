@@ -598,17 +598,18 @@ export function generateWorkflowPrompt(
 			'',
 			`## ${strings.outputFormatTitle}`,
 			'',
-			`- ${finalOutputFormat}`,
+			finalOutputFormat,
 		);
 	}
 	lines.push(
 		'',
 		`## ${strings.outputTitle}`,
 		'',
-		`- ${strings.outputFallback}`,
+		strings.outputFallback,
+		'',
 	);
 	for (const bullet of strings.defaultReportBullets) {
-		lines.push(`  - ${bullet}`);
+		lines.push(`- ${bullet}`);
 	}
 
 	lines.push(
@@ -737,10 +738,10 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 			],
 			agentListTitle: '🤖 起動するサブエージェント',
 			loopTitle: '🔄 差し戻し設定',
-			outputFormatTitle: '🧾 出力形式',
+			outputFormatTitle: '📐 出力形式',
 			requestTitle: '📤 サブエージェントへの依頼形式',
 			stepsTitle: '🔁 オーケストレーション手順',
-			outputTitle: '🧾 出力',
+			outputTitle: '🧾 最終出力',
 			endConditionsTitle: '✅ 終了条件',
 			agentTableHeaders: ['No', 'サブエージェント', '目的', '入力', '期待する出力', '完了条件'],
 			loopTableHeaders: ['作業エージェント', '確認エージェント', '最大試行回数', '完了条件'],
@@ -819,7 +820,7 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 		outputFormatTitle: 'Output format',
 		requestTitle: 'Delegation format for subagents',
 		stepsTitle: 'Orchestration steps',
-		outputTitle: 'Output',
+		outputTitle: 'Final output',
 		endConditionsTitle: 'Exit conditions',
 		agentTableHeaders: ['No', 'Subagent', 'Purpose', 'Input', 'Expected output', 'Done criteria'],
 		loopTableHeaders: ['Worker agent', 'Reviewer agent', 'Max attempts', 'Done criteria'],

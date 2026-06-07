@@ -243,9 +243,12 @@ suite('Orchestration service', () => {
 		assert.ok(result.prompt.includes('## 🎯 目的'));
 		assert.ok(result.prompt.includes('implementer'));
 		assert.ok(result.prompt.includes('reviewer'));
-		assert.ok(result.prompt.includes('## 🧾 出力形式'));
+		assert.ok(result.prompt.includes('## 📐 出力形式'));
 		assert.ok(result.prompt.includes('Markdown summary / Include risks and remaining work.'));
+		assert.ok(!result.prompt.includes('- Markdown summary / Include risks and remaining work.'));
+		assert.ok(result.prompt.includes('## 🧾 最終出力'));
 		assert.ok(result.prompt.includes('差し戻し設定'));
+		assert.ok(result.prompt.includes('最終結果の報告では、少なくとも以下を含めること。\n\n- 最終結果'));
 		assert.ok(result.prompt.includes('The review result is PASS.'));
 	});
 
@@ -258,7 +261,9 @@ suite('Orchestration service', () => {
 		assert.ok(result.prompt.includes('## Goal'));
 		assert.ok(result.prompt.includes('## Review and retry settings'));
 		assert.ok(result.prompt.includes('## Output format'));
+		assert.ok(result.prompt.includes('## Final output'));
 		assert.ok(result.prompt.includes('Launch subagents in ascending `No` order'));
+		assert.ok(result.prompt.includes('Include at least the following items in the final report.\n\n- Final result'));
 		assert.ok(result.prompt.includes('Markdown summary'));
 	});
 
