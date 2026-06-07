@@ -2,11 +2,13 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
-## 1.1.7
+## 1.1.8
 
 Preview
 
 - Added `Orchestration Editor` in `AGENTS Manager` for editing workflow graphs and generating prompts.
+
+## 1.1.7
 
 Fixes
 
@@ -18,7 +20,7 @@ Fixes
   - Displays animations for idle, drag, click, and waiting states.
   - Added pet selection and settings such as display scale.
 - When App Server integration is enabled, `Codex Pet` connects to `codex app-server` and periodically shows `5h` / `1w` rate limit information in speech bubbles.
-
+ジョン
 ## 1.1.5
 
 Changes
