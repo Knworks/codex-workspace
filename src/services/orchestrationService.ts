@@ -816,7 +816,7 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 			endLoopLabel: '差し戻しが最大試行回数に達した',
 			endLoopAction: '未達理由と現時点の成果物をまとめて報告し終了する',
 			stepLines: [
-				'サブエージェント一覧の `No` 昇順に従ってサブエージェントを起動し、表に定義された `目的`、`入力`、`期待する出力`、`完了条件` を渡して委譲する。',
+				'サブエージェント一覧の `No` 昇順に従ってサブエージェントを起動し、表に定義された `目的`、`入力`、`期待する出力`、`完了条件` を渡して委譲する。未記入の項目は、そのサブエージェント固有の定義や関連スキルに委ねる。',
 				'各サブエージェントの結果を受け取り、次に起動すべきサブエージェントをメインエージェントが判断する。',
 				'差し戻し設定がある場合は、対応する `確認エージェント` を起動する。',
 				'`確認エージェント` の結果が `完了条件` を満たさない場合は、対応する `作業エージェント` に差し戻す。',
@@ -896,7 +896,7 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 		endLoopLabel: 'A retry reaches the maximum number of attempts',
 		endLoopAction: 'Report the reason for the incomplete result together with the current artifacts and finish',
 		stepLines: [
-			'Launch subagents in ascending `No` order and delegate using the `Purpose`, `Input`, `Expected output`, and `Done criteria` defined in the table.',
+			'Launch subagents in ascending `No` order and delegate using the `Purpose`, `Input`, `Expected output`, and `Done criteria` defined in the table. Leave any blank fields to the subagent-specific definition or related skills.',
 			'Receive each subagent result and let the main agent decide which subagent should be launched next.',
 			'If review and retry settings exist, launch the corresponding reviewer agent.',
 			'If the reviewer result does not satisfy the done criteria, send the work back to the corresponding worker agent.',
