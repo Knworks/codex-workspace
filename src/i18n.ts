@@ -208,6 +208,252 @@ export const messages = {
 		'message.agentManagerNoResult',
 		'No agents found.',
 	),
+	agentManagerAgentsTab: localize(
+		'message.agentManagerAgentsTab',
+		'Agents',
+	),
+	agentManagerOrchestrationTab: localize(
+		'message.agentManagerOrchestrationTab',
+		'Orchestration',
+	),
+	agentManagerWorkflowPlaceholder: localize(
+		'message.agentManagerWorkflowPlaceholder',
+		'New orchestration',
+	),
+	agentManagerWorkflow: localize(
+		'message.agentManagerWorkflow',
+		'Workflow',
+	),
+	agentManagerWorkflowCardDefaultTitle: localize(
+		'message.agentManagerWorkflowCardDefaultTitle',
+		'Workflow',
+	),
+	agentManagerDescription: localize(
+		'message.agentManagerDescription',
+		'Description',
+	),
+	agentManagerWorkflowCardDefaultSummary: localize(
+		'message.agentManagerWorkflowCardDefaultSummary',
+		'Description',
+	),
+	agentManagerNoSavedWorkflow: localize(
+		'message.agentManagerNoSavedWorkflow',
+		'No saved workflows',
+	),
+	agentManagerSelectWorkflow: localize(
+		'message.agentManagerSelectWorkflow',
+		'Select workflow',
+	),
+	agentManagerPromptPreview: localize(
+		'message.agentManagerPromptPreview',
+		'Prompt Preview',
+	),
+	agentManagerHidePreview: localize(
+		'message.agentManagerHidePreview',
+		'Hide Preview',
+	),
+	agentManagerShowPreview: localize(
+		'message.agentManagerShowPreview',
+		'Show Preview',
+	),
+	agentManagerHideInspector: localize(
+		'message.agentManagerHideInspector',
+		'Hide Inspector',
+	),
+	agentManagerShowInspector: localize(
+		'message.agentManagerShowInspector',
+		'Show Inspector',
+	),
+	agentManagerNew: localize('message.agentManagerNew', 'New'),
+	agentManagerLoad: localize('message.agentManagerLoad', 'Load'),
+	agentManagerSave: localize('message.agentManagerSave', 'Save'),
+	agentManagerDelete: localize('message.agentManagerDelete', 'Delete'),
+	agentManagerOpenFolder: localize(
+		'message.agentManagerOpenFolder',
+		'Open folder',
+	),
+	agentManagerGeneratePrompt: localize(
+		'message.agentManagerGeneratePrompt',
+		'Generate Prompt',
+	),
+	agentManagerCopy: localize('message.agentManagerCopy', 'Copy'),
+	agentManagerAddAgent: localize(
+		'message.agentManagerAddAgent',
+		'Add Agent',
+	),
+	agentManagerAddLoop: localize(
+		'message.agentManagerAddLoop',
+		'Add Loop',
+	),
+	agentManagerAddOutput: localize(
+		'message.agentManagerAddOutput',
+		'Add Output',
+	),
+	agentManagerCanvasHint: localize(
+		'message.agentManagerCanvasHint',
+		'Drag cards. Connect from the right port to the left port.',
+	),
+	agentManagerConnector: localize(
+		'message.agentManagerConnector',
+		'Connector',
+	),
+	agentManagerSource: localize(
+		'message.agentManagerSource',
+		'Source',
+	),
+	agentManagerTarget: localize(
+		'message.agentManagerTarget',
+		'Target',
+	),
+	agentManagerKind: localize('message.agentManagerKind', 'Kind'),
+	agentManagerConnectorDescription: localize(
+		'message.agentManagerConnectorDescription',
+		'Description',
+	),
+	agentManagerDeleteCard: localize(
+		'message.agentManagerDeleteCard',
+		'Delete card',
+	),
+	agentManagerDeleteConnector: localize(
+		'message.agentManagerDeleteConnector',
+		'Delete connector',
+	),
+	agentManagerAgent: localize('message.agentManagerAgent', 'Agent'),
+	agentManagerLoop: localize('message.agentManagerLoop', 'Loop'),
+	agentManagerOutput: localize('message.agentManagerOutput', 'Output'),
+	agentManagerName: localize('message.agentManagerName', 'Name'),
+	agentManagerNumber: localize('message.agentManagerNumber', 'No'),
+	agentManagerPurpose: localize('message.agentManagerPurpose', 'Purpose'),
+	agentManagerInput: localize('message.agentManagerInput', 'Input'),
+	agentManagerExpectedOutput: localize(
+		'message.agentManagerExpectedOutput',
+		'Expected output',
+	),
+	agentManagerDoneCriteria: localize(
+		'message.agentManagerDoneCriteria',
+		'Done criteria',
+	),
+	agentManagerMaxAttempts: localize(
+		'message.agentManagerMaxAttempts',
+		'Max attempts',
+	),
+	agentManagerAcceptanceCriteria: localize(
+		'message.agentManagerAcceptanceCriteria',
+		'Acceptance criteria',
+	),
+	agentManagerOutputFormat: localize(
+		'message.agentManagerOutputFormat',
+		'Output format',
+	),
+	agentManagerNotes: localize('message.agentManagerNotes', 'Notes'),
+	agentManagerSavedIn: localize('message.agentManagerSavedIn', 'Saved in'),
+	agentManagerCards: localize('message.agentManagerCards', 'Cards'),
+	agentManagerConnectors: localize(
+		'message.agentManagerConnectors',
+		'Connectors',
+	),
+	agentManagerErrors: localize('message.agentManagerErrors', 'Errors'),
+	agentManagerWarnings: localize('message.agentManagerWarnings', 'Warnings'),
+	agentManagerRetryControl: localize(
+		'message.agentManagerRetryControl',
+		'Retry control',
+	),
+	agentManagerSubagent: localize(
+		'message.agentManagerSubagent',
+		'Subagent',
+	),
+	agentManagerOptionalOutput: localize(
+		'message.agentManagerOptionalOutput',
+		'Optional output',
+	),
+	agentManagerSpecialOutputHint: localize(
+		'message.agentManagerSpecialOutputHint',
+		'Optional special output instructions.',
+	),
+	agentManagerAcceptanceCriteriaHint: localize(
+		'message.agentManagerAcceptanceCriteriaHint',
+		'Describe the acceptance criteria.',
+	),
+	agentManagerDelegationHint: localize(
+		'message.agentManagerDelegationHint',
+		'Describe the delegation in the inspector.',
+	),
+	agentManagerNoPromptToCopy: localize(
+		'message.agentManagerNoPromptToCopy',
+		'No prompt to copy.',
+	),
+	agentManagerNoSavedWorkflowSelected: localize(
+		'message.agentManagerNoSavedWorkflowSelected',
+		'No saved workflow selected.',
+	),
+	agentManagerCardDeleted: localize(
+		'message.agentManagerCardDeleted',
+		'Card deleted.',
+	),
+	agentManagerConnectorDeleted: localize(
+		'message.agentManagerConnectorDeleted',
+		'Connector deleted.',
+	),
+	agentManagerCardAdded: localize(
+		'message.agentManagerCardAdded',
+		'Card added.',
+	),
+	agentManagerConnectorAdded: localize(
+		'message.agentManagerConnectorAdded',
+		'Connector added.',
+	),
+	agentManagerConfirmDeleteWorkflow: localize(
+		'message.agentManagerConfirmDeleteWorkflow',
+		'Delete the selected workflow?',
+	),
+	agentManagerConfirmDeleteCard: localize(
+		'message.agentManagerConfirmDeleteCard',
+		'Delete this card?',
+	),
+	agentManagerConfirmDeleteConnector: localize(
+		'message.agentManagerConfirmDeleteConnector',
+		'Delete this connector?',
+	),
+	agentManagerWorkflowDescriptionPlaceholder: localize(
+		'message.agentManagerWorkflowDescriptionPlaceholder',
+		'Describe what this workflow is meant to accomplish.',
+	),
+	agentManagerWorkflowOutputFormatPlaceholder: localize(
+		'message.agentManagerWorkflowOutputFormatPlaceholder',
+		'If there is a special output format instruction, enter it here.',
+	),
+	agentManagerOutputNamePlaceholder: localize(
+		'message.agentManagerOutputNamePlaceholder',
+		'Name the final artifact or section.',
+	),
+	agentManagerOutputFormatPlaceholder: localize(
+		'message.agentManagerOutputFormatPlaceholder',
+		'Explain the expected output format, structure, or template.',
+	),
+	agentManagerNotesPlaceholder: localize(
+		'message.agentManagerNotesPlaceholder',
+		'Add optional notes or delivery constraints.',
+	),
+	agentManagerAcceptanceCriteriaPlaceholder: localize(
+		'message.agentManagerAcceptanceCriteriaPlaceholder',
+		'Describe how the loop decides whether it can stop.',
+	),
+	agentManagerPurposePlaceholder: localize(
+		'message.agentManagerPurposePlaceholder',
+		'Describe what this agent is responsible for.',
+	),
+	agentManagerInputPlaceholder: localize(
+		'message.agentManagerInputPlaceholder',
+		'List the context, files, or inputs this agent should use.',
+	),
+	agentManagerExpectedOutputPlaceholder: localize(
+		'message.agentManagerExpectedOutputPlaceholder',
+		'Describe the output this agent should return.',
+	),
+	agentManagerDoneCriteriaPlaceholder: localize(
+		'message.agentManagerDoneCriteriaPlaceholder',
+		'Explain how to judge whether this agent is done.',
+	),
 	agentManagerOverwritten: (agentName: string) =>
 		localize(
 			'message.agentManagerOverwritten',

@@ -4,9 +4,13 @@ All notable changes to the "codex-workspace" extension will be documented in thi
 
 ## 1.1.7
 
+Preview
+
+- Added `Orchestration Editor` in `AGENTS Manager` for editing workflow graphs and generating prompts.
+
 Fixes
 
-- Fixed incorrect behavior when using App Server integration on Windows environments.
+- Fixed Prevent deleted agents from being restored on sync
 
 ## 1.1.6
 

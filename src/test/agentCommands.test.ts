@@ -419,7 +419,7 @@ suite('Agent commands', () => {
 		});
 	});
 
-	test('deleteAgent removes file, config entry, disabled stash, and sync state', async () => {
+	test('deleteAgent removes file, config entry, and disabled stash while keeping sync state', async () => {
 		await withTempHome(async (homeDir) => {
 			const { codexDir, agentsDir, configPath } = createWorkspace(homeDir);
 			const targetPath = path.join(agentsDir, 'to_delete.toml');
@@ -501,7 +501,7 @@ suite('Agent commands', () => {
 			const syncState = JSON.parse(fs.readFileSync(syncStatePath, 'utf8')) as {
 				agents?: Record<string, unknown>;
 			};
-			assert.strictEqual(syncState.agents?.['to_delete.toml'], undefined);
+			assert.strictEqual(syncState.agents?.['to_delete.toml'], true);
 		});
 	});
 

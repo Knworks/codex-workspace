@@ -33,7 +33,7 @@
 | `MCP Server` | `config.toml` の `[mcp_servers.<id>]` 設定 | `env` / `http_headers` / `env_http_headers` / `tools.*` companion block は一覧表示しない |
 | `Codex Manager` | Core 画面から開く WebviewPanel | History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks / Plugins タブを持つ |
 | `Skill Manager` | Skills 一覧と有効/無効切替を行う WebviewPanel | `SKILL.md` frontmatter と `[[skills.config]]` を参照 |
-| `AGENTS Manager` | Sub Agents 一覧と有効/無効切替を行う WebviewPanel | `config.toml`、disabled store、Agent TOML を参照 |
+| `AGENTS Manager` | Sub Agents 一覧管理とオーケストレーション workflow 編集を行う WebviewPanel | `config.toml`、disabled store、Agent TOML、`.codex-workspace/orchestrations/*.json` を参照 |
 | `MCP Manager` | MCP Server の一覧・作成・編集・削除を行う WebviewPanel | 左右 2 ペイン構成 |
 | `Plugins` | インストール済み Plugin の構成情報 | `~/.codex/plugins/cache` と marketplace 定義を参照 |
 | `Codex Pet Explore` | ペット表示、選択、接続状態、rate limit 吹き出しを扱う WebviewView | `~/.codex/pets/<petId>` を優先し、存在しない場合は `~/.codex/pet/<petId>` を参照 |
@@ -42,6 +42,7 @@
 | `config.toml.bk` | `Organize config.toml` 実行前バックアップ | `~/.codex/.codex-workspace/config.toml.bk` |
 | `agents-disabled.json` | 無効化した agent 設定ブロック退避先 | `~/.codex/.codex-workspace/agents-disabled.json` |
 | `codex-sync.json` | 同期状態の保存先 | `~/.codex/.codex-workspace/codex-sync.json` |
+| `orchestrations/*.json` | オーケストレーション workflow 定義 | `~/.codex/.codex-workspace/orchestrations/<workflowId>.json` |
 | `maxHistoryCount` | 会話履歴一覧の最大件数設定 | 明示設定時のみ適用 |
 | `incrudeReasoningMessage` | 履歴プレビューに reasoning を含める設定 | キー名は実装のまま |
 
@@ -56,6 +57,7 @@
 - ユーザーは Skill Manager で Skill 名、説明、保存場所、パスを一覧し、有効/無効を切り替えられる。
 - ユーザーは Templates ビューでテンプレートファイルを開き、ファイル作成時の雛形として利用できる。
 - ユーザーは Sub Agents ビューで Agent TOML を開き、AGENTS Manager から有効/無効を切り替えられる。
+- ユーザーは AGENTS Manager の Orchestration タブで workflow を作成、保存、読込、削除し、prompt を生成・コピーできる。
 - ユーザーは MCP Server ビューでサーバー一覧を見て、項目クリックで有効/無効を切り替えられる。
 - ユーザーは MCP Manager で MCP サーバーを追加、編集、削除できる。
 - ユーザーは Codex Manager を開き、履歴検索、AGENTS Loading Chain、Trusted Directory、Feature Flags、Hooks、Plugins を確認できる。
@@ -149,6 +151,15 @@
 - 無効化時は対応 block を `agents-disabled.json` に退避し、`config.toml` から削除する。
 - 有効化時は退避 block があれば復元し、その後に description と `config_file` を Agent TOML の実体へ再同期する。
 - AGENTS Manager は name / description / model / reasoningEffort / sandboxMode / agentPath / location / toggle / open button を表示する。
+- AGENTS Manager は `Agents` タブと `Orchestration` タブを持つ。
+- `Orchestration` タブでは workflow / agent / loop card を canvas 上で編集できる。
+- workflow は `version` / `workflowId` / `name` / `description` / `finalOutputFormat` / `nodes` / `edges` / `createdAt` / `updatedAt` を持つ JSON として保存する。
+- workflow の保存先は `~/.codex/.codex-workspace/orchestrations` とする。
+- agent card は `order` / `agentName` / `purpose` / `input` / `expectedOutput` / `doneCriteria` を持つ。
+- loop card は `maxAttempts` / `acceptanceCriteria` を持つ。
+- edge は `workflow -> agent`、`agent -> loop`、`loop -> agent` のみを有効な接続とする。
+- 保存前後に workflow のバリデーションを行い、重複 ID、不正接続、未到達 node、循環、必須項目欠落を警告またはエラーとして表示する。
+- prompt 生成は保存済み workflow に限らず現在の編集内容から実行でき、生成結果を preview に表示して copy できる。
 
 ### 5.6 MCP Server の管理
 

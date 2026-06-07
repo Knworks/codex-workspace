@@ -29,6 +29,7 @@ Codex Workspace is a VS Code extension that brings scattered Codex configuration
 - Unified Skills list across Project / Workspace / User / System
 - Unified Sub Agents list across Project / Workspace / User
 - Dedicated Manager Views for Skills, Sub Agents, and MCP Server
+- Visual `Orchestration Editor` in `AGENTS Manager` for designing workflow / agent / loop graphs, validating them, and generating reusable prompts
 - `Codex Manager` that brings together conversation history, the AGENTS loading chain, Trusted Directory, Feature Flags, Hooks, and Plugins
 - Plugin visibility and enable/disable management centralized in the `Plugins` tab instead of the Skills / Sub Agents / MCP Explore and Manager views
 
@@ -110,6 +111,19 @@ Manage Sub Agents from multiple storage locations:
 New Project Agents are always created in `project/.codex/agents`.  
 `AGENTS Manager` lets you search and manage enable/disable state.  
 You can identify enabled/disabled state from the Explore icons.
+
+### Orchestration Editor
+
+![Orchestration Editor](images/view_orchestration.png)
+
+`Orchestration Editor` is available from the `Orchestration` tab inside `AGENTS Manager`.
+
+- Create and edit workflow graphs using `workflow`, `agent`, and `loop` cards on a canvas
+- Configure agent order, selected subagent, delegation purpose, input, expected output, and done criteria from the Inspector
+- Configure review / retry loops with `maxAttempts` and `acceptanceCriteria`
+- Save workflow JSON files under `~/.codex/.codex-workspace/orchestrations`
+- Validate missing required fields, invalid connections, unreachable nodes, duplicate IDs, and cycles while editing
+- Generate a prompt preview from the current graph and copy it without requiring the workflow to be saved first
 
 ### MCP Server
 
