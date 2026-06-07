@@ -417,9 +417,12 @@ function buildHtml(
 		}
 		.orch-layout {
 			display: grid;
-			grid-template-rows: auto minmax(0, 1fr) auto;
+			grid-template-rows: auto minmax(0, 3fr) minmax(0, 2fr);
 			flex: 1;
 			min-height: 0;
+		}
+		.orch-layout.preview-collapsed {
+			grid-template-rows: auto minmax(0, 1fr) 0;
 		}
 		.orch-toolbar,
 		.card-toolbar {
@@ -701,7 +704,7 @@ function buildHtml(
 			display: grid;
 			grid-template-columns: minmax(0, 1fr);
 			border-top: 1px solid var(--vscode-panel-border);
-			height: clamp(238px, 32vh, 436px);
+			height: 100%;
 			min-height: 0;
 			overflow: hidden;
 		}
@@ -985,6 +988,7 @@ function buildHtml(
 		const toggleInspectorButton = document.getElementById('toggleInspectorButton');
 		const togglePreviewButton = document.getElementById('togglePreviewButton');
 		const previewLayout = document.querySelector('.preview-layout');
+		const orchLayout = document.querySelector('.orch-layout');
 		const confirmOverlay = document.getElementById('confirmOverlay');
 		const confirmMessage = document.getElementById('confirmMessage');
 		const confirmCancelButton = document.getElementById('confirmCancelButton');
@@ -1610,6 +1614,7 @@ function buildHtml(
 
 		function renderPreviewShell() {
 			previewLayout.classList.toggle('collapsed', appState.previewCollapsed);
+			orchLayout.classList.toggle('preview-collapsed', appState.previewCollapsed);
 			togglePreviewButton.innerHTML = '<span class="codicon codicon-layout-panel" aria-hidden="true"></span>';
 			togglePreviewButton.title = appState.previewCollapsed ? uiText.showPreview : uiText.hidePreview;
 			togglePreviewButton.setAttribute('aria-label', togglePreviewButton.title);
