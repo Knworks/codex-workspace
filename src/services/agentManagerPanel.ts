@@ -130,7 +130,11 @@ function buildHtml(
 			orchestrationTab: messages.agentManagerOrchestrationTab,
 			workflowPlaceholder: messages.agentManagerWorkflowPlaceholder,
 			workflow: messages.agentManagerWorkflow,
+			workflowCardDefaultTitle:
+				messages.agentManagerWorkflowCardDefaultTitle,
 			description: messages.agentManagerDescription,
+			workflowCardDefaultSummary:
+				messages.agentManagerWorkflowCardDefaultSummary,
 			noSavedWorkflow: messages.agentManagerNoSavedWorkflow,
 			selectWorkflow: messages.agentManagerSelectWorkflow,
 			promptPreview: messages.agentManagerPromptPreview,
@@ -1273,7 +1277,7 @@ function buildHtml(
 
 		function getNodeTitle(node) {
 			if (node.cardType === 'workflow') {
-				return appState.workflow.name || 'Workflow';
+				return appState.workflow.name || uiText.workflowCardDefaultTitle;
 			}
 			if (node.cardType === 'output') {
 				return node.outputName || 'Output';
@@ -1296,7 +1300,7 @@ function buildHtml(
 
 		function getNodeSummary(node) {
 			if (node.cardType === 'workflow') {
-				return appState.workflow.description || uiText.description;
+				return appState.workflow.description || uiText.workflowCardDefaultSummary;
 			}
 			if (node.cardType === 'output') {
 				return node.outputFormat || node.notes || uiText.specialOutputHint;
@@ -1688,7 +1692,7 @@ function buildHtml(
 				return '<div class="inspector-card">' +
 					'<div class="card-headline"><h3>' + escapeHtmlClient(uiText.loop) + '</h3><button class="icon-button icon-only inspector-delete" data-delete-node="' + escapeHtmlClient(node.nodeId) + '" type="button" title="' + escapeHtmlClient(uiText.deleteCard) + '" aria-label="' + escapeHtmlClient(uiText.deleteCard) + '"><span class="codicon codicon-trash" aria-hidden="true"></span></button></div>' +
 					'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.maxAttempts) + '</label><input type="number" min="1" data-node-field="maxAttempts" data-node-id="' + escapeHtmlClient(node.nodeId) + '" value="' + escapeHtmlClient(String(node.maxAttempts || 1)) + '" /></div>' +
-					'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.acceptanceCriteria) + '</label><textarea data-node-field="acceptanceCriteria" data-node-id="' + escapeHtmlClient(node.nodeId) + '" placeholder="' + escapeHtmlClient(uiText.acceptanceCriteriaPlaceholder) + '">' + escapeHtmlClient(node.acceptanceCriteria) + '</textarea></div>' +
+					'<div class="field-group"><label class="field-label">' + escapeHtmlClient(uiText.doneCriteria) + '</label><textarea data-node-field="acceptanceCriteria" data-node-id="' + escapeHtmlClient(node.nodeId) + '" placeholder="' + escapeHtmlClient(uiText.doneCriteriaPlaceholder) + '">' + escapeHtmlClient(node.acceptanceCriteria) + '</textarea></div>' +
 				'</div>' +
 				buildInspectorValidation(getValidationItemsForSelection({ kind: 'node', nodeId: node.nodeId }));
 			}

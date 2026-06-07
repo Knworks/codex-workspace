@@ -113,6 +113,8 @@ suite('Agent manager panel', () => {
 		assert.ok(source.includes('previewCollapsed: true'));
 		assert.ok(source.includes('uiText.selectWorkflow'));
 		assert.ok(source.includes('appState.previewCollapsed = false'));
+		assert.ok(source.includes('workflowCardDefaultTitle'));
+		assert.ok(source.includes('workflowCardDefaultSummary'));
 		assert.ok(source.includes('function isMarkdownTable('));
 		assert.ok(source.includes("return '<table><thead>'"));
 		assert.ok(!source.includes("return 'x' + String(node.maxAttempts || 1);"));

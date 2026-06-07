@@ -224,8 +224,16 @@ export const messages = {
 		'message.agentManagerWorkflow',
 		'Workflow',
 	),
+	agentManagerWorkflowCardDefaultTitle: localize(
+		'message.agentManagerWorkflowCardDefaultTitle',
+		'Workflow',
+	),
 	agentManagerDescription: localize(
 		'message.agentManagerDescription',
+		'Description',
+	),
+	agentManagerWorkflowCardDefaultSummary: localize(
+		'message.agentManagerWorkflowCardDefaultSummary',
 		'Description',
 	),
 	agentManagerNoSavedWorkflow: localize(
