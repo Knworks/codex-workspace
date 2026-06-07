@@ -2267,7 +2267,7 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 				type: 'workflowLoaded',
 				workflow,
 				savedWorkflows: listSavedWorkflowSummaries(),
-				validation: validateWorkflowDefinition(workflow),
+				validation: validateWorkflowDefinition(workflow, vscode.env.language),
 				status: 'New workflow created.',
 			});
 			return;
@@ -2285,7 +2285,7 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 					type: 'workflowSaved',
 					workflow,
 					savedWorkflows: listSavedWorkflowSummaries(),
-					validation: validateWorkflowDefinition(workflow),
+					validation: validateWorkflowDefinition(workflow, vscode.env.language),
 					status: 'Workflow saved to .codex/.codex-workspace/orchestrations.',
 				});
 			} catch (error) {
@@ -2303,7 +2303,7 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 					type: 'workflowLoaded',
 					workflow,
 					savedWorkflows: listSavedWorkflowSummaries(),
-					validation: validateWorkflowDefinition(workflow),
+					validation: validateWorkflowDefinition(workflow, vscode.env.language),
 					status: 'Workflow loaded.',
 				});
 			} catch (error) {
@@ -2322,7 +2322,7 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 					type: 'workflowDeleted',
 					workflow,
 					savedWorkflows: listSavedWorkflowSummaries(),
-					validation: validateWorkflowDefinition(workflow),
+					validation: validateWorkflowDefinition(workflow, vscode.env.language),
 					status: 'Workflow deleted.',
 				});
 			} catch (error) {
@@ -2334,7 +2334,7 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 			return;
 		}
 		if (message.type === 'validateWorkflow') {
-			const validation = validateWorkflowDefinition(message.workflow);
+			const validation = validateWorkflowDefinition(message.workflow, vscode.env.language);
 			this.postToWebview({
 				type: 'workflowValidation',
 				validation,

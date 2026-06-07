@@ -233,6 +233,25 @@ suite('Orchestration service', () => {
 		assert.ok(validation.errors.some((issue) => issue.code === 'invalidLoopOrder'));
 	});
 
+	test('validation localizes issue messages for English', () => {
+		const workflow = createWorkflowFixture();
+		workflow.name = '';
+		const worker = workflow.nodes.find(
+			(node): node is Extract<OrchestrationWorkflow['nodes'][number], { cardType: 'agent' }> =>
+				node.cardType === 'agent' && node.nodeId === 'agent-worker',
+		);
+		assert.ok(worker);
+		if (!worker) {
+			return;
+		}
+		worker.agentName = '';
+
+		const validation = validateWorkflowDefinition(workflow, 'en');
+
+		assert.ok(validation.errors.some((issue) => issue.message === 'The workflow name is required.'));
+		assert.ok(validation.errors.some((issue) => issue.message === 'Each Agent card must select a subagent.'));
+	});
+
 	test('generateWorkflowPrompt renders localized Japanese prompt', () => {
 		const workflow = createWorkflowFixture();
 

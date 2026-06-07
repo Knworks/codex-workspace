@@ -115,6 +115,9 @@ type PromptStrings = {
 	stepLines: string[];
 	fallbackName: string;
 	workflowNameRequired: string;
+	duplicateNodeId: (nodeId: string) => string;
+	duplicateEdgeId: (edgeId: string) => string;
+	danglingEdge: string;
 	workflowNodeMissing: string;
 	workflowNodeMultiple: string;
 	agentMissing: string;
@@ -302,8 +305,10 @@ export function deleteWorkflowDefinition(
 
 export function validateWorkflowDefinition(
 	workflow: OrchestrationWorkflow,
+	language?: string,
 ): WorkflowValidationResult {
-	const strings = getPromptStrings('ja');
+	const locale = language ? resolvePromptLocale(language) : 'ja';
+	const strings = getPromptStrings(locale);
 	const errors: WorkflowIssue[] = [];
 	const warnings: WorkflowIssue[] = [];
 	const nodeIds = new Set<string>();
@@ -330,7 +335,7 @@ export function validateWorkflowDefinition(
 		if (nodeIds.has(node.nodeId)) {
 			errors.push({
 				code: 'duplicateNode',
-				message: `重複した nodeId です: ${node.nodeId}`,
+				message: strings.duplicateNodeId(node.nodeId),
 				nodeId: node.nodeId,
 			});
 			continue;
@@ -408,7 +413,7 @@ export function validateWorkflowDefinition(
 		if (edgeIds.has(edge.edgeId)) {
 			errors.push({
 				code: 'duplicateEdge',
-				message: `重複した edgeId です: ${edge.edgeId}`,
+				message: strings.duplicateEdgeId(edge.edgeId),
 				edgeId: edge.edgeId,
 			});
 			continue;
@@ -419,7 +424,7 @@ export function validateWorkflowDefinition(
 		if (!source || !target) {
 			errors.push({
 				code: 'danglingEdge',
-				message: '接続元または接続先が存在しないコネクタがあります。',
+				message: strings.danglingEdge,
 				edgeId: edge.edgeId,
 			});
 			continue;
@@ -525,12 +530,11 @@ export function generateWorkflowPrompt(
 	workflow: OrchestrationWorkflow,
 	language?: string,
 ): { prompt: string; validation: WorkflowValidationResult } {
-	const validation = validateWorkflowDefinition(workflow);
+	const locale = resolvePromptLocale(language);
+	const validation = validateWorkflowDefinition(workflow, locale);
 	if (validation.errors.length > 0) {
 		return { prompt: '', validation };
 	}
-
-	const locale = resolvePromptLocale(language);
 	const strings = getPromptStrings(locale);
 	const workflowName = workflow.name.trim() || strings.fallbackName;
 	const workflowDescription = workflow.description.trim();
@@ -783,6 +787,9 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 			],
 			fallbackName: 'New orchestration',
 			workflowNameRequired: 'Workflow の名前は必須です。',
+			duplicateNodeId: (nodeId: string) => `重複した nodeId です: ${nodeId}`,
+			duplicateEdgeId: (edgeId: string) => `重複した edgeId です: ${edgeId}`,
+			danglingEdge: '接続元または接続先が存在しないコネクタがあります。',
 			workflowNodeMissing: 'Workflow カードが存在しません。',
 			workflowNodeMultiple: 'Workflow カードは 1 つだけ配置してください。',
 			agentMissing: 'Agent カードを 1 つ以上配置してください。',
@@ -863,6 +870,9 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 		],
 		fallbackName: 'New orchestration',
 		workflowNameRequired: 'The workflow name is required.',
+		duplicateNodeId: (nodeId: string) => `Duplicate nodeId: ${nodeId}`,
+		duplicateEdgeId: (edgeId: string) => `Duplicate edgeId: ${edgeId}`,
+		danglingEdge: 'A connector references a source or target that does not exist.',
 		workflowNodeMissing: 'A Workflow card is required.',
 		workflowNodeMultiple: 'Only one Workflow card can exist.',
 		agentMissing: 'At least one Agent card is required.',
