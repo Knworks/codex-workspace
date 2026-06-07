@@ -243,11 +243,22 @@ suite('Orchestration service', () => {
 		assert.ok(result.prompt.includes('## 🎯 目的'));
 		assert.ok(result.prompt.includes('implementer'));
 		assert.ok(result.prompt.includes('reviewer'));
+		assert.ok(result.prompt.includes('各列が `-` の場合、その項目はエージェント定義または関連スキルに従います。'));
 		assert.ok(result.prompt.includes('## 📐 出力形式'));
 		assert.ok(result.prompt.includes('Markdown summary / Include risks and remaining work.'));
 		assert.ok(!result.prompt.includes('- Markdown summary / Include risks and remaining work.'));
 		assert.ok(result.prompt.includes('## 🧾 最終出力'));
 		assert.ok(result.prompt.includes('差し戻し設定'));
+		assert.ok(result.prompt.includes('| No | サブエージェント | 目的 | 入力 | 期待する出力 | 担当完了条件 |'));
+		assert.ok(result.prompt.includes('| 作業No | 作業エージェント | 確認No | 確認エージェント | 最大試行回数 | レビュー通過条件 |'));
+		assert.ok(result.prompt.includes('| 担当完了条件 | そのサブエージェントの作業を完了とみなす条件 |'));
+		assert.ok(result.prompt.includes('| 1 | implementer | 2 | reviewer | 5 | The review result is PASS. |'));
+		assert.ok(result.prompt.includes('サブエージェントへの依頼は、目的、入力、期待する出力、担当完了条件に絞る。'));
+		assert.ok(result.prompt.includes('現在のサブエージェントに対応する差し戻し設定がある場合のみ'));
+		assert.ok(result.prompt.includes('差し戻し設定がない場合は、完了後に未実行の次の `No` へ進む。'));
+		assert.ok(result.prompt.includes('差し戻し設定表の `レビュー通過条件` を満たさない場合'));
+		assert.ok(result.prompt.includes('最後に必要な確認または担当作業が完了したら'));
+		assert.ok(result.prompt.includes('| 最後に必要な確認または担当作業が完了した | ユーザーへ最終結果を報告して終了する |'));
 		assert.ok(result.prompt.includes('最終結果の報告では、少なくとも以下を含めること。\n\n- 最終結果'));
 		assert.ok(result.prompt.includes('The review result is PASS.'));
 	});
@@ -260,11 +271,44 @@ suite('Orchestration service', () => {
 		assert.strictEqual(result.validation.errors.length, 0);
 		assert.ok(result.prompt.includes('## Goal'));
 		assert.ok(result.prompt.includes('## Review and retry settings'));
+		assert.ok(result.prompt.includes('When a column is `-`, follow the subagent definition or related skills for that field.'));
 		assert.ok(result.prompt.includes('## Output format'));
 		assert.ok(result.prompt.includes('## Final output'));
 		assert.ok(result.prompt.includes('Launch subagents in ascending `No` order'));
+		assert.ok(result.prompt.includes('| No | Subagent | Purpose | Input | Expected output | Assigned done criteria |'));
+		assert.ok(result.prompt.includes('| Worker No | Worker agent | Reviewer No | Reviewer agent | Max attempts | Review pass criteria |'));
+		assert.ok(result.prompt.includes('| Assigned done criteria | What must be true for the subagent task to count as complete |'));
+		assert.ok(result.prompt.includes('| 1 | implementer | 2 | reviewer | 5 | The review result is PASS. |'));
+		assert.ok(result.prompt.includes('Each subagent request must be limited to purpose, input, expected output, and assigned done criteria.'));
+		assert.ok(result.prompt.includes('Only when the current subagent has a review and retry setting'));
+		assert.ok(result.prompt.includes('If the current subagent has no review and retry setting'));
+		assert.ok(result.prompt.includes('does not satisfy the `Review pass criteria` in the review and retry table'));
+		assert.ok(result.prompt.includes('When the last required review or assigned task is complete'));
+		assert.ok(result.prompt.includes('| The last required review or assigned task is complete | Report the final result to the user and finish |'));
 		assert.ok(result.prompt.includes('Include at least the following items in the final report.\n\n- Final result'));
 		assert.ok(result.prompt.includes('Markdown summary'));
+	});
+
+	test('generateWorkflowPrompt keeps blank delegation fields compact and explains fallback once', () => {
+		const workflow = createWorkflowFixture();
+		const worker = workflow.nodes.find(
+			(node): node is Extract<OrchestrationWorkflow['nodes'][number], { cardType: 'agent' }> =>
+				node.cardType === 'agent' && node.nodeId === 'agent-worker',
+		);
+		assert.ok(worker);
+		if (!worker) {
+			return;
+		}
+		worker.purpose = '';
+		worker.input = '';
+		worker.expectedOutput = '';
+		worker.doneCriteria = '';
+
+		const result = generateWorkflowPrompt(workflow, 'ja');
+
+		assert.strictEqual(result.validation.errors.length, 0);
+		assert.ok(result.prompt.includes('各列が `-` の場合、その項目はエージェント定義または関連スキルに従います。'));
+		assert.ok(result.prompt.includes('| 1 | implementer | - | - | - | - |'));
 	});
 
 	test('generateWorkflowPrompt refuses invalid workflows', () => {
