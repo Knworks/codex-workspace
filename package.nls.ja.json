@@ -131,7 +131,7 @@
   "message.agentManagerOptionalOutput": "出力形式",
   "message.agentManagerSpecialOutputHint": "",
   "message.agentManagerAcceptanceCriteriaHint": "",
-  "message.agentManagerDelegationHint": "",
+  "message.agentManagerDelegationHint": "設定しない場合、エージェント固有の振る舞いに任せます。",
   "message.agentManagerNoPromptToCopy": "コピーできるプロンプトがありません。",
   "message.agentManagerNoSavedWorkflowSelected": "保存済みワークフローが選択されていません。",
   "message.agentManagerCardDeleted": "カードを削除しました。",
