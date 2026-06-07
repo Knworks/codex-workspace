@@ -108,6 +108,8 @@ suite('Agent manager panel', () => {
 		assert.ok(source.includes('toggleInspectorButton'));
 		assert.ok(source.includes('preview-header'));
 		assert.ok(source.includes('preview-card'));
+		assert.ok(source.includes('right: 20px;'));
+		assert.ok(source.includes('padding: 12px 56px 12px 12px;'));
 		assert.ok(source.includes('confirmOverlay'));
 		assert.ok(source.includes('openConfirmDialog(uiText.confirmDeleteWorkflow'));
 		assert.ok(source.includes('previewCollapsed: true'));

@@ -733,12 +733,12 @@ function buildHtml(
 		.preview-card > .primary-button {
 			position: absolute;
 			top: 10px;
-			right: 10px;
+			right: 40px;
 			z-index: 1;
 		}
 		.preview-content {
 			margin: 0;
-			padding: 12px 44px 12px 12px;
+			padding: 12px 56px 12px 12px;
 			font-size: 12px;
 			line-height: 1.55;
 			height: 100%;
