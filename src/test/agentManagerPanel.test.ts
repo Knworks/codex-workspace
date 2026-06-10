@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import * as vscode from 'vscode';
 import { AgentManagerPanelManager } from '../services/agentManagerPanel';
+import { createEmptyWorkflow } from '../services/orchestrationService';
 
 type EnvSnapshot = {
 	HOME?: string;
@@ -14,6 +15,7 @@ type EnvSnapshot = {
 
 type FakePanelHandle = {
 	panel: vscode.WebviewPanel;
+	dispatchMessage: (message: unknown) => void;
 	getRevealCount: () => number;
 };
 
@@ -47,6 +49,9 @@ function createFakePanel(): FakePanelHandle {
 
 	return {
 		panel,
+		dispatchMessage: (message: unknown) => {
+			receiveMessageListener?.(message);
+		},
 		getRevealCount: () => revealCount,
 	};
 }
@@ -108,7 +113,7 @@ suite('Agent manager panel', () => {
 		assert.ok(source.includes('toggleInspectorButton'));
 		assert.ok(source.includes('preview-header'));
 		assert.ok(source.includes('preview-card'));
-		assert.ok(source.includes('right: 20px;'));
+		assert.ok(source.includes('right: 40px;'));
 		assert.ok(source.includes('padding: 12px 56px 12px 12px;'));
 		assert.ok(source.includes('confirmOverlay'));
 		assert.ok(source.includes('openConfirmDialog(uiText.confirmDeleteWorkflow'));
@@ -117,6 +122,12 @@ suite('Agent manager panel', () => {
 		assert.ok(source.includes('appState.previewCollapsed = false'));
 		assert.ok(source.includes('workflowCardDefaultTitle'));
 		assert.ok(source.includes('workflowCardDefaultSummary'));
+		assert.ok(source.includes("type: 'persistWorkflowState'"));
+		assert.ok(source.includes('const restoredState = vscode.getState ? vscode.getState() : undefined;'));
+		assert.ok(source.includes('workflow: restoredState && restoredState.workflow'));
+		assert.ok(source.includes('vscode.setState(state);'));
+		assert.ok(source.includes('data-workflow-field="constraints"'));
+		assert.ok(source.includes('constraintsPlaceholder'));
 		assert.ok(source.includes('data-workflow-field="finalOutputFormat"'));
 		assert.ok(source.includes('workflowOutputFormatPlaceholder'));
 		assert.ok(source.includes('function isMarkdownTable('));
@@ -142,6 +153,59 @@ suite('Agent manager panel', () => {
 		assert.ok(!source.includes('Agent source'));
 		assert.ok(!source.includes('<label class="field-label">Role</label>'));
 		assert.ok(!source.includes('<label class="field-label">Summary</label>'));
+	});
+
+	test('show restores persisted orchestration draft after refresh', async () => {
+		await withTempHome(async (homeDir) => {
+			const codexDir = path.join(homeDir, '.codex');
+			fs.mkdirSync(codexDir, { recursive: true });
+
+			const originalCreateWebviewPanel = vscode.window.createWebviewPanel;
+			const fakePanel = createFakePanel();
+			(
+				vscode.window as unknown as {
+					createWebviewPanel: typeof originalCreateWebviewPanel;
+				}
+			).createWebviewPanel = () => fakePanel.panel;
+
+			try {
+				const manager = new AgentManagerPanelManager(() => undefined);
+				manager.show();
+
+				const workflow = createEmptyWorkflow('Draft orchestration');
+				workflow.description = 'Keep this draft after reopen.';
+				workflow.constraints = 'Do not lose unsaved changes.';
+
+				fakePanel.dispatchMessage({
+					type: 'persistWorkflowState',
+					state: {
+						activeTab: 'orchestration',
+						workflow,
+						selectedWorkflowId: '',
+						selection: { kind: 'workflow' },
+						validation: { errors: [], warnings: [] },
+						prompt: '',
+						statusMessage: 'Draft persisted.',
+						inspectorCollapsed: false,
+						previewCollapsed: true,
+					},
+				});
+
+				manager.show();
+
+				const html = fakePanel.panel.webview.html;
+				assert.ok(html.includes('Draft orchestration'));
+				assert.ok(html.includes('Do not lose unsaved changes.'));
+				assert.strictEqual(fakePanel.getRevealCount(), 1);
+				manager.dispose();
+			} finally {
+				(
+					vscode.window as unknown as {
+						createWebviewPanel: typeof originalCreateWebviewPanel;
+					}
+				).createWebviewPanel = originalCreateWebviewPanel;
+			}
+		});
 	});
 
 	test('show renders agent manager webview html', async () => {

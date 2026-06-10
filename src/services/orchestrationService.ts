@@ -54,6 +54,7 @@ export type OrchestrationWorkflow = {
 	workflowId: string;
 	name: string;
 	description: string;
+	constraints: string;
 	finalOutputFormat: string;
 	nodes: OrchestrationNode[];
 	edges: OrchestrationEdge[];
@@ -91,6 +92,7 @@ type PromptStrings = {
 	mainRoleBody: string[];
 	policyTitle: string;
 	policyBody: string[];
+	constraintsTitle: string;
 	agentListTitle: string;
 	loopTitle: string;
 	outputFormatTitle: string;
@@ -212,6 +214,7 @@ export function createEmptyWorkflow(
 		workflowId: createId('workflow'),
 		name,
 		description: '',
+		constraints: '',
 		finalOutputFormat: '',
 		nodes: [createWorkflowNode(createId('workflow-node'), 80, 180)],
 		edges: [],
@@ -538,6 +541,7 @@ export function generateWorkflowPrompt(
 	const strings = getPromptStrings(locale);
 	const workflowName = workflow.name.trim() || strings.fallbackName;
 	const workflowDescription = workflow.description.trim();
+	const constraints = workflow.constraints.trim();
 	const finalOutputFormat = workflow.finalOutputFormat.trim();
 	const agentNodes = getAgentNodes(workflow).sort((left, right) => left.order - right.order);
 	const resolvedLoops = resolveLoops(workflow)
@@ -558,6 +562,18 @@ export function generateWorkflowPrompt(
 		`## ${strings.policyTitle}`,
 		'',
 		...strings.policyBody.map((line) => `- ${line}`),
+	];
+
+	if (constraints) {
+		lines.push(
+			'',
+			`## ${strings.constraintsTitle}`,
+			'',
+			constraints,
+		);
+	}
+
+	lines.push(
 		'',
 		`## ${strings.agentListTitle}`,
 		'',
@@ -600,7 +616,7 @@ export function generateWorkflowPrompt(
 		`## ${strings.stepsTitle}`,
 		'',
 		...strings.stepLines.map((line, index) => `${index + 1}. ${line}`),
-	];
+	);
 
 	if (finalOutputFormat) {
 		lines.push(
@@ -745,6 +761,7 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 				'現在のサブエージェントに対応する差し戻し設定がある場合のみ、対応付けられた `確認 No` のサブエージェントを優先して起動すること。',
 				'特別な出力指定がない場合でも、最後に必要な確認または担当作業が完了したらタスクを完了し、ユーザーへ報告すること。',
 			],
+			constraintsTitle: '制約',
 			agentListTitle: '🤖 起動するサブエージェント',
 			loopTitle: '🔄 差し戻し設定',
 			outputFormatTitle: '📐 出力形式',
@@ -786,26 +803,26 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 				'最後に必要な確認または担当作業が完了したら、タスクを完了しユーザーへ報告する。',
 			],
 			fallbackName: 'New orchestration',
-			workflowNameRequired: 'Workflow の名前は必須です。',
+			workflowNameRequired: 'Orchestration の名前は必須です。',
 			duplicateNodeId: (nodeId: string) => `重複した nodeId です: ${nodeId}`,
 			duplicateEdgeId: (edgeId: string) => `重複した edgeId です: ${edgeId}`,
 			danglingEdge: '接続元または接続先が存在しないコネクタがあります。',
-			workflowNodeMissing: 'Workflow カードが存在しません。',
-			workflowNodeMultiple: 'Workflow カードは 1 つだけ配置してください。',
+			workflowNodeMissing: 'Orchestration カードが存在しません。',
+			workflowNodeMultiple: 'Orchestration カードは 1 つだけ配置してください。',
 			agentMissing: 'Agent カードを 1 つ以上配置してください。',
 			agentNameMissing: 'Agent カードの使用エージェントが未設定です。',
 			agentOrderInvalid: 'Agent カードの No は 1 以上の整数で指定してください。',
 			agentOrderDuplicate: 'Agent カードの No が重複しています。',
 			loopAttemptsInvalid: 'Loop カードの最大試行回数は 1 以上の整数で指定してください。',
 			loopCriteriaMissing: 'Loop カードの受け入れ基準が未設定です。',
-			workflowIncomingForbidden: 'Workflow カードは入力ポートを持てません。',
-			workflowToAgentOnly: 'Workflow カードは Agent カードにのみ接続できます。',
+			workflowIncomingForbidden: 'Orchestration カードは入力ポートを持てません。',
+			workflowToAgentOnly: 'Orchestration カードは Agent カードにのみ接続できます。',
 			agentConnectionInvalid: 'Agent カードは Loop カードにのみ接続できます。',
 			loopConnectionInvalid: 'Loop カードは Agent カードにのみ接続できます。',
 			loopIncomingRequired: 'Loop カードには作業 Agent からの入力接続が 1 つ必要です。',
 			loopOutgoingRequired: 'Loop カードには確認 Agent への出力接続が 1 つ必要です。',
 			loopOrderInvalid: 'Loop の作業 Agent は確認 Agent より小さい No である必要があります。',
-			unreachableNode: 'Workflow カードから到達できないカードがあります。',
+			unreachableNode: 'Orchestration カードから到達できないカードがあります。',
 			cycleDetected: '循環参照があるためプロンプト生成できません。',
 		};
 	}
@@ -828,6 +845,7 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 			'Only when the current subagent has a review and retry setting should the mapped subagent in `Reviewer No` be launched with priority.',
 			'Even when there is no special output format, complete the task and report to the user once the last required review or assigned task is complete.',
 		],
+		constraintsTitle: 'Constraints',
 		agentListTitle: 'Subagents to launch',
 		loopTitle: 'Review and retry settings',
 		outputFormatTitle: 'Output format',
@@ -869,26 +887,26 @@ function getPromptStrings(locale: PromptLocale): PromptStrings {
 			'When the last required review or assigned task is complete, finish the task and report back to the user.',
 		],
 		fallbackName: 'New orchestration',
-		workflowNameRequired: 'The workflow name is required.',
+		workflowNameRequired: 'The orchestration name is required.',
 		duplicateNodeId: (nodeId: string) => `Duplicate nodeId: ${nodeId}`,
 		duplicateEdgeId: (edgeId: string) => `Duplicate edgeId: ${edgeId}`,
 		danglingEdge: 'A connector references a source or target that does not exist.',
-		workflowNodeMissing: 'A Workflow card is required.',
-		workflowNodeMultiple: 'Only one Workflow card can exist.',
+		workflowNodeMissing: 'An Orchestration card is required.',
+		workflowNodeMultiple: 'Only one Orchestration card can exist.',
 		agentMissing: 'At least one Agent card is required.',
 		agentNameMissing: 'Each Agent card must select a subagent.',
 		agentOrderInvalid: 'Each Agent card No must be an integer greater than or equal to 1.',
 		agentOrderDuplicate: 'Agent card No values must be unique.',
 		loopAttemptsInvalid: 'Loop max attempts must be an integer greater than or equal to 1.',
 		loopCriteriaMissing: 'The Loop acceptance criteria are empty.',
-		workflowIncomingForbidden: 'A Workflow card cannot have incoming connectors.',
-		workflowToAgentOnly: 'A Workflow card can connect only to Agent cards.',
+		workflowIncomingForbidden: 'An Orchestration card cannot have incoming connectors.',
+		workflowToAgentOnly: 'An Orchestration card can connect only to Agent cards.',
 		agentConnectionInvalid: 'An Agent card can connect only to a Loop card.',
 		loopConnectionInvalid: 'A Loop card can connect only to an Agent card.',
 		loopIncomingRequired: 'A Loop card needs exactly one incoming connection from a worker Agent.',
 		loopOutgoingRequired: 'A Loop card needs exactly one outgoing connection to a reviewer Agent.',
 		loopOrderInvalid: 'The worker Agent connected to a Loop must have a smaller No than the reviewer Agent.',
-		unreachableNode: 'There is a card that cannot be reached from the Workflow card.',
+		unreachableNode: 'There is a card that cannot be reached from the Orchestration card.',
 		cycleDetected: 'Prompt generation is blocked because the graph contains a cycle.',
 	};
 }
@@ -945,6 +963,7 @@ function normalizeWorkflowDefinition(
 		workflowId: workflow.workflowId || createId('workflow'),
 		name: workflow.name.trim() || 'New orchestration',
 		description: workflow.description ?? '',
+		constraints: workflow.constraints ?? '',
 		finalOutputFormat: workflow.finalOutputFormat ?? '',
 		createdAt: workflow.createdAt || nowIso,
 		updatedAt: nowIso,
@@ -979,6 +998,8 @@ function assertWorkflowDefinition(value: unknown): OrchestrationWorkflow {
 		name: record.name,
 		description:
 			typeof record.description === 'string' ? record.description : '',
+		constraints:
+			typeof record.constraints === 'string' ? record.constraints : '',
 		finalOutputFormat:
 			typeof record.finalOutputFormat === 'string'
 				? record.finalOutputFormat

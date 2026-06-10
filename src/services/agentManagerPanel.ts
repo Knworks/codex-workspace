@@ -17,6 +17,7 @@ import {
 	saveWorkflowDefinition,
 	validateWorkflowDefinition,
 	type OrchestrationWorkflow,
+	type WorkflowValidationResult,
 } from './orchestrationService';
 import {
 	CODICON_RESOURCE_ROOTS,
@@ -39,7 +40,41 @@ type InboundMessage =
 	| { type: 'deleteWorkflow'; workflowId: string }
 	| { type: 'validateWorkflow'; workflow: OrchestrationWorkflow }
 	| { type: 'generatePrompt'; workflow: OrchestrationWorkflow }
+	| { type: 'persistWorkflowState'; state: PersistedOrchestrationState }
 	| { type: 'copyPrompt'; prompt: string };
+
+type OrchestrationSelection =
+	| { kind: 'workflow' }
+	| { kind: 'node'; nodeId: string }
+	| { kind: 'edge'; edgeId: string };
+
+type PersistedOrchestrationState = {
+	activeTab: 'agents' | 'orchestration';
+	workflow: OrchestrationWorkflow;
+	selectedWorkflowId: string;
+	selection: OrchestrationSelection;
+	validation: WorkflowValidationResult;
+	prompt: string;
+	statusMessage: string;
+	inspectorCollapsed: boolean;
+	previewCollapsed: boolean;
+};
+
+function createInitialOrchestrationState(
+	workflow = createEmptyWorkflow(),
+): PersistedOrchestrationState {
+	return {
+		activeTab: 'agents',
+		workflow,
+		selectedWorkflowId: '',
+		selection: { kind: 'workflow' },
+		validation: { errors: [], warnings: [] },
+		prompt: '',
+		statusMessage: '',
+		inspectorCollapsed: false,
+		previewCollapsed: true,
+	};
+}
 
 function escapeHtml(value: string): string {
 	return value
@@ -96,7 +131,7 @@ function serializeForWebview(value: unknown): string {
 function buildHtml(
 	webview: vscode.Webview,
 	records: AgentManagerRecord[],
-	initialWorkflow: OrchestrationWorkflow,
+	initialState: PersistedOrchestrationState,
 ): string {
 	const nonce = createNonce();
 	const codiconCssHref = getCodiconCssHref(webview);
@@ -122,7 +157,7 @@ function buildHtml(
 			enabled: record.enabled,
 		})),
 		agentRowsHtml: buildRows(records),
-		workflow: initialWorkflow,
+		state: initialState,
 		savedWorkflows: listSavedWorkflowSummaries(),
 		orchestrationDirectory: getOrchestrationDirectory(),
 		uiText: {
@@ -192,6 +227,9 @@ function buildHtml(
 				messages.agentManagerWorkflowDescriptionPlaceholder,
 			workflowOutputFormatPlaceholder:
 				messages.agentManagerWorkflowOutputFormatPlaceholder,
+			constraints: messages.agentManagerConstraints,
+			constraintsPlaceholder:
+				messages.agentManagerConstraintsPlaceholder,
 			acceptanceCriteriaPlaceholder:
 				messages.agentManagerAcceptanceCriteriaPlaceholder,
 			purposePlaceholder: messages.agentManagerPurposePlaceholder,
@@ -945,21 +983,42 @@ function buildHtml(
 		const initialPayload = ${payload};
 		const cardWidth = 220;
 		const cardHeight = 124;
+		const restoredState = vscode.getState ? vscode.getState() : undefined;
 		const appState = {
-			activeTab: 'agents',
-			agentSearch: '',
-			workflow: initialPayload.workflow,
-			selectedWorkflowId: '',
-			selection: { kind: 'workflow' },
-			validation: { errors: [], warnings: [] },
-			prompt: '',
-			statusMessage: '',
+			activeTab: restoredState && typeof restoredState.activeTab === 'string'
+				? restoredState.activeTab
+				: initialPayload.state.activeTab,
+			agentSearch: restoredState && typeof restoredState.agentSearch === 'string'
+				? restoredState.agentSearch
+				: '',
+			workflow: restoredState && restoredState.workflow
+				? restoredState.workflow
+				: initialPayload.state.workflow,
+			selectedWorkflowId: restoredState && typeof restoredState.selectedWorkflowId === 'string'
+				? restoredState.selectedWorkflowId
+				: initialPayload.state.selectedWorkflowId,
+			selection: restoredState && restoredState.selection
+				? restoredState.selection
+				: initialPayload.state.selection,
+			validation: restoredState && restoredState.validation
+				? restoredState.validation
+				: initialPayload.state.validation,
+			prompt: restoredState && typeof restoredState.prompt === 'string'
+				? restoredState.prompt
+				: initialPayload.state.prompt,
+			statusMessage: restoredState && typeof restoredState.statusMessage === 'string'
+				? restoredState.statusMessage
+				: initialPayload.state.statusMessage,
 			agents: initialPayload.agents,
 			agentRowsHtml: initialPayload.agentRowsHtml,
 			savedWorkflows: initialPayload.savedWorkflows,
 			orchestrationDirectory: initialPayload.orchestrationDirectory,
-			inspectorCollapsed: false,
-			previewCollapsed: true,
+			inspectorCollapsed: restoredState
+				? restoredState.inspectorCollapsed === true
+				: initialPayload.state.inspectorCollapsed,
+			previewCollapsed: restoredState
+				? restoredState.previewCollapsed === true
+				: initialPayload.state.previewCollapsed,
 			isComposing: false,
 			connectDraft: null,
 			dragState: null,
@@ -1010,7 +1069,27 @@ function buildHtml(
 			confirmOverlay.hidden = true;
 		}
 
-		function persistState() {}
+		function persistState() {
+			const state = {
+				activeTab: appState.activeTab,
+				agentSearch: appState.agentSearch,
+				workflow: appState.workflow,
+				selectedWorkflowId: appState.selectedWorkflowId,
+				selection: appState.selection,
+				validation: appState.validation,
+				prompt: appState.prompt,
+				statusMessage: appState.statusMessage,
+				inspectorCollapsed: appState.inspectorCollapsed,
+				previewCollapsed: appState.previewCollapsed,
+			};
+			if (vscode.setState) {
+				vscode.setState(state);
+			}
+			vscode.postMessage({
+				type: 'persistWorkflowState',
+				state,
+			});
+		}
 
 		function makeId(prefix) {
 			return prefix + '-' + Math.random().toString(16).slice(2, 10);
@@ -1629,6 +1708,10 @@ function buildHtml(
 					'<textarea id="workflowDescription" data-workflow-field="description" placeholder="' + escapeHtmlClient(uiText.workflowDescriptionPlaceholder) + '">' + escapeHtmlClient(appState.workflow.description || '') + '</textarea>' +
 				'</div>' +
 				'<div class="field-group">' +
+					'<label class="field-label" for="workflowConstraints">' + escapeHtmlClient(uiText.constraints) + '</label>' +
+					'<textarea id="workflowConstraints" data-workflow-field="constraints" placeholder="' + escapeHtmlClient(uiText.constraintsPlaceholder) + '">' + escapeHtmlClient(appState.workflow.constraints || '') + '</textarea>' +
+				'</div>' +
+				'<div class="field-group">' +
 					'<label class="field-label" for="workflowFinalOutputFormat">' + escapeHtmlClient(uiText.outputFormat) + '</label>' +
 					'<textarea id="workflowFinalOutputFormat" data-workflow-field="finalOutputFormat" placeholder="' + escapeHtmlClient(uiText.workflowOutputFormatPlaceholder) + '">' + escapeHtmlClient(appState.workflow.finalOutputFormat || '') + '</textarea>' +
 				'</div>' +
@@ -1642,7 +1725,7 @@ function buildHtml(
 			const kind = (source ? source.cardType : '?') + ' -> ' + (target ? target.cardType : '?');
 			const kindDescription =
 				source && source.cardType === 'workflow'
-					? 'Workflow から Agent への開始接続です。'
+					? 'Orchestration から Agent への開始接続です。'
 					: source && source.cardType === 'agent' && target && target.cardType === 'loop'
 						? 'Agent の結果を Loop へ渡す接続です。'
 						: source && source.cardType === 'loop' && target && target.cardType === 'agent'
@@ -1891,7 +1974,7 @@ function buildHtml(
 				appState.selection = { kind: 'workflow' };
 				appState.prompt = '';
 				appState.validation = message.validation || { errors: [], warnings: [] };
-				setStatus(message.status || 'Workflow loaded.');
+				setStatus(message.status || 'Orchestration loaded.');
 				renderAll();
 				return;
 			}
@@ -1900,7 +1983,7 @@ function buildHtml(
 				appState.savedWorkflows = message.savedWorkflows;
 				appState.selectedWorkflowId = message.workflow.workflowId;
 				appState.validation = message.validation || appState.validation;
-				setStatus(message.status || 'Workflow saved.');
+				setStatus(message.status || 'Orchestration saved.');
 				renderAll();
 				return;
 			}
@@ -1911,7 +1994,7 @@ function buildHtml(
 				appState.selection = { kind: 'workflow' };
 				appState.prompt = '';
 				appState.validation = message.validation || { errors: [], warnings: [] };
-				setStatus(message.status || 'Workflow deleted.');
+				setStatus(message.status || 'Orchestration deleted.');
 				renderAll();
 				return;
 			}
@@ -2013,11 +2096,13 @@ function buildHtml(
 		toggleInspectorButton.addEventListener('click', () => {
 			appState.inspectorCollapsed = !appState.inspectorCollapsed;
 			renderInspectorShell();
+			persistState();
 		});
 
 		togglePreviewButton.addEventListener('click', () => {
 			appState.previewCollapsed = !appState.previewCollapsed;
 			renderPreviewShell();
+			persistState();
 		});
 
 		copyPromptButton.addEventListener('click', () => {
@@ -2187,6 +2272,7 @@ function buildHtml(
 
 export class AgentManagerPanelManager implements vscode.Disposable {
 	private panel: vscode.WebviewPanel | undefined;
+	private orchestrationState = createInitialOrchestrationState();
 
 	constructor(private readonly onDidChangeAgents: () => void) {}
 
@@ -2237,6 +2323,10 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 			this.refresh();
 			return;
 		}
+		if (message.type === 'persistWorkflowState') {
+			this.orchestrationState = message.state;
+			return;
+		}
 		if (message.type === 'openAgent') {
 			void vscode.commands.executeCommand(
 				'vscode.open',
@@ -2263,12 +2353,19 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 		}
 		if (message.type === 'createWorkflow') {
 			const workflow = createEmptyWorkflow();
+			const validation = validateWorkflowDefinition(workflow, vscode.env.language);
+			this.orchestrationState = {
+				...createInitialOrchestrationState(workflow),
+				activeTab: 'orchestration',
+				validation,
+				statusMessage: 'New orchestration created.',
+			};
 			this.postToWebview({
 				type: 'workflowLoaded',
 				workflow,
 				savedWorkflows: listSavedWorkflowSummaries(),
-				validation: validateWorkflowDefinition(workflow, vscode.env.language),
-				status: 'New workflow created.',
+				validation,
+				status: 'New orchestration created.',
 			});
 			return;
 		}
@@ -2281,17 +2378,29 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 		if (message.type === 'saveWorkflow') {
 			try {
 				const workflow = saveWorkflowDefinition(message.workflow);
+				const validation = validateWorkflowDefinition(workflow, vscode.env.language);
+				this.orchestrationState = {
+					...this.orchestrationState,
+					activeTab: 'orchestration',
+					workflow,
+					selectedWorkflowId: workflow.workflowId,
+					selection: { kind: 'workflow' },
+					validation,
+					prompt: '',
+					statusMessage:
+						'Orchestration saved to .codex/.codex-workspace/orchestrations.',
+				};
 				this.postToWebview({
 					type: 'workflowSaved',
 					workflow,
 					savedWorkflows: listSavedWorkflowSummaries(),
-					validation: validateWorkflowDefinition(workflow, vscode.env.language),
-					status: 'Workflow saved to .codex/.codex-workspace/orchestrations.',
+					validation,
+					status: 'Orchestration saved to .codex/.codex-workspace/orchestrations.',
 				});
 			} catch (error) {
 				this.postToWebview({
 					type: 'error',
-					status: `Failed to save workflow: ${String(error)}`,
+					status: `Failed to save orchestration: ${String(error)}`,
 				});
 			}
 			return;
@@ -2299,17 +2408,28 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 		if (message.type === 'loadWorkflow') {
 			try {
 				const workflow = loadWorkflowDefinition(message.workflowId);
+				const validation = validateWorkflowDefinition(workflow, vscode.env.language);
+				this.orchestrationState = {
+					...this.orchestrationState,
+					activeTab: 'orchestration',
+					workflow,
+					selectedWorkflowId: workflow.workflowId,
+					selection: { kind: 'workflow' },
+					validation,
+					prompt: '',
+					statusMessage: 'Orchestration loaded.',
+				};
 				this.postToWebview({
 					type: 'workflowLoaded',
 					workflow,
 					savedWorkflows: listSavedWorkflowSummaries(),
-					validation: validateWorkflowDefinition(workflow, vscode.env.language),
-					status: 'Workflow loaded.',
+					validation,
+					status: 'Orchestration loaded.',
 				});
 			} catch (error) {
 				this.postToWebview({
 					type: 'error',
-					status: `Failed to load workflow: ${String(error)}`,
+					status: `Failed to load orchestration: ${String(error)}`,
 				});
 			}
 			return;
@@ -2318,45 +2438,69 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 			try {
 				deleteWorkflowDefinition(message.workflowId);
 				const workflow = createEmptyWorkflow();
+				const validation = validateWorkflowDefinition(workflow, vscode.env.language);
+				this.orchestrationState = {
+					...createInitialOrchestrationState(workflow),
+					activeTab: 'orchestration',
+					validation,
+					statusMessage: 'Orchestration deleted.',
+				};
 				this.postToWebview({
 					type: 'workflowDeleted',
 					workflow,
 					savedWorkflows: listSavedWorkflowSummaries(),
-					validation: validateWorkflowDefinition(workflow, vscode.env.language),
-					status: 'Workflow deleted.',
+					validation,
+					status: 'Orchestration deleted.',
 				});
 			} catch (error) {
 				this.postToWebview({
 					type: 'error',
-					status: `Failed to delete workflow: ${String(error)}`,
+					status: `Failed to delete orchestration: ${String(error)}`,
 				});
 			}
 			return;
 		}
 		if (message.type === 'validateWorkflow') {
 			const validation = validateWorkflowDefinition(message.workflow, vscode.env.language);
+			const status =
+				validation.errors.length > 0
+					? 'Validation found blocking errors.'
+					: validation.warnings.length > 0
+						? 'Validation found warnings.'
+						: 'Validation passed.';
+			this.orchestrationState = {
+				...this.orchestrationState,
+				workflow: message.workflow,
+				validation,
+				statusMessage: status,
+			};
 			this.postToWebview({
 				type: 'workflowValidation',
 				validation,
-				status:
-					validation.errors.length > 0
-						? 'Validation found blocking errors.'
-						: validation.warnings.length > 0
-							? 'Validation found warnings.'
-							: 'Validation passed.',
+				status,
 			});
 			return;
 		}
 		if (message.type === 'generatePrompt') {
 			const result = generateWorkflowPrompt(message.workflow, vscode.env.language);
+			const status =
+				result.validation.errors.length > 0
+					? 'Prompt generation blocked by validation errors.'
+					: 'Prompt generated.';
+			this.orchestrationState = {
+				...this.orchestrationState,
+				activeTab: 'orchestration',
+				workflow: message.workflow,
+				validation: result.validation,
+				prompt: result.prompt,
+				previewCollapsed: false,
+				statusMessage: status,
+			};
 			this.postToWebview({
 				type: 'workflowPrompt',
 				prompt: result.prompt,
 				validation: result.validation,
-				status:
-					result.validation.errors.length > 0
-						? 'Prompt generation blocked by validation errors.'
-						: 'Prompt generated.',
+				status,
 			});
 			return;
 		}
@@ -2383,7 +2527,7 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 		this.panel.webview.html = buildHtml(
 			this.panel.webview,
 			this.readRecords(),
-			createEmptyWorkflow(),
+			this.orchestrationState,
 		);
 	}
 

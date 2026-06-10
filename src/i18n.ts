@@ -222,11 +222,11 @@ export const messages = {
 	),
 	agentManagerWorkflow: localize(
 		'message.agentManagerWorkflow',
-		'Workflow',
+		'Orchestration',
 	),
 	agentManagerWorkflowCardDefaultTitle: localize(
 		'message.agentManagerWorkflowCardDefaultTitle',
-		'Workflow',
+		'Orchestration',
 	),
 	agentManagerDescription: localize(
 		'message.agentManagerDescription',
@@ -238,11 +238,11 @@ export const messages = {
 	),
 	agentManagerNoSavedWorkflow: localize(
 		'message.agentManagerNoSavedWorkflow',
-		'No saved workflows',
+		'No saved orchestrations',
 	),
 	agentManagerSelectWorkflow: localize(
 		'message.agentManagerSelectWorkflow',
-		'Select workflow',
+		'Select orchestration',
 	),
 	agentManagerPromptPreview: localize(
 		'message.agentManagerPromptPreview',
@@ -384,7 +384,7 @@ export const messages = {
 	),
 	agentManagerNoSavedWorkflowSelected: localize(
 		'message.agentManagerNoSavedWorkflowSelected',
-		'No saved workflow selected.',
+		'No saved orchestration selected.',
 	),
 	agentManagerCardDeleted: localize(
 		'message.agentManagerCardDeleted',
@@ -404,7 +404,7 @@ export const messages = {
 	),
 	agentManagerConfirmDeleteWorkflow: localize(
 		'message.agentManagerConfirmDeleteWorkflow',
-		'Delete the selected workflow?',
+		'Delete the selected orchestration?',
 	),
 	agentManagerConfirmDeleteCard: localize(
 		'message.agentManagerConfirmDeleteCard',
@@ -416,11 +416,19 @@ export const messages = {
 	),
 	agentManagerWorkflowDescriptionPlaceholder: localize(
 		'message.agentManagerWorkflowDescriptionPlaceholder',
-		'Describe what this workflow is meant to accomplish.',
+		'Describe what this orchestration is meant to accomplish.',
 	),
 	agentManagerWorkflowOutputFormatPlaceholder: localize(
 		'message.agentManagerWorkflowOutputFormatPlaceholder',
 		'If there is a special output format instruction, enter it here.',
+	),
+	agentManagerConstraints: localize(
+		'message.agentManagerConstraints',
+		'Constraints',
+	),
+	agentManagerConstraintsPlaceholder: localize(
+		'message.agentManagerConstraintsPlaceholder',
+		'If there are any constraints, enter them here.',
 	),
 	agentManagerOutputNamePlaceholder: localize(
 		'message.agentManagerOutputNamePlaceholder',

@@ -2,6 +2,12 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
+## 1.1.9
+
+- Added Constraints field and prompt output to Orchestration Editor
+- Fixed Restore orchestration editor draft when reopening Agents Manager
+- Fixed Unify Orchestration Editor terminology around orchestration
+
 ## 1.1.8
 
 Preview

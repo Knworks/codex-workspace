@@ -25,6 +25,7 @@ function withTempDir(run: (root: string) => void): void {
 function createWorkflowFixture(): OrchestrationWorkflow {
 	const workflow = createEmptyWorkflow('Review loop');
 	workflow.description = 'Implement and review the task.';
+	workflow.constraints = 'Stay within the approved scope.';
 	workflow.finalOutputFormat = 'Markdown summary / Include risks and remaining work.';
 	const workflowNode = workflow.nodes.find((node) => node.cardType === 'workflow');
 	assert.ok(workflowNode);
@@ -108,6 +109,7 @@ suite('Orchestration service', () => {
 
 			assert.strictEqual(reloaded.workflowId, saved.workflowId);
 			assert.strictEqual(reloaded.name, saved.name);
+			assert.strictEqual(reloaded.constraints, 'Stay within the approved scope.');
 			assert.strictEqual(
 				reloaded.finalOutputFormat,
 				'Markdown summary / Include risks and remaining work.',
@@ -121,7 +123,11 @@ suite('Orchestration service', () => {
 	test('loads legacy output nodes into workflow final output format', () => {
 		withTempDir((root) => {
 			const codexDir = path.join(root, '.codex');
-			const orchestrationDir = path.join(codexDir, 'orchestrations');
+			const orchestrationDir = path.join(
+				codexDir,
+				'.codex-workspace',
+				'orchestrations',
+			);
 			fs.mkdirSync(orchestrationDir, { recursive: true });
 			fs.writeFileSync(
 				path.join(orchestrationDir, 'legacy.json'),
@@ -248,7 +254,7 @@ suite('Orchestration service', () => {
 
 		const validation = validateWorkflowDefinition(workflow, 'en');
 
-		assert.ok(validation.errors.some((issue) => issue.message === 'The workflow name is required.'));
+		assert.ok(validation.errors.some((issue) => issue.message === 'The orchestration name is required.'));
 		assert.ok(validation.errors.some((issue) => issue.message === 'Each Agent card must select a subagent.'));
 	});
 
@@ -263,6 +269,8 @@ suite('Orchestration service', () => {
 		assert.ok(result.prompt.includes('implementer'));
 		assert.ok(result.prompt.includes('reviewer'));
 		assert.ok(result.prompt.includes('各列が `-` の場合、その項目はエージェント定義または関連スキルに従います。'));
+		assert.ok(result.prompt.includes('## 制約'));
+		assert.ok(result.prompt.includes('Stay within the approved scope.'));
 		assert.ok(result.prompt.includes('## 📐 出力形式'));
 		assert.ok(result.prompt.includes('Markdown summary / Include risks and remaining work.'));
 		assert.ok(!result.prompt.includes('- Markdown summary / Include risks and remaining work.'));
@@ -280,6 +288,8 @@ suite('Orchestration service', () => {
 		assert.ok(result.prompt.includes('| 最後に必要な確認または担当作業が完了した | ユーザーへ最終結果を報告して終了する |'));
 		assert.ok(result.prompt.includes('最終結果の報告では、少なくとも以下を含めること。\n\n- 最終結果'));
 		assert.ok(result.prompt.includes('The review result is PASS.'));
+		assert.ok(result.prompt.indexOf('## 制約') > result.prompt.indexOf('## 🧑‍✈️ 基本方針'));
+		assert.ok(result.prompt.indexOf('## 制約') < result.prompt.indexOf('## 🤖 起動するサブエージェント'));
 	});
 
 	test('generateWorkflowPrompt renders localized English prompt', () => {
@@ -289,6 +299,8 @@ suite('Orchestration service', () => {
 
 		assert.strictEqual(result.validation.errors.length, 0);
 		assert.ok(result.prompt.includes('## Goal'));
+		assert.ok(result.prompt.includes('## Constraints'));
+		assert.ok(result.prompt.includes('Stay within the approved scope.'));
 		assert.ok(result.prompt.includes('## Review and retry settings'));
 		assert.ok(result.prompt.includes('When a column is `-`, follow the subagent definition or related skills for that field.'));
 		assert.ok(result.prompt.includes('## Output format'));
@@ -306,6 +318,8 @@ suite('Orchestration service', () => {
 		assert.ok(result.prompt.includes('| The last required review or assigned task is complete | Report the final result to the user and finish |'));
 		assert.ok(result.prompt.includes('Include at least the following items in the final report.\n\n- Final result'));
 		assert.ok(result.prompt.includes('Markdown summary'));
+		assert.ok(result.prompt.indexOf('## Constraints') > result.prompt.indexOf('## Operating policy'));
+		assert.ok(result.prompt.indexOf('## Constraints') < result.prompt.indexOf('## Subagents to launch'));
 	});
 
 	test('generateWorkflowPrompt keeps blank delegation fields compact and explains fallback once', () => {
@@ -343,7 +357,11 @@ suite('Orchestration service', () => {
 	test('loadWorkflowDefinition rejects invalid JSON files', () => {
 		withTempDir((root) => {
 			const codexDir = path.join(root, '.codex');
-			const orchestrationDir = path.join(codexDir, 'orchestrations');
+			const orchestrationDir = path.join(
+				codexDir,
+				'.codex-workspace',
+				'orchestrations',
+			);
 			fs.mkdirSync(orchestrationDir, { recursive: true });
 			fs.writeFileSync(
 				path.join(orchestrationDir, 'broken.json'),
