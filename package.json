@@ -5,7 +5,7 @@
   "publisher": "Knworks",
   "icon": "images/codex-workspace.png",
   "repository": "https://github.com/Knworks/codex-workspace",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "engines": {
     "vscode": "^1.107.0"
   },
