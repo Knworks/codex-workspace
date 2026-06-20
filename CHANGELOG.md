@@ -2,6 +2,15 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
+## 1.1.10
+
+Changes
+
+- Updated AGENTS loading diagnostics to follow the current Codex CLI directory chain for `AGENTS.override.md`, `AGENTS.md`, and fallback files.
+- Updated Skills discovery to follow the current Codex CLI repository skill chain from the working directory up to the repository root.
+- Updated agent creation and enable flows so custom agent TOML files always satisfy the current required Codex CLI fields.
+
+
 ## 1.1.9
 
 - Added Constraints field and prompt output to Orchestration Editor

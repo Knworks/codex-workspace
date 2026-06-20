@@ -189,7 +189,11 @@ suite('Agent commands', () => {
 			const { codexDir, agentsDir, configPath } = createWorkspace(homeDir);
 			const templateRoot = path.join(codexDir, 'codex-templates');
 			fs.mkdirSync(templateRoot, { recursive: true });
-			fs.writeFileSync(path.join(templateRoot, 'base.toml'), 'mode = "base"\n', 'utf8');
+			fs.writeFileSync(
+				path.join(templateRoot, 'base.toml'),
+				'developer_instructions = """\nReview changes carefully.\n"""\nmode = "base"\n',
+				'utf8',
+			);
 			await activateExtension();
 
 			const sequence: string[] = [];
@@ -241,7 +245,11 @@ suite('Agent commands', () => {
 			const templateRoot = path.join(codexDir, 'codex-templates');
 			fs.mkdirSync(templateRoot, { recursive: true });
 			const templatePath = path.join(templateRoot, 'agent-template.toml');
-			fs.writeFileSync(templatePath, 'mode = "from-template"\n', 'utf8');
+			fs.writeFileSync(
+				templatePath,
+				'developer_instructions = """\nUse the template.\n"""\nmode = "from-template"\n',
+				'utf8',
+			);
 			await activateExtension();
 
 			const originalInput = vscode.window.showInputBox;
@@ -271,6 +279,44 @@ suite('Agent commands', () => {
 			assert.ok(createdContents.includes('name = "templated"'));
 			assert.ok(createdContents.includes('description = "Template agent"'));
 			assert.ok(createdContents.includes('mode = "from-template"'));
+			assert.ok(createdContents.includes('developer_instructions = """'));
+		});
+	});
+
+	test('addAgent synthesizes developer_instructions when the template omits it', async () => {
+		await withTempHome(async (homeDir) => {
+			const { codexDir, agentsDir } = createWorkspace(homeDir);
+			const templateRoot = path.join(codexDir, 'codex-templates');
+			fs.mkdirSync(templateRoot, { recursive: true });
+			fs.writeFileSync(path.join(templateRoot, 'broken.toml'), 'mode = "broken"\n', 'utf8');
+			await activateExtension();
+
+			const originalInput = vscode.window.showInputBox;
+			const originalPick = vscode.window.showQuickPick;
+			const restoreQuickPickInput = mockQuickPickTextInputs(['broken-agent']);
+
+			(vscode.window as unknown as { showInputBox: typeof originalInput }).showInputBox =
+				async () => 'Broken agent';
+			(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
+				async (items: any) => {
+					const workspace = items.find((item: { label?: string }) => item.label === 'Workspace Agents');
+					return workspace ?? items[1];
+				};
+			try {
+				await vscode.commands.executeCommand('codex-workspace.addAgent');
+			} finally {
+				restoreQuickPickInput();
+				(vscode.window as unknown as { showInputBox: typeof originalInput }).showInputBox =
+					originalInput;
+				(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
+					originalPick;
+			}
+
+			const createdPath = path.join(agentsDir, 'broken-agent.toml');
+			assert.strictEqual(fs.existsSync(createdPath), true);
+			assert.ok(
+				fs.readFileSync(createdPath, 'utf8').includes('developer_instructions = """'),
+			);
 		});
 	});
 

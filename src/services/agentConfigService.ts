@@ -6,6 +6,12 @@ const AGENT_DESCRIPTION_PATTERN =
 	/^(\s*description\s*=\s*")((?:[^"\\]|\\.)*)(")(\s*#.*)?$/;
 const AGENT_NAME_PATTERN =
 	/^(\s*name\s*=\s*")((?:[^"\\]|\\.)*)(")(\s*#.*)?$/;
+const AGENT_NAME_LINE_PATTERN =
+	/^\s*name\s*=\s*"((?:[^"\\]|\\.)*)"\s*(?:#.*)?$/m;
+const AGENT_DESCRIPTION_LINE_PATTERN =
+	/^\s*description\s*=\s*"((?:[^"\\]|\\.)*)"\s*(?:#.*)?$/m;
+const AGENT_DEVELOPER_INSTRUCTIONS_PATTERN =
+	/^\s*developer_instructions\s*=\s*(?:"""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^']|'')*')\s*(?:#.*)?$/m;
 
 type AgentBlock = {
 	id: string;
@@ -257,6 +263,56 @@ export function syncAgentTomlMetadata(
 	}
 	fs.writeFileSync(agentFilePath, next, 'utf8');
 	return true;
+}
+
+export function validateAgentTomlContents(contents: string): string[] {
+	const missing: string[] = [];
+	if (!contents.match(AGENT_NAME_LINE_PATTERN)) {
+		missing.push('name');
+	}
+	if (!contents.match(AGENT_DESCRIPTION_LINE_PATTERN)) {
+		missing.push('description');
+	}
+	if (!contents.match(AGENT_DEVELOPER_INSTRUCTIONS_PATTERN)) {
+		missing.push('developer_instructions');
+	}
+	return missing;
+}
+
+export function ensureAgentTomlRequiredFields(
+	contents: string,
+	agentId: string,
+	description?: string,
+): string {
+	const nextContents = upsertAgentTomlMetadata(contents, agentId, description);
+	if (nextContents.match(AGENT_DEVELOPER_INSTRUCTIONS_PATTERN)) {
+		return nextContents;
+	}
+
+	const fallbackInstructions = [
+		'Follow this agent description as your default behavior.',
+		description ?? agentId,
+	].join('\n');
+	const lines = nextContents.split(/\r?\n/);
+	const descriptionLineIndex = lines.findIndex((line) =>
+		AGENT_DESCRIPTION_PATTERN.test(line),
+	);
+	const insertIndex = descriptionLineIndex >= 0 ? descriptionLineIndex + 1 : lines.length;
+	lines.splice(
+		insertIndex,
+		0,
+		'developer_instructions = """',
+		fallbackInstructions,
+		'"""',
+	);
+	return normalizeTomlContents(lines);
+}
+
+export function validateAgentTomlFile(agentFilePath: string): string[] {
+	if (!fs.existsSync(agentFilePath)) {
+		return ['name', 'description', 'developer_instructions'];
+	}
+	return validateAgentTomlContents(fs.readFileSync(agentFilePath, 'utf8'));
 }
 
 export function readAgentTomlDescription(agentFilePath: string): string | undefined {

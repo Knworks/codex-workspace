@@ -1112,5 +1112,11 @@ export const messages = {
 			'message.agent.selectionNotSupported',
 			'Select an agent file in the Agents view.',
 		),
+		invalidTomlMissingFields: (fields: string) =>
+			localize(
+				'message.agent.invalidTomlMissingFields',
+				'Agent TOML is missing required fields: {0}.',
+				fields,
+			),
 	},
 };

@@ -14,13 +14,13 @@ import {
 import { promptTextInputWithQuickPick } from '../services/textInputQuickPick';
 import {
 	appendAgentConfigRawBlock,
-	appendAgentConfigBlock,
 	extractAgentConfigBlock,
 	getAgentDescription,
 	hasAgentConfigBlock,
 	readAgentTomlDescription,
 	syncAgentTomlMetadata,
 	toAgentConfigFilePath,
+	ensureAgentTomlRequiredFields,
 	upsertAgentConfigBlock,
 	upsertAgentConfigMetadata,
 } from '../services/agentConfigService';
@@ -145,6 +145,11 @@ async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
 	if (templateContent === null) {
 		return;
 	}
+	const initialAgentContents = ensureAgentTomlRequiredFields(
+		templateContent,
+		agentName,
+		description,
+	);
 
 	fs.mkdirSync(agentsDir, { recursive: true });
 	const agentFilePath = path.join(agentsDir, `${agentName}.toml`);
@@ -153,8 +158,7 @@ async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
 		return;
 	}
 
-	fs.writeFileSync(agentFilePath, templateContent, 'utf8');
-	syncAgentTomlMetadata(agentFilePath, agentName, description);
+	fs.writeFileSync(agentFilePath, initialAgentContents, 'utf8');
 
 	const configContents = fs.readFileSync(configPath, 'utf8');
 	if (hasAgentConfigBlock(configContents, agentName)) {
@@ -195,6 +199,12 @@ async function editAgent(
 	if (nextDescription === undefined) {
 		return;
 	}
+	const currentAgentContents = fs.readFileSync(agentFilePath, 'utf8');
+	const nextAgentContents = ensureAgentTomlRequiredFields(
+		currentAgentContents,
+		nextName,
+		nextDescription,
+	);
 
 	const nextFilePath = path.join(path.dirname(agentFilePath), `${nextName}.toml`);
 	if (
@@ -215,7 +225,7 @@ async function editAgent(
 	if (!isSamePath(agentFilePath, nextFilePath)) {
 		fs.renameSync(agentFilePath, nextFilePath);
 	}
-	syncAgentTomlMetadata(nextFilePath, nextName, nextDescription);
+	fs.writeFileSync(nextFilePath, nextAgentContents, 'utf8');
 
 	const updatedConfig = upsertAgentConfigBlock(
 		configContents,
@@ -302,6 +312,15 @@ async function enableAgent(
 	const { codexDir, configPath } = resolveCodexPaths();
 	const storePath = getDisabledAgentsStorePath(codexDir);
 	const agentId = path.basename(agentFilePath, path.extname(agentFilePath));
+	const originalAgentContents = fs.readFileSync(agentFilePath, 'utf8');
+	const repairedAgentContents = ensureAgentTomlRequiredFields(
+		originalAgentContents,
+		agentId,
+		readAgentTomlDescription(agentFilePath),
+	);
+	if (repairedAgentContents !== originalAgentContents) {
+		fs.writeFileSync(agentFilePath, repairedAgentContents, 'utf8');
+	}
 	const configContents = fs.readFileSync(configPath, 'utf8');
 	if (hasAgentConfigBlock(configContents, agentId)) {
 		vscode.window.showWarningMessage(messages.agent.configExists(agentId));

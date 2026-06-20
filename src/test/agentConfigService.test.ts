@@ -6,6 +6,7 @@ import {
 	appendAgentConfigRawBlock,
 	appendAgentConfigBlock,
 	buildAgentConfigBlock,
+	ensureAgentTomlRequiredFields,
 	extractAgentConfigBlock,
 	getAgentDescription,
 	getAgentConfigFile,
@@ -16,6 +17,7 @@ import {
 	upsertAgentTomlMetadata,
 	upsertAgentConfigBlock,
 	upsertAgentConfigMetadata,
+	validateAgentTomlContents,
 } from '../services/agentConfigService';
 
 suite('Agent config service', () => {
@@ -144,6 +146,41 @@ suite('Agent config service', () => {
 		} finally {
 			fs.rmSync(tempDir, { recursive: true, force: true });
 		}
+	});
+
+	test('validateAgentTomlContents reports missing developer_instructions', () => {
+		const contents = [
+			'name = "planner"',
+			'description = "Planner"',
+			'model = "gpt-5.4"',
+			'',
+		].join('\n');
+		assert.deepStrictEqual(validateAgentTomlContents(contents), [
+			'developer_instructions',
+		]);
+	});
+
+	test('validateAgentTomlContents accepts required custom agent fields', () => {
+		const contents = [
+			'name = "planner"',
+			'description = "Planner"',
+			'developer_instructions = """',
+			'Plan the work.',
+			'"""',
+			'',
+		].join('\n');
+		assert.deepStrictEqual(validateAgentTomlContents(contents), []);
+	});
+
+	test('ensureAgentTomlRequiredFields adds fallback developer_instructions', () => {
+		const contents = [
+			'name = "planner"',
+			'description = "Planner"',
+			'',
+		].join('\n');
+		const next = ensureAgentTomlRequiredFields(contents, 'planner', 'Planner');
+		assert.ok(next.includes('developer_instructions = """'));
+		assert.deepStrictEqual(validateAgentTomlContents(next), []);
 	});
 
 	test('buildAgentConfigBlock quotes special agent names', () => {

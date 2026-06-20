@@ -37,14 +37,16 @@ export function buildAgentsLoadingChain(
 		...buildTierNodes(codexDir, 'Global', ['AGENTS.override.md', 'AGENTS.md']),
 	);
 	if (workspaceRoot) {
-		nodes.push(
-			...buildTierNodes(
-				workspaceRoot,
-				'Project',
-				['AGENTS.override.md', 'AGENTS.md', ...fallbackNames],
-				fallbackNames,
-			),
-		);
+		for (const directory of getProjectDirectoryChain(workspaceRoot)) {
+			nodes.push(
+				...buildTierNodes(
+					directory,
+					'Project',
+					['AGENTS.override.md', 'AGENTS.md', ...fallbackNames],
+					fallbackNames,
+				),
+			);
+		}
 	}
 	return nodes;
 }
@@ -168,7 +170,7 @@ function buildNode(
 			type,
 			fileName,
 			absolutePath,
-			reason: 'First readable candidate in this tier.',
+			reason: 'First readable candidate in this directory.',
 			contentPreview: contents.slice(0, 2000),
 		};
 	} catch (error) {
@@ -180,6 +182,42 @@ function buildNode(
 			absolutePath,
 			reason: error instanceof Error ? error.message : 'Read failed.',
 		};
+	}
+}
+
+function getProjectDirectoryChain(workspaceRoot: string): string[] {
+	const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
+	const repoRoot = findRepoRoot(resolvedWorkspaceRoot);
+	const chain: string[] = [];
+	let current = resolvedWorkspaceRoot;
+
+	while (true) {
+		chain.push(current);
+		if (current === repoRoot) {
+			break;
+		}
+		const parent = path.dirname(current);
+		if (parent === current) {
+			break;
+		}
+		current = parent;
+	}
+
+	return chain.reverse();
+}
+
+function findRepoRoot(startPath: string): string {
+	let current = path.resolve(startPath);
+	while (true) {
+		const gitPath = path.join(current, '.git');
+		if (fs.existsSync(gitPath)) {
+			return current;
+		}
+		const parent = path.dirname(current);
+		if (parent === current) {
+			return path.resolve(startPath);
+		}
+		current = parent;
 	}
 }
 

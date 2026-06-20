@@ -27,19 +27,7 @@ export function getSkillLocations(
 ): SkillLocation[] {
 	const locations: SkillLocation[] = [];
 	if (projectRoot) {
-		const preferredProjectRoot = path.join(projectRoot, '.agents', 'skills');
-		const legacyProjectRoot = path.join(projectRoot, '.codex', 'skills');
-		locations.push({
-			kind: 'project',
-			label: 'Project Skills',
-			rootPath: fs.existsSync(preferredProjectRoot)
-				? preferredProjectRoot
-				: fs.existsSync(legacyProjectRoot)
-					? legacyProjectRoot
-					: preferredProjectRoot,
-			createPath: preferredProjectRoot,
-			priority: 1,
-		});
+		locations.push(...getProjectSkillLocations(projectRoot));
 	}
 	locations.push(
 		{
@@ -64,6 +52,65 @@ export function getSkillLocations(
 		},
 	);
 	return locations;
+}
+
+function getProjectSkillLocations(projectRoot: string): SkillLocation[] {
+	const directories = getDirectoryChainToRepoRoot(projectRoot);
+	return directories.map((directory, index) => {
+		const preferredProjectRoot = path.join(directory, '.agents', 'skills');
+		const legacyProjectRoot = path.join(directory, '.codex', 'skills');
+		const rootPath = fs.existsSync(preferredProjectRoot)
+			? preferredProjectRoot
+			: fs.existsSync(legacyProjectRoot)
+				? legacyProjectRoot
+				: preferredProjectRoot;
+		return {
+			kind: 'project' as const,
+			label:
+				index === 0
+					? 'Project Skills'
+					: `Project Skills (${path.basename(directory)})`,
+			rootPath,
+			createPath: preferredProjectRoot,
+			priority: index + 1,
+		};
+	});
+}
+
+function getDirectoryChainToRepoRoot(startPath: string): string[] {
+	const resolvedStartPath = path.resolve(startPath);
+	const repoRoot = findRepoRoot(resolvedStartPath);
+	const directories: string[] = [];
+	let current = resolvedStartPath;
+
+	while (true) {
+		directories.push(current);
+		if (current === repoRoot) {
+			break;
+		}
+		const parent = path.dirname(current);
+		if (parent === current) {
+			break;
+		}
+		current = parent;
+	}
+
+	return directories;
+}
+
+function findRepoRoot(startPath: string): string {
+	let current = path.resolve(startPath);
+	while (true) {
+		const gitPath = path.join(current, '.git');
+		if (fs.existsSync(gitPath)) {
+			return current;
+		}
+		const parent = path.dirname(current);
+		if (parent === current) {
+			return path.resolve(startPath);
+		}
+		current = parent;
+	}
 }
 
 export function findSkillLocationForPath(

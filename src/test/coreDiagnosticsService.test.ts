@@ -23,18 +23,23 @@ suite('Core diagnostics service', () => {
 		withTempDir((root) => {
 			const homeDir = path.join(root, 'home');
 			const codexDir = path.join(homeDir, '.codex');
-			const workspaceRoot = path.join(root, 'workspace');
+			const repoRoot = path.join(root, 'workspace');
+			const workspaceRoot = path.join(repoRoot, 'packages', 'feature');
 			fs.mkdirSync(codexDir, { recursive: true });
 			fs.mkdirSync(workspaceRoot, { recursive: true });
+			fs.mkdirSync(path.join(repoRoot, '.git'), { recursive: true });
 			fs.writeFileSync(path.join(codexDir, 'config.toml'), 'project_doc_fallback_filenames = ["GUIDE.md"]', 'utf8');
+			fs.writeFileSync(path.join(repoRoot, 'AGENTS.md'), 'root standard', 'utf8');
 			fs.writeFileSync(path.join(workspaceRoot, 'AGENTS.override.md'), 'override', 'utf8');
 			fs.writeFileSync(path.join(workspaceRoot, 'AGENTS.md'), 'standard', 'utf8');
 
 			const nodes = buildAgentsLoadingChain(workspaceRoot, homeDir);
 
-			const override = nodes.find((node) => node.fileName === 'AGENTS.override.md' && node.kind === 'Project');
-			const standard = nodes.find((node) => node.fileName === 'AGENTS.md' && node.kind === 'Project');
+			const rootStandard = nodes.find((node) => node.absolutePath === path.join(repoRoot, 'AGENTS.md'));
+			const override = nodes.find((node) => node.absolutePath === path.join(workspaceRoot, 'AGENTS.override.md'));
+			const standard = nodes.find((node) => node.absolutePath === path.join(workspaceRoot, 'AGENTS.md'));
 			const fallback = nodes.find((node) => node.fileName === 'GUIDE.md');
+			assert.strictEqual(rootStandard?.status, 'Active');
 			assert.strictEqual(override?.status, 'Active');
 			assert.strictEqual(standard?.status, 'Skipped');
 			assert.strictEqual(fallback?.status, 'Missing');
@@ -45,21 +50,23 @@ suite('Core diagnostics service', () => {
 		withTempDir((root) => {
 			const homeDir = path.join(root, 'home');
 			const codexDir = path.join(homeDir, '.codex');
-			const workspaceRoot = path.join(root, 'workspace');
+			const repoRoot = path.join(root, 'workspace');
+			const workspaceRoot = path.join(repoRoot, 'packages', 'feature');
 			fs.mkdirSync(codexDir, { recursive: true });
 			fs.mkdirSync(workspaceRoot, { recursive: true });
+			fs.mkdirSync(path.join(repoRoot, '.git'), { recursive: true });
 			fs.writeFileSync(path.join(codexDir, 'config.toml'), '', 'utf8');
 			const agentsPath = path.join(workspaceRoot, 'AGENTS.md');
 			fs.writeFileSync(agentsPath, 'standard', 'utf8');
 
 			let nodes = buildAgentsLoadingChain(workspaceRoot, homeDir);
-			let standard = nodes.find((node) => node.fileName === 'AGENTS.md' && node.kind === 'Project');
+			let standard = nodes.find((node) => node.absolutePath === agentsPath);
 			assert.strictEqual(standard?.status, 'Active');
 			assert.strictEqual(standard?.contentPreview, 'standard');
 
 			fs.rmSync(agentsPath);
 			nodes = buildAgentsLoadingChain(workspaceRoot, homeDir);
-			standard = nodes.find((node) => node.fileName === 'AGENTS.md' && node.kind === 'Project');
+			standard = nodes.find((node) => node.absolutePath === agentsPath);
 			assert.strictEqual(standard?.status, 'Missing');
 			assert.strictEqual(standard?.contentPreview, undefined);
 		});
