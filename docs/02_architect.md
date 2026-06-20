@@ -63,6 +63,7 @@ codex-workspace/
 │   │   ├── skillLocations.ts
 │   │   ├── skillManagerPanel.ts
 │   │   ├── syncService.ts
+│   │   ├── templateService.ts
 │   │   ├── webviewAssets.ts
 │   │   └── workspaceStatus.ts
 │   ├── views/
@@ -118,8 +119,8 @@ codex-workspace/
 
 - **ファイル操作**
   - `fileCommands.ts` が add / rename / delete を担当する
-  - Skills では root 選択時に location picker を表示する
-  - Skills の folder 作成時は `references` / `scripts` / `assets` の候補を先に出す
+  - Skills では header の root folder 追加時に location picker を表示する
+  - Skills の folder 作成時は `references` / `scripts` / `assets` の候補を先に出し、候補外の入力も正規化してそのまま採用できる
   - 新規ファイル作成時の既定テンプレートは `templateService.ts` から取得する
   - 既存ファイル名と衝突した場合は `resolveUniqueName()` で `_1`, `_2` 形式へ退避する
 
@@ -131,11 +132,13 @@ codex-workspace/
 
 - **Sub Agents 操作**
   - `agentCommands.ts` が add / edit / delete / enable / disable を担当する
+  - 作成時と有効化時は `ensureAgentTomlRequiredFields()` により `name`、`description`、`developer_instructions` の必須項目を補完する
   - 作成、編集、有効化後は `upsertAgentConfigMetadata()` で `description` と `config_file` を実体へ同期する
   - 無効化時は block を `agents-disabled.json` に退避する
   - 同期や整理の前後では `agentConfigRepairService.ts` と `agentSyncCleanupService.ts` が `config.toml` を補正する
-  - AGENTS Manager は `agentManagerService.ts` が Agents タブの一覧モデルを作る
+  - `agentManagerService.ts` は Agents タブの一覧モデルを作り、Agent TOML から `developer_instructions` を抽出して preview data に含める
   - `agentManagerPanel.ts` は `Agents` / `Orchestration` の 2 タブを持つ Webview を提供する
+  - Agents タブは左の一覧と右の詳細からなる list-detail レイアウトで、詳細ペインに `developer_instructions` の Markdown preview を HTML 描画する
   - `orchestrationService.ts` が workflow JSON の保存、読込、削除、一覧化、バリデーション、prompt 生成を担当する
   - workflow は `~/.codex/.codex-workspace/orchestrations/<workflowId>.json` に保存し、schema version 付きで管理する
   - `Orchestration` タブの canvas は workflow / agent / loop card と edge を保持し、Inspector で各 node/edge の詳細を編集する
@@ -178,7 +181,7 @@ codex-workspace/
 | `SkillLocation` | `kind` / `label` / `rootPath` / `createPath` / `priority` | object | Skills 保存場所 |
 | `SkillRecord` | `id` / `name` / `description` / `skillPath` / `enabled` | object | Skill Manager 行 |
 | `AgentLocation` | `kind` / `label` / `rootPath` / `createPath` / `priority` | object | Sub Agents 保存場所 |
-| `AgentManagerRecord` | `id` / `name` / `description` / `model` / `reasoningEffort` / `sandboxMode` / `agentPath` / `configFile` / `location` / `enabled` | object | AGENTS Manager 行 |
+| `AgentManagerRecord` | `id` / `name` / `description` / `model` / `reasoningEffort` / `sandboxMode` / `agentPath` / `configFile` / `location` / `enabled` / `previewContent` | object | AGENTS Manager 行 |
 | `OrchestrationWorkflow` | `version` / `workflowId` / `name` / `description` / `finalOutputFormat` / `nodes` / `edges` / `createdAt` / `updatedAt` | object | Orchestration 保存モデル |
 | `OrchestrationNode` | `nodeId` / `cardType` / `x` / `y` + card 種別ごとの属性 | object | canvas 上の card |
 | `OrchestrationEdge` | `edgeId` / `sourceNodeId` / `targetNodeId` | object | card 間の接続 |
@@ -249,8 +252,9 @@ codex-workspace/
   - タブ: Agents / Orchestration
   - Agents タブ
     - 上部: search / clear / refresh
-    - 本体: list row
-    - 行要素: icon / name / description / model / reasoningEffort / sandboxMode / path / location / switch / open button
+    - 本体: 左 list / 右 detail
+    - 一覧行要素: icon / name / description / model / reasoningEffort / sandboxMode / path / location / switch / open button
+    - 詳細要素: model / reasoningEffort / sandboxMode / location / path / `developer_instructions` preview
   - Orchestration タブ
     - 上部: saved workflow select / new / open folder / save / delete
     - 中央: workflow / agent / loop card を置く canvas

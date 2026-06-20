@@ -33,7 +33,7 @@
 | `MCP Server` | `config.toml` の `[mcp_servers.<id>]` 設定 | `env` / `http_headers` / `env_http_headers` / `tools.*` companion block は一覧表示しない |
 | `Codex Manager` | Core 画面から開く WebviewPanel | History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks / Plugins タブを持つ |
 | `Skill Manager` | Skills 一覧と有効/無効切替を行う WebviewPanel | `SKILL.md` frontmatter と `[[skills.config]]` を参照 |
-| `AGENTS Manager` | Sub Agents 一覧管理とオーケストレーション workflow 編集を行う WebviewPanel | `config.toml`、disabled store、Agent TOML、`.codex-workspace/orchestrations/*.json` を参照 |
+| `AGENTS Manager` | Sub Agents 一覧管理とオーケストレーション workflow 編集を行う WebviewPanel | `config.toml`、disabled store、Agent TOML、`developer_instructions`、`.codex-workspace/orchestrations/*.json` を参照 |
 | `MCP Manager` | MCP Server の一覧・作成・編集・削除を行う WebviewPanel | 左右 2 ペイン構成 |
 | `Plugins` | インストール済み Plugin の構成情報 | `~/.codex/plugins/cache` と marketplace 定義を参照 |
 | `Codex Pet Explore` | ペット表示、選択、接続状態、rate limit 吹き出しを扱う WebviewView | `~/.codex/pets/<petId>` を優先し、存在しない場合は `~/.codex/pet/<petId>` を参照 |
@@ -57,6 +57,7 @@
 - ユーザーは Skill Manager で Skill 名、説明、保存場所、パスを一覧し、有効/無効を切り替えられる。
 - ユーザーは Templates ビューでテンプレートファイルを開き、ファイル作成時の雛形として利用できる。
 - ユーザーは Sub Agents ビューで Agent TOML を開き、AGENTS Manager から有効/無効を切り替えられる。
+- ユーザーは AGENTS Manager の Agents タブで一覧から対象 Agent を選択し、詳細ペインで `developer_instructions` の HTML プレビューを確認できる。
 - ユーザーは AGENTS Manager の Orchestration タブで workflow を作成、保存、読込、削除し、prompt を生成・コピーできる。
 - ユーザーは MCP Server ビューでサーバー一覧を見て、項目クリックで有効/無効を切り替えられる。
 - ユーザーは MCP Manager で MCP サーバーを追加、編集、削除できる。
@@ -118,6 +119,7 @@
 - `Skills` の新規ファイルコマンドは root と folder に寄与するが、実行は folder 選択時のみ許可し、それ以外は案内メッセージで終了する。
 - `Skills` root に対する新規フォルダ作成時は保存先を Project / Workspace / User から選択させる。
 - `Skills` の folder に対する新規フォルダ作成時は `references/`、`scripts/`、`assets/` の候補を Quick Pick で選択できる。
+- `Skills` の folder に対する新規フォルダ作成時、候補にない入力を行った場合は、その入力値を正規化した名前で子フォルダを作成する。
 - `Skills` の `SKILL.md` と Skill root folder は `enabled` 状態に応じてアイコンを切り替える。
 - 新規ファイル作成時は `~/.codex/codex-templates` 配下のテンプレート候補から内容を適用できる。
 
@@ -145,12 +147,16 @@
 - タイトルバー操作は新規作成、編集、削除、更新、フォルダを開く、同期、AGENTS Manager 起動とする。
 - enable / disable command は実装されているが、`package.json` のメニュー寄与には含めない。
 - 新規作成時は保存先ルートを選び、Agent 名、説明、テンプレート内容の順に入力する。
+- 新規作成時はテンプレート内容に不足があっても、少なくとも `name`、`description`、`developer_instructions` を満たす Agent TOML を生成する。
 - Agent 作成後、`config.toml` に description と `config_file` を含む `[agents.<name>]` block を自動追記または更新する。
 - 編集時はファイル名と description を更新し、`config.toml` の block と `config_file` を追従させる。
 - 削除時は TOML ファイルを削除し、`config.toml` の対応 block、disabled store、sync state の退避も削除する。
 - 無効化時は対応 block を `agents-disabled.json` に退避し、`config.toml` から削除する。
-- 有効化時は退避 block があれば復元し、その後に description と `config_file` を Agent TOML の実体へ再同期する。
-- AGENTS Manager は name / description / model / reasoningEffort / sandboxMode / agentPath / location / toggle / open button を表示する。
+- 有効化時は退避 block があれば復元し、その前後で `name`、`description`、`developer_instructions` の必須項目を Agent TOML 側へ補完し、その後に description と `config_file` を Agent TOML の実体へ再同期する。
+- AGENTS Manager は `Agents` タブで一覧詳細レイアウトを表示する。
+- 一覧は name / description / model / reasoningEffort / sandboxMode / path / location / toggle / open button を表示する。
+- 詳細ペインは model / reasoningEffort / sandboxMode / location / path と `developer_instructions` のプレビューを表示する。
+- `developer_instructions` のプレビューは Markdown を HTML 描画し、空の場合は空状態メッセージを表示する。
 - AGENTS Manager は `Agents` タブと `Orchestration` タブを持つ。
 - `Orchestration` タブでは workflow / agent / loop card を canvas 上で編集できる。
 - workflow は `version` / `workflowId` / `name` / `description` / `finalOutputFormat` / `nodes` / `edges` / `createdAt` / `updatedAt` を持つ JSON として保存する。
