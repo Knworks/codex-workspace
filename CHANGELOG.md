@@ -10,6 +10,7 @@ Changes
 - Updated Skills discovery to follow the current Codex CLI repository skill chain from the working directory up to the repository root.
 - Updated Skills Explore item-level folder creation to support custom child folder names.
 - Updated agent creation and enable flows so custom agent TOML files always satisfy the current required Codex CLI fields.
+- Updated Agent Manager to use a list-detail layout with agent details and developer instructions preview.
 
 ## 1.1.9
 
