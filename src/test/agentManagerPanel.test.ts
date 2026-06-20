@@ -131,6 +131,8 @@ suite('Agent manager panel', () => {
 		assert.ok(source.includes('data-workflow-field="finalOutputFormat"'));
 		assert.ok(source.includes('workflowOutputFormatPlaceholder'));
 		assert.ok(source.includes('function isMarkdownTable('));
+		assert.ok(source.includes('function splitMarkdownBlocks('));
+		assert.ok(source.includes('function renderMarkdownSafely('));
 		assert.ok(source.includes('function getCanvasExtent()'));
 		assert.ok(!source.includes("edgeLayer.setAttribute('width', '1600');"));
 		assert.ok(!source.includes("edgeLayer.setAttribute('height', '960');"));
@@ -208,7 +210,7 @@ suite('Agent manager panel', () => {
 		});
 	});
 
-	test('show renders agent manager webview html', async () => {
+	test('show renders agent manager list-detail webview html', async () => {
 		await withTempHome(async (homeDir) => {
 			const codexDir = path.join(homeDir, '.codex');
 			const agentsDir = path.join(codexDir, 'agents');
@@ -248,6 +250,8 @@ suite('Agent manager panel', () => {
 				const html = fakePanel.panel.webview.html;
 				assert.ok(html.includes('AGENTS Manager Tabs'));
 				assert.ok(html.includes('id="agentsList"'));
+				assert.ok(html.includes('id="agentDetail"'));
+				assert.ok(html.includes('agents-bottom-pane'));
 				assert.ok(html.includes('id="orchestrationPanel"'));
 				assert.ok(html.includes('deleteWorkflowButton'));
 				const scriptMatch = html.match(/<script nonce="[^"]+">([\s\S]+)<\/script>/);

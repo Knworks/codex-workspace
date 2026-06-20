@@ -208,6 +208,28 @@ export const messages = {
 		'message.agentManagerNoResult',
 		'No agents found.',
 	),
+	agentManagerModelLabel: localize('message.agentManagerModelLabel', 'Model'),
+	agentManagerReasoningEffortLabel: localize(
+		'message.agentManagerReasoningEffortLabel',
+		'Reasoning effort',
+	),
+	agentManagerSandboxModeLabel: localize(
+		'message.agentManagerSandboxModeLabel',
+		'Sandbox mode',
+	),
+	agentManagerLocationLabel: localize(
+		'message.agentManagerLocationLabel',
+		'Location',
+	),
+	agentManagerPathLabel: localize('message.agentManagerPathLabel', 'Path'),
+	agentManagerEnabledLabel: localize(
+		'message.agentManagerEnabledLabel',
+		'Enabled',
+	),
+	agentManagerPreviewEmpty: localize(
+		'message.agentManagerPreviewEmpty',
+		'No preview is available.',
+	),
 	agentManagerAgentsTab: localize(
 		'message.agentManagerAgentsTab',
 		'Agents',

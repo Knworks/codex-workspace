@@ -26,7 +26,7 @@ suite('Agent manager service', () => {
 			fs.mkdirSync(agentsDir, { recursive: true });
 			fs.writeFileSync(
 				path.join(agentsDir, 'reviewer.toml'),
-				'model = "gpt-5.4"\nmodel_reasoning_effort = "high"\nsandbox_mode = "workspace-write"\n',
+				'model = "gpt-5.4"\nmodel_reasoning_effort = "high"\nsandbox_mode = "workspace-write"\ndeveloper_instructions = """# Review\n- Check tests\n"""\n',
 				'utf8',
 			);
 			const configPath = path.join(codexDir, 'config.toml');
@@ -51,6 +51,37 @@ suite('Agent manager service', () => {
 			assert.strictEqual(records[0].reasoningEffort, 'high');
 			assert.strictEqual(records[0].sandboxMode, 'workspace-write');
 			assert.strictEqual(records[0].enabled, true);
+			assert.strictEqual(records[0].previewContent, '# Review\n- Check tests');
+		});
+	});
+
+	test('listAgentManagerRecords reads developer_instructions from literal toml strings', () => {
+		withTempDir((root) => {
+			const codexDir = path.join(root, '.codex');
+			const agentsDir = path.join(codexDir, 'agents');
+			fs.mkdirSync(agentsDir, { recursive: true });
+			fs.writeFileSync(
+				path.join(agentsDir, 'reviewer.toml'),
+				"model = 'gpt-5.4'\ndeveloper_instructions = '''| Col |\n| --- |\n| Value |\n'''\n",
+				'utf8',
+			);
+			const configPath = path.join(codexDir, 'config.toml');
+			fs.writeFileSync(
+				configPath,
+				'[agents.reviewer]\ndescription = "Reviews code"\nconfig_file = "agents/reviewer.toml"\n',
+				'utf8',
+			);
+			const location: AgentLocation = {
+				kind: 'workspace',
+				label: 'Workspace Agents',
+				rootPath: agentsDir,
+				priority: 2,
+			};
+
+			const records = listAgentManagerRecords(configPath, [location]);
+
+			assert.strictEqual(records.length, 1);
+			assert.strictEqual(records[0].previewContent, '| Col |\n| --- |\n| Value |');
 		});
 	});
 

@@ -30,6 +30,7 @@ export type AgentManagerRecord = {
 	configFile: string;
 	location: AgentLocation;
 	enabled: boolean;
+	previewContent: string;
 };
 
 const INHERITED = '継承';
@@ -63,6 +64,7 @@ export function listAgentManagerRecords(
 				configFile,
 				location,
 				enabled: hasAgentConfigBlock(contents, name),
+				previewContent: readDeveloperInstructions(resolvedConfigFile),
 			};
 		}),
 	);
@@ -158,6 +160,35 @@ function readAgentTomlDetails(agentPath: string): Record<string, string> {
 		}
 	}
 	return result;
+}
+
+function readDeveloperInstructions(filePath: string): string {
+	if (!fs.existsSync(filePath)) {
+		return '';
+	}
+	const contents = fs.readFileSync(filePath, 'utf8');
+	const multilineMatch = contents.match(
+		/^\s*developer_instructions\s*=\s*"""([\s\S]*?)"""\s*$/m,
+	);
+	if (multilineMatch) {
+		return multilineMatch[1].trim();
+	}
+	const multilineLiteralMatch = contents.match(
+		/^\s*developer_instructions\s*=\s*'''([\s\S]*?)'''\s*$/m,
+	);
+	if (multilineLiteralMatch) {
+		return multilineLiteralMatch[1].trim();
+	}
+	const singleLineMatch = contents.match(
+		/^\s*developer_instructions\s*=\s*"((?:[^"\\]|\\.)*)"\s*(?:#.*)?$/m,
+	);
+	if (singleLineMatch) {
+		return unescapeTomlString(singleLineMatch[1]).trim();
+	}
+	const singleLineLiteralMatch = contents.match(
+		/^\s*developer_instructions\s*=\s*'([^']*)'\s*(?:#.*)?$/m,
+	);
+	return singleLineLiteralMatch ? singleLineLiteralMatch[1].trim() : '';
 }
 
 function readDisabledAgentDescription(

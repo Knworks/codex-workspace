@@ -94,36 +94,6 @@ function createNonce(): string {
 	return nonce;
 }
 
-function buildRows(records: AgentManagerRecord[]): string {
-	if (records.length === 0) {
-		return `<p class="empty">${escapeHtml(messages.agentManagerNoResult)}</p>`;
-	}
-	return records.map((record) => {
-		const disabledClass = record.enabled ? '' : ' disabled';
-		return `<article class="agent-row${disabledClass}" data-filter-text="${escapeHtml(`${record.name} ${record.description} ${record.model} ${record.reasoningEffort} ${record.sandboxMode} ${record.agentPath}`.toLocaleLowerCase())}">
-			<span class="codicon codicon-hubot row-icon" aria-hidden="true"></span>
-			<div class="agent-main">
-				<div class="agent-title">${escapeHtml(record.name)}</div>
-				<div class="agent-description">${escapeHtml(record.description)}</div>
-				<div class="agent-meta">
-					<span>${escapeHtml(record.model)}</span>
-					<span>${escapeHtml(record.reasoningEffort)}</span>
-					<span>${escapeHtml(record.sandboxMode)}</span>
-				</div>
-				<div class="agent-path" title="${escapeHtml(record.location.label)}: ${escapeHtml(record.agentPath)}">${escapeHtml(record.agentPath)}</div>
-			</div>
-			<div class="agent-actions">
-				<span class="location">${escapeHtml(record.location.label)}</span>
-				<label class="switch">
-					<input type="checkbox" data-agent-name="${escapeHtml(record.name)}" ${record.enabled ? 'checked' : ''} />
-					<span></span>
-				</label>
-				<button class="icon-button" type="button" data-open-path="${escapeHtml(record.agentPath)}" title="${escapeHtml(messages.agentManagerOpen)}" aria-label="${escapeHtml(messages.agentManagerOpen)}"><span class="codicon codicon-file-text" aria-hidden="true"></span></button>
-			</div>
-		</article>`;
-	}).join('');
-}
-
 function serializeForWebview(value: unknown): string {
 	return JSON.stringify(value).replace(/</g, '\\u003c');
 }
@@ -147,16 +117,18 @@ function buildHtml(
 		: '';
 	const payload = serializeForWebview({
 		agents: records.map((record) => ({
+			id: record.id,
 			name: record.name,
 			description: record.description,
 			model: record.model,
 			reasoningEffort: record.reasoningEffort,
 			sandboxMode: record.sandboxMode,
 			agentPath: record.agentPath,
+			configFile: record.configFile,
 			locationLabel: record.location.label,
 			enabled: record.enabled,
+			previewContent: record.previewContent,
 		})),
-		agentRowsHtml: buildRows(records),
 		state: initialState,
 		savedWorkflows: listSavedWorkflowSummaries(),
 		orchestrationDirectory: getOrchestrationDirectory(),
@@ -214,6 +186,14 @@ function buildHtml(
 			acceptanceCriteriaHint: messages.agentManagerAcceptanceCriteriaHint,
 			delegationHint: messages.agentManagerDelegationHint,
 			noPromptToCopy: messages.agentManagerNoPromptToCopy,
+			modelLabel: messages.agentManagerModelLabel,
+			reasoningEffortLabel: messages.agentManagerReasoningEffortLabel,
+			sandboxModeLabel: messages.agentManagerSandboxModeLabel,
+			locationLabel: messages.agentManagerLocationLabel,
+			pathLabel: messages.agentManagerPathLabel,
+			enabledLabel: messages.agentManagerEnabledLabel,
+			previewEmpty: messages.agentManagerPreviewEmpty,
+			noResult: messages.agentManagerNoResult,
 			noSavedWorkflowSelected: messages.agentManagerNoSavedWorkflowSelected,
 			cardDeleted: messages.agentManagerCardDeleted,
 			connectorDeleted: messages.agentManagerConnectorDeleted,
@@ -364,8 +344,23 @@ function buildHtml(
 		.agents-toolbar .toolbar-input {
 			flex: 1;
 		}
-		.agents-body {
+		.agents-bottom-pane {
+			display: grid;
+			grid-template-columns: 34% 66%;
+			min-height: 0;
+			flex: 1;
+		}
+		.left-pane {
+			border-right: 1px solid var(--vscode-panel-border);
+			overflow: auto;
 			padding: 10px 8px;
+		}
+		.right-pane {
+			overflow: auto;
+			padding: 10px 8px;
+		}
+		.agent-list,
+		.agent-detail {
 			display: grid;
 			gap: 6px;
 		}
@@ -378,9 +373,15 @@ function buildHtml(
 			border: 1px solid var(--vscode-panel-border);
 			border-radius: 10px;
 			background: var(--vscode-editorWidget-background);
+			cursor: pointer;
+		}
+		.agent-row.active {
+			border-color: var(--vscode-focusBorder);
+			background: var(--vscode-list-activeSelectionBackground);
+			color: var(--vscode-list-activeSelectionForeground);
 		}
 		.agent-row.disabled {
-			opacity: 0.55;
+			opacity: 0.75;
 		}
 		.agent-title {
 			font-weight: 600;
@@ -388,7 +389,10 @@ function buildHtml(
 		.agent-description,
 		.agent-path,
 		.location,
-		.agent-meta {
+		.agent-meta,
+		.agent-meta-label,
+		.agent-meta-value,
+		.preview-empty {
 			color: var(--vscode-descriptionForeground);
 			font-size: 12px;
 		}
@@ -404,6 +408,43 @@ function buildHtml(
 			display: flex;
 			align-items: center;
 			gap: 10px;
+		}
+		.agent-main {
+			display: grid;
+			gap: 4px;
+			min-width: 0;
+		}
+		.agent-detail-card {
+			display: grid;
+			gap: 10px;
+			padding: 8px;
+			border: 1px solid var(--vscode-panel-border);
+			border-radius: 10px;
+			background: var(--vscode-editorWidget-background);
+		}
+		.agent-detail-grid {
+			display: grid;
+			grid-template-columns: 220px 1fr;
+			gap: 8px 12px;
+			align-items: center;
+		}
+		.agent-meta-label {
+			font-weight: 600;
+		}
+		.agent-preview-full {
+			grid-column: 1 / -1;
+		}
+		.preview-body {
+			padding: 10px;
+			border: 1px solid var(--vscode-panel-border);
+			border-radius: 6px;
+			background: var(--vscode-editor-background);
+			overflow: auto;
+		}
+		.preview-body pre {
+			margin: 0;
+			white-space: pre-wrap;
+			overflow-wrap: anywhere;
 		}
 		.switch input {
 			display: none;
@@ -892,6 +933,7 @@ function buildHtml(
 			gap: 8px;
 		}
 		@media (max-width: 1000px) {
+			.agents-bottom-pane,
 			.orch-main,
 			.preview-layout {
 				grid-template-columns: 1fr;
@@ -919,7 +961,10 @@ function buildHtml(
 			<button id="clearSearch" class="icon-button icon-only" type="button" title="${escapeHtml(messages.historyClear)}" aria-label="${escapeHtml(messages.historyClear)}"><span class="codicon codicon-clear-all" aria-hidden="true"></span></button>
 			<button id="refreshList" class="icon-button icon-only" type="button" title="${escapeHtml(messages.commandRefresh)}" aria-label="${escapeHtml(messages.commandRefresh)}"><span class="codicon codicon-refresh" aria-hidden="true"></span></button>
 		</div>
-		<div id="agentsList" class="agents-body"></div>
+		<div class="agents-bottom-pane">
+			<aside class="left-pane"><div id="agentsList" class="agent-list"></div></aside>
+			<main class="right-pane"><div id="agentDetail" class="agent-detail"></div></main>
+		</div>
 	</section>
 
 	<section id="orchestrationPanel" class="panel-section">
@@ -991,6 +1036,9 @@ function buildHtml(
 			agentSearch: restoredState && typeof restoredState.agentSearch === 'string'
 				? restoredState.agentSearch
 				: '',
+			selectedAgentId: restoredState && typeof restoredState.selectedAgentId === 'string'
+				? restoredState.selectedAgentId
+				: '',
 			workflow: restoredState && restoredState.workflow
 				? restoredState.workflow
 				: initialPayload.state.workflow,
@@ -1010,7 +1058,6 @@ function buildHtml(
 				? restoredState.statusMessage
 				: initialPayload.state.statusMessage,
 			agents: initialPayload.agents,
-			agentRowsHtml: initialPayload.agentRowsHtml,
 			savedWorkflows: initialPayload.savedWorkflows,
 			orchestrationDirectory: initialPayload.orchestrationDirectory,
 			inspectorCollapsed: restoredState
@@ -1027,6 +1074,7 @@ function buildHtml(
 		const tabs = document.querySelectorAll('[data-tab-target]');
 		const searchInput = document.getElementById('searchInput');
 		const agentsList = document.getElementById('agentsList');
+		const agentDetail = document.getElementById('agentDetail');
 		const savedWorkflowSelect = document.getElementById('savedWorkflowSelect');
 		const canvas = document.getElementById('canvas');
 		const edgeLayer = document.getElementById('edgeLayer');
@@ -1073,6 +1121,7 @@ function buildHtml(
 			const state = {
 				activeTab: appState.activeTab,
 				agentSearch: appState.agentSearch,
+				selectedAgentId: appState.selectedAgentId,
 				workflow: appState.workflow,
 				selectedWorkflowId: appState.selectedWorkflowId,
 				selection: appState.selection,
@@ -1182,13 +1231,19 @@ function buildHtml(
 					agent.reasoningEffort,
 					agent.sandboxMode,
 					agent.agentPath,
+					agent.previewContent,
 				].some((value) => String(value || '').toLocaleLowerCase().includes(normalized)),
 			);
 		}
 
+		function getSelectedAgent(filteredAgents) {
+			return filteredAgents.find((agent) => agent.id === appState.selectedAgentId) || filteredAgents[0];
+		}
+
 		function buildAgentRow(agent) {
 			const disabledClass = agent.enabled ? '' : ' disabled';
-			return '<article class="agent-row' + disabledClass + '" data-filter-text="' + escapeHtmlClient((agent.name + ' ' + agent.description + ' ' + agent.model + ' ' + agent.reasoningEffort + ' ' + agent.sandboxMode + ' ' + agent.agentPath).toLocaleLowerCase()) + '">' +
+			const activeClass = appState.selectedAgentId === agent.id ? ' active' : '';
+			return '<article class="agent-row' + activeClass + disabledClass + '" data-agent-id="' + escapeHtmlClient(agent.id) + '">' +
 				'<span class="codicon codicon-hubot row-icon" aria-hidden="true"></span>' +
 				'<div class="agent-main">' +
 					'<div class="agent-title">' + escapeHtmlClient(agent.name) + '</div>' +
@@ -1211,11 +1266,35 @@ function buildHtml(
 			'</article>';
 		}
 
+		function renderAgentDetail(selectedAgent) {
+			if (!selectedAgent) {
+				agentDetail.innerHTML = '<p class="preview-empty">' + escapeHtmlClient(uiText.noResult) + '</p>';
+				return;
+			}
+			const previewHtml = selectedAgent.previewContent
+				? renderMarkdownSafely(selectedAgent.previewContent)
+				: '<p class="preview-empty">' + escapeHtmlClient(uiText.previewEmpty) + '</p>';
+			agentDetail.innerHTML =
+				'<article class="agent-detail-card">' +
+				'<div class="agent-detail-grid">' +
+				'<div class="agent-meta-label">' + escapeHtmlClient(uiText.modelLabel) + '</div><div class="agent-meta-value">' + escapeHtmlClient(selectedAgent.model) + '</div>' +
+				'<div class="agent-meta-label">' + escapeHtmlClient(uiText.reasoningEffortLabel) + '</div><div class="agent-meta-value">' + escapeHtmlClient(selectedAgent.reasoningEffort) + '</div>' +
+				'<div class="agent-meta-label">' + escapeHtmlClient(uiText.sandboxModeLabel) + '</div><div class="agent-meta-value">' + escapeHtmlClient(selectedAgent.sandboxMode) + '</div>' +
+				'<div class="agent-meta-label">' + escapeHtmlClient(uiText.locationLabel) + '</div><div class="agent-meta-value">' + escapeHtmlClient(selectedAgent.locationLabel) + '</div>' +
+				'<div class="agent-meta-label">' + escapeHtmlClient(uiText.pathLabel) + '</div><div class="agent-meta-value">' + escapeHtmlClient(selectedAgent.agentPath) + '</div>' +
+				'<div class="agent-preview-full preview-body markdown-content">' + previewHtml + '</div>' +
+				'</div>' +
+				'</article>';
+		}
+
 		function renderAgentsList() {
 			const filtered = filterAgents();
+			const selectedAgent = getSelectedAgent(filtered);
+			appState.selectedAgentId = selectedAgent ? selectedAgent.id : '';
 			agentsList.innerHTML = filtered.length > 0
 				? filtered.map(buildAgentRow).join('')
 				: '<p class="empty">${escapeHtml(messages.agentManagerNoResult)}</p>';
+			renderAgentDetail(selectedAgent);
 		}
 
 		function renderWorkflowSelectors() {
@@ -1282,6 +1361,63 @@ function buildHtml(
 			return '<table><thead>' + headerHtml + '</thead><tbody>' + bodyHtml + '</tbody></table>';
 		}
 
+		function collectTableBlock(lines, startIndex) {
+			const tableLines = [lines[startIndex].trim(), lines[startIndex + 1].trim()];
+			let index = startIndex + 2;
+			while (index < lines.length) {
+				const candidate = lines[index].trim();
+				if (!candidate || !candidate.includes('|')) {
+					break;
+				}
+				tableLines.push(candidate);
+				index += 1;
+			}
+			return {
+				block: tableLines.join(String.fromCharCode(10)),
+				nextIndex: index,
+			};
+		}
+
+		function splitMarkdownBlocks(markdown, newline) {
+			const lines = markdown.split(newline);
+			const blocks = [];
+			let index = 0;
+			let paragraphLines = [];
+
+			const flushParagraph = () => {
+				if (paragraphLines.length === 0) {
+					return;
+				}
+				blocks.push(paragraphLines.join(newline).trim());
+				paragraphLines = [];
+			};
+
+			while (index < lines.length) {
+				const trimmed = lines[index].trim();
+				if (!trimmed) {
+					flushParagraph();
+					index += 1;
+					continue;
+				}
+				if (
+					index + 1 < lines.length &&
+					trimmed.includes('|') &&
+					new RegExp('^\\\\|?(?:\\\\s*:?-{3,}:?\\\\s*\\\\|)+\\\\s*:?-{3,}:?\\\\s*\\\\|?$').test(lines[index + 1].trim())
+				) {
+					flushParagraph();
+					const tableBlock = collectTableBlock(lines, index);
+					blocks.push(tableBlock.block);
+					index = tableBlock.nextIndex;
+					continue;
+				}
+				paragraphLines.push(trimmed);
+				index += 1;
+			}
+
+			flushParagraph();
+			return blocks.filter(Boolean);
+		}
+
 		function renderMarkdown(markdown) {
 			const newline = String.fromCharCode(10);
 			const source = String(markdown || '').replace(new RegExp('\\\\r\\\\n', 'g'), newline);
@@ -1293,16 +1429,13 @@ function buildHtml(
 					'<pre><code' +
 					(className ? ' class="language-' + escapeHtmlClient(className) + '"' : '') +
 					'>' +
-					escapeHtmlClient(String(code).replace(new RegExp(newline + '$'), '')) +
+					escapeHtmlClient(String(code).replace(new RegExp('\\\\n$'), '')) +
 					'</code></pre>';
 				const token = '__CODE_BLOCK_' + codeBlocks.length + '__';
 				codeBlocks.push({ token, rendered });
 				return token;
 			});
-			const blocks = withPlaceholders
-				.split(new RegExp('\\\\n{2,}'))
-				.map((block) => block.trim())
-				.filter(Boolean);
+			const blocks = splitMarkdownBlocks(withPlaceholders, newline);
 			const renderedBlocks = blocks.map((block) => {
 				if (new RegExp('^__CODE_BLOCK_\\\\d+__$').test(block)) {
 					return block;
@@ -1326,12 +1459,24 @@ function buildHtml(
 				if (isMarkdownTable(block, newline)) {
 					return renderMarkdownTable(block, newline);
 				}
-				return '<p>' + renderInlineMarkdown(block).replaceAll(newline, '<br />') + '</p>';
+				return '<p>' + renderInlineMarkdown(block).split(newline).join('<br />') + '</p>';
 			});
 			return codeBlocks.reduce(
 				(html, block) => html.replace(block.token, block.rendered),
 				renderedBlocks.join(''),
 			);
+		}
+
+		function renderMarkdownSafely(markdown) {
+			try {
+				const rendered = renderMarkdown(markdown);
+				if (rendered) {
+					return rendered;
+				}
+			} catch (_error) {
+				// Fallback to plain text preview when markdown parsing fails.
+			}
+			return '<pre>' + escapeHtmlClient(String(markdown || '')) + '</pre>';
 		}
 
 		function getNodeIcon(node) {
@@ -2064,6 +2209,13 @@ function buildHtml(
 			const openButton = target ? target.closest('[data-open-path]') : null;
 			if (openButton && openButton.dataset && openButton.dataset.openPath) {
 				vscode.postMessage({ type: 'openAgent', agentPath: openButton.dataset.openPath });
+				return;
+			}
+			const row = target ? target.closest('[data-agent-id]') : null;
+			if (row && row.dataset && row.dataset.agentId) {
+				appState.selectedAgentId = row.dataset.agentId;
+				renderAgentsList();
+				persistState();
 			}
 		});
 
