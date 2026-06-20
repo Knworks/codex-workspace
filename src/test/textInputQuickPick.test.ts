@@ -170,4 +170,74 @@ suite('Text input quick pick', () => {
 				originalCreateQuickPick;
 		}
 	});
+
+	test('keeps suggestion items and appends a custom candidate for unmatched input', async () => {
+		const originalCreateQuickPick = vscode.window.createQuickPick;
+		const fakeQuickPick = new FakeQuickPick();
+		(vscode.window as unknown as { createQuickPick: typeof originalCreateQuickPick }).createQuickPick =
+			() => fakeQuickPick as unknown as vscode.QuickPick<any>;
+
+		fakeQuickPick.setShowHook(() => {
+			fakeQuickPick.triggerValueChange('custom-folder');
+			assert.deepStrictEqual(
+				fakeQuickPick.items.map((item) => item.label),
+				['references/', 'scripts/', 'assets/', 'custom-folder/'],
+			);
+			fakeQuickPick.activeItems = [fakeQuickPick.items[3]!];
+			fakeQuickPick.triggerAccept();
+		});
+
+		try {
+			const value = await promptTextInputWithQuickPick({
+				title: 'Enter folder name',
+				suggestions: [
+					{ label: 'references/', value: 'references' },
+					{ label: 'scripts/', value: 'scripts' },
+					{ label: 'assets/', value: 'assets' },
+				],
+				resolvePreviewValue: (rawValue) => rawValue.trim(),
+				resolveValue: (_rawValue, previewValue) => previewValue,
+				formatLabel: (value) => `${value}/`,
+			});
+			assert.strictEqual(value, 'custom-folder');
+		} finally {
+			(vscode.window as unknown as { createQuickPick: typeof originalCreateQuickPick }).createQuickPick =
+				originalCreateQuickPick;
+		}
+	});
+
+	test('returns an existing suggestion without duplicating it in the item list', async () => {
+		const originalCreateQuickPick = vscode.window.createQuickPick;
+		const fakeQuickPick = new FakeQuickPick();
+		(vscode.window as unknown as { createQuickPick: typeof originalCreateQuickPick }).createQuickPick =
+			() => fakeQuickPick as unknown as vscode.QuickPick<any>;
+
+		fakeQuickPick.setShowHook(() => {
+			fakeQuickPick.triggerValueChange('scripts');
+			assert.deepStrictEqual(
+				fakeQuickPick.items.map((item) => item.label),
+				['references/', 'scripts/', 'assets/'],
+			);
+			fakeQuickPick.activeItems = [fakeQuickPick.items[1]!];
+			fakeQuickPick.triggerAccept();
+		});
+
+		try {
+			const value = await promptTextInputWithQuickPick({
+				title: 'Enter folder name',
+				suggestions: [
+					{ label: 'references/', value: 'references' },
+					{ label: 'scripts/', value: 'scripts' },
+					{ label: 'assets/', value: 'assets' },
+				],
+				resolvePreviewValue: (rawValue) => rawValue.trim(),
+				resolveValue: (_rawValue, previewValue) => previewValue,
+				formatLabel: (value) => `${value}/`,
+			});
+			assert.strictEqual(value, 'scripts');
+		} finally {
+			(vscode.window as unknown as { createQuickPick: typeof originalCreateQuickPick }).createQuickPick =
+				originalCreateQuickPick;
+		}
+	});
 });

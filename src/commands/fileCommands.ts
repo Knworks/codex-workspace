@@ -36,6 +36,10 @@ type FileCommandContext = {
 	viewFocusState: ViewFocusState;
 };
 
+type AddFolderOptions = {
+	allowCustomSkillSubfolderName?: boolean;
+};
+
 export function registerFileCommands(
 	context: vscode.ExtensionContext,
 	config: FileCommandContext,
@@ -104,7 +108,9 @@ export function registerFileCommands(
 							activeSelection,
 							provider.getRootPath(),
 						);
-						await addFolderWithSelection(selection, provider, views);
+						await addFolderWithSelection(selection, provider, views, {
+							allowCustomSkillSubfolderName: true,
+						});
 					}),
 			),
 		);
@@ -183,7 +189,9 @@ export function registerFileCommands(
 							activeSelection,
 							provider.getRootPath(),
 						);
-						await addFolderWithSelection(selection, provider, views);
+						await addFolderWithSelection(selection, provider, views, {
+							allowCustomSkillSubfolderName: true,
+						});
 						return;
 					}
 
@@ -197,7 +205,9 @@ export function registerFileCommands(
 						return;
 					}
 
-					await addFolderWithSelection(selection, provider, views);
+					await addFolderWithSelection(selection, provider, views, {
+						allowCustomSkillSubfolderName: true,
+					});
 				}),
 		),
 	);
@@ -219,7 +229,9 @@ export function registerFileCommands(
 					}
 					const provider = providers.skills;
 					const selection = createRootItem('skills', provider.getRootPath());
-					await addFolderWithSelection(selection, provider, views);
+					await addFolderWithSelection(selection, provider, views, {
+						allowCustomSkillSubfolderName: false,
+					});
 				}),
 		),
 	);
@@ -414,10 +426,13 @@ export function resolveAddViewSelection(
 	item: CodexTreeItem | undefined,
 	selection: CodexTreeItem | undefined,
 ): CodexTreeItem | undefined {
+	if (item) {
+		return item;
+	}
 	if (!hasSelection) {
 		return undefined;
 	}
-	return item ?? selection;
+	return selection;
 }
 
 export function requiresFolderSelectionForFileAdd(item: CodexTreeItem): boolean {
@@ -593,13 +608,17 @@ async function addFolderWithSelection(
 	selection: CodexTreeItem,
 	provider: FileExplorerProvider,
 	views: Record<FileViewKind, vscode.TreeView<CodexTreeItem>>,
+	options: AddFolderOptions = {},
 ): Promise<void> {
 	const targetDir = await resolveTargetDirectoryForAdd(selection, provider);
 	if (!targetDir) {
 		return;
 	}
 
-	const selectedSkillSubfolder = await pickSkillSubfolderName(selection);
+	const selectedSkillSubfolder = await pickSkillSubfolderName(
+		selection,
+		options.allowCustomSkillSubfolderName ?? false,
+	);
 	if (selectedSkillSubfolder === null) {
 		return;
 	}
@@ -645,19 +664,35 @@ async function addFolderWithSelection(
 
 async function pickSkillSubfolderName(
 	selection: CodexTreeItem,
+	allowCustomSkillSubfolderName: boolean,
 ): Promise<string | null | undefined> {
 	if (selection.kind !== 'skills' || selection.nodeType !== 'folder') {
 		return undefined;
 	}
 
-	const selected = await vscode.window.showQuickPick(
-		SKILL_SUBFOLDER_OPTIONS.map((name) => ({
+	if (!allowCustomSkillSubfolderName) {
+		const selected = await vscode.window.showQuickPick(
+			SKILL_SUBFOLDER_OPTIONS.map((name) => ({
+				label: `${name}/`,
+				name,
+			})),
+			{ placeHolder: messages.file.skillSubfolderPickPlaceholder },
+		);
+		return selected?.name ?? null;
+	}
+
+	const selected = await promptTextInputWithQuickPick({
+		title: messages.file.inputFolderName,
+		placeholder: messages.file.skillSubfolderPickPlaceholder,
+		suggestions: SKILL_SUBFOLDER_OPTIONS.map((name) => ({
 			label: `${name}/`,
-			name,
+			value: name,
 		})),
-		{ placeHolder: messages.file.skillSubfolderPickPlaceholder },
-	);
-	return selected?.name ?? null;
+		resolvePreviewValue: (value) => sanitizeName(value.trim()),
+		resolveValue: (_rawValue, previewValue) => previewValue,
+		formatLabel: (value) => `${value}/`,
+	});
+	return selected ?? null;
 }
 
 async function pickTemplateContents(): Promise<string | null> {

@@ -42,7 +42,7 @@ test('resolveAddViewSelection ignores inactive selection', () => {
 	);
 	assert.strictEqual(
 		resolveAddViewSelection(false, item, selection),
-		undefined,
+		item,
 	);
 });
 
@@ -74,6 +74,17 @@ test('resolveAddViewSelection prefers item over selection', () => {
 	);
 	assert.strictEqual(resolveAddViewSelection(true, item, selection), item);
 });
+
+	test('resolveAddViewSelection returns undefined without item or active selection', () => {
+		const selection = new CodexTreeItem(
+			'folder',
+			'prompts',
+			'docs',
+			0,
+			path.join('root', 'docs'),
+		);
+		assert.strictEqual(resolveAddViewSelection(false, undefined, selection), undefined);
+	});
 
 	test('requiresFolderSelectionForFileAdd requires a folder only for skills files', () => {
 		const root = new CodexTreeItem(

@@ -9,6 +9,11 @@ export type TextInputQuickPickOptions = {
 	placeholder?: string;
 	initialValue?: string;
 	ignoreFocusOut?: boolean;
+	suggestions?: Array<{
+		label: string;
+		value: string;
+		description?: string;
+	}>;
 	resolvePreviewValue?: (value: string) => string;
 	resolveValue?: (rawValue: string, previewValue: string) => string;
 	formatLabel?: (value: string) => string;
@@ -31,19 +36,31 @@ export async function promptTextInputWithQuickPick(
 			const previewValue = options.resolvePreviewValue
 				? options.resolvePreviewValue(rawValue)
 				: rawValue.trim();
-			const items = previewValue
-				? [
-						{
-							label: options.formatLabel
-								? options.formatLabel(previewValue)
-								: previewValue,
-							description: options.description,
-							value: options.resolveValue
-								? options.resolveValue(rawValue, previewValue)
-								: rawValue,
-						},
-					]
-				: [];
+			const suggestionItems = (options.suggestions ?? []).map((suggestion) => ({
+				label: suggestion.label,
+				description: suggestion.description,
+				value: suggestion.value,
+			}));
+			const previewItem = previewValue
+				? {
+						label: options.formatLabel
+							? options.formatLabel(previewValue)
+							: previewValue,
+						description: options.description,
+						value: options.resolveValue
+							? options.resolveValue(rawValue, previewValue)
+							: rawValue,
+					}
+				: undefined;
+			const items =
+				previewItem &&
+				!suggestionItems.some(
+					(suggestion) =>
+						suggestion.value === previewItem.value ||
+						suggestion.label === previewItem.label,
+				)
+					? [...suggestionItems, previewItem]
+					: suggestionItems;
 			quickPick.items = items;
 			if (items.length > 0) {
 				quickPick.activeItems = [items[0]];

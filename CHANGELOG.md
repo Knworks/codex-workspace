@@ -8,8 +8,8 @@ Changes
 
 - Updated AGENTS loading diagnostics to follow the current Codex CLI directory chain for `AGENTS.override.md`, `AGENTS.md`, and fallback files.
 - Updated Skills discovery to follow the current Codex CLI repository skill chain from the working directory up to the repository root.
+- Updated Skills Explore item-level folder creation to support custom child folder names.
 - Updated agent creation and enable flows so custom agent TOML files always satisfy the current required Codex CLI fields.
-
 
 ## 1.1.9
 
@@ -36,6 +36,7 @@ Fixes
   - Added pet selection and settings such as display scale.
 - When App Server integration is enabled, `Codex Pet` connects to `codex app-server` and periodically shows `5h` / `1w` rate limit information in speech bubbles.
 ジョン
+
 ## 1.1.5
 
 Changes
