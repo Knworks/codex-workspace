@@ -73,10 +73,16 @@ suite('History panel manager', () => {
 		assert.ok(source.includes("querySelector('[data-feature-effective]')"));
 		assert.ok(source.includes("querySelector('[data-feature-source]')"));
 		assert.ok(source.includes('Failed to update feature flag row inline'));
-		assert.ok(source.includes('.setting-toggle {\n\t\t\tposition: relative;'));
-		assert.ok(source.includes('.setting-toggle input {\n\t\t\tposition: absolute;\n\t\t\tinset: 0;'));
-		assert.ok(source.includes('.chain-toggle {\n\t\t\tposition: relative;'));
-		assert.ok(source.includes('.chain-toggle input {\n\t\t\tposition: absolute;\n\t\t\tinset: 0;'));
+		assert.match(source, /\.setting-toggle\s*\{\s*position: relative;/);
+		assert.match(
+			source,
+			/\.setting-toggle input\s*\{\s*position: absolute;\s*inset: 0;/,
+		);
+		assert.match(source, /\.chain-toggle\s*\{\s*position: relative;/);
+		assert.match(
+			source,
+			/\.chain-toggle input\s*\{\s*position: absolute;\s*inset: 0;/,
+		);
 		assert.ok(source.includes('html {'));
 		assert.ok(source.includes('height: 100%;'));
 		assert.ok(source.includes('grid-template-rows: auto minmax(0, 1fr);'));
@@ -87,7 +93,10 @@ suite('History panel manager', () => {
 		assert.ok(source.includes('featuresContent.scrollTop = previousScrollTop;'));
 		assert.ok(!source.includes("this.refreshTab('features');"));
 		assert.ok(!source.includes("document.querySelector('[data-feature-effective=\"' + featureKey + '\"]')"));
-		assert.ok(!source.includes('vscode.window.showInformationMessage(messages.mcpToggleUpdated);\n\t\tif (featureKey ==='));
+		assert.doesNotMatch(
+			source,
+			/vscode\.window\.showInformationMessage\(messages\.mcpToggleUpdated\);\s*if \(featureKey ===/,
+		);
 	});
 
 	test('show reuses a single panel instance and reveals it', () => {

@@ -21,6 +21,10 @@ import {
 } from '../services/agentConfigService';
 
 suite('Agent config service', () => {
+	function normalizeConfigPath(value: string): string {
+		return value.replace(/\\/g, '/');
+	}
+
 	test('appendAgentConfigBlock appends minimal block', () => {
 		const original = '[mcp_servers.sample]\nenabled = true\n';
 		const result = appendAgentConfigBlock(original, 'reviewer', 'Security reviewer');
@@ -125,7 +129,7 @@ suite('Agent config service', () => {
 			assert.strictEqual(readAgentTomlDescription(agentPath), 'Planner');
 			assert.strictEqual(
 				toAgentConfigFilePath(configPath, agentPath),
-				path.relative(path.dirname(configPath), agentPath),
+				normalizeConfigPath(path.relative(path.dirname(configPath), agentPath)),
 			);
 		} finally {
 			fs.rmSync(tempDir, { recursive: true, force: true });

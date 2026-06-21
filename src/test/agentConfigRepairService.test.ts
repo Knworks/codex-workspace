@@ -16,6 +16,10 @@ function withTempDir(run: (root: string) => void): void {
 }
 
 suite('Agent config repair service', () => {
+	function normalizeConfigPath(value: string): string {
+		return value.replace(/\\/g, '/');
+	}
+
 	test('repairs agent description and config_file from the actual agent file', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, '.codex', 'config.toml');
@@ -56,7 +60,7 @@ suite('Agent config repair service', () => {
 			assert.ok(repaired.contents.includes('description = "Architecture specialist"'));
 			assert.ok(
 				repaired.contents.includes(
-					`config_file = "${path.relative(path.dirname(configPath), path.join(projectAgentsRoot, 'architect.toml'))}"`,
+					`config_file = "${normalizeConfigPath(path.relative(path.dirname(configPath), path.join(projectAgentsRoot, 'architect.toml')))}"`,
 				),
 			);
 		});

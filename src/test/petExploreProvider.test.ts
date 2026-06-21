@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import path from 'path';
 import * as vscode from 'vscode';
 import { CODICON_RESOURCE_ROOTS } from '../services/webviewAssets';
 import {
@@ -9,6 +10,10 @@ import {
 } from '../views/petExploreProvider';
 
 suite('Pet Explore provider', () => {
+	function normalizeFsPath(value: string): string {
+		return path.normalize(value).toLowerCase();
+	}
+
 	test('uses both pet root candidates as local resource roots', () => {
 		const provider = new PetExploreProvider({
 			subscriptions: [],
@@ -24,8 +29,10 @@ suite('Pet Explore provider', () => {
 
 		provider.resolveWebviewView(view);
 
-		const roots = (webview.options?.localResourceRoots ?? []).map((uri) => uri.fsPath);
-		const expectedPetRoots = getPetResourceRootPaths();
+		const roots = (webview.options?.localResourceRoots ?? []).map((uri) =>
+			normalizeFsPath(uri.fsPath),
+		);
+		const expectedPetRoots = getPetResourceRootPaths().map(normalizeFsPath);
 		for (const expectedRoot of expectedPetRoots) {
 			assert.ok(
 				roots.includes(expectedRoot),
@@ -34,7 +41,7 @@ suite('Pet Explore provider', () => {
 		}
 		for (const codiconRoot of CODICON_RESOURCE_ROOTS) {
 			assert.ok(
-				roots.includes(codiconRoot.fsPath),
+				roots.includes(normalizeFsPath(codiconRoot.fsPath)),
 				`Missing codicon resource root ${codiconRoot.fsPath}`,
 			);
 		}

@@ -117,8 +117,8 @@ suite('Pet services', () => {
 				isWarning: window.isWarning,
 			})),
 			[
-				{ label: '1w', remainingPercent: 24, isWarning: true },
 				{ label: '5h', remainingPercent: 100, isWarning: false },
+				{ label: '1w', remainingPercent: 24, isWarning: true },
 			],
 		);
 	});

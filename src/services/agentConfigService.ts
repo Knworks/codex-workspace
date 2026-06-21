@@ -325,7 +325,7 @@ export function readAgentTomlDescription(agentFilePath: string): string | undefi
 }
 
 export function toAgentConfigFilePath(configPath: string, agentFilePath: string): string {
-	return path.relative(path.dirname(configPath), agentFilePath);
+	return path.relative(path.dirname(configPath), agentFilePath).replace(/\\/g, '/');
 }
 
 /**
