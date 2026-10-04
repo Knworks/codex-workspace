@@ -22,8 +22,9 @@
 
 | 用語 | 定義 | 備考 |
 | --- | --- | --- |
-| `.codex` | Codex のホームディレクトリ配下にある設定ルート | `resolveCodexPaths()` は `~/.codex` を使用 |
+| `.codex` | Codex の設定ルート | `resolveCodexPaths()` は空でない `CODEX_HOME` を優先し、未設定・空文字の場合は `~/.codex` を使用。以下の `~/.codex` 表記は、この resolver を使う機能では解決後の Codex ホームを指す |
 | `config.toml` | Codex の主要設定ファイル | `~/.codex/config.toml` |
+| `<profile>.config.toml` | プロファイル別の設定ファイル | Codex ホーム直下のファイルを名前付きで Core Explorer に表示 |
 | `AGENTS.md` | Codex のグローバル AGENTS ファイル | `~/.codex/AGENTS.md` |
 | `AGENTS.override.md` | グローバル override 用 AGENTS ファイル | 存在時のみ Core Explorer に表示 |
 | `Commands` | `~/.codex/prompts` 配下のファイルを表示するビュー | View ID は `codex-workspace.prompts` |
@@ -80,7 +81,9 @@
   - `codex-workspace.mcp` : `MCP Server`
   - `codex-workspace.templates` : `Templates`
   - `codex-workspace.pet` : `Codex Pet Explore`
-- Core ビューは `config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を表示する。
+- Core ビューは `config.toml`、Codex ホーム直下の各 `<profile>.config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を表示する。
+  - プロファイル設定ファイルはファイル名順で個別に表示し、クリックで開ける。サブディレクトリ内のファイルや `<profile>` が空の名前は対象外とする。
+  - プロファイルの切替と、設定値をマージした実効値の表示は対象外とする。
 - Skills ビューは以下の順で Skill ルートを表示する。
   - Project Skills: `workspace/.agents/skills` を優先し、存在しない場合は `workspace/.codex/skills`
   - Workspace Skills: `~/.codex/skills`

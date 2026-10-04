@@ -19,6 +19,46 @@ function withTempHome(run: (homeDir: string) => void): void {
 }
 
 suite('Workspace status', () => {
+	let originalCodexHome: string | undefined;
+
+	setup(() => {
+		originalCodexHome = process.env.CODEX_HOME;
+		delete process.env.CODEX_HOME;
+	});
+
+	teardown(() => {
+		if (originalCodexHome === undefined) {
+			delete process.env.CODEX_HOME;
+		} else {
+			process.env.CODEX_HOME = originalCodexHome;
+		}
+	});
+
+	test('uses CODEX_HOME for paths and workspace availability', () => {
+		withTempHome((homeDir) => {
+			process.env.CODEX_HOME = path.join(homeDir, 'custom-codex');
+			fs.mkdirSync(process.env.CODEX_HOME);
+			fs.writeFileSync(path.join(process.env.CODEX_HOME, 'config.toml'), '', 'utf8');
+			assert.deepStrictEqual(resolveCodexPaths(homeDir), {
+				codexDir: process.env.CODEX_HOME,
+				configPath: path.join(process.env.CODEX_HOME, 'config.toml'),
+			});
+			assert.strictEqual(getWorkspaceStatus(homeDir).isAvailable, true);
+			assert.strictEqual(getCoreWorkspaceStatus(homeDir).isAvailable, true);
+		});
+	});
+
+	test('uses the default codex directory when CODEX_HOME is unset or empty', () => {
+		withTempHome((homeDir) => {
+			const expected = {
+				codexDir: path.join(homeDir, '.codex'),
+				configPath: path.join(homeDir, '.codex', 'config.toml'),
+			};
+			assert.deepStrictEqual(resolveCodexPaths(homeDir), expected);
+			process.env.CODEX_HOME = '';
+			assert.deepStrictEqual(resolveCodexPaths(homeDir), expected);
+		});
+	});
 	test('reports missing codex directory', () => {
 		withTempHome((homeDir) => {
 			const status = getWorkspaceStatus(homeDir);

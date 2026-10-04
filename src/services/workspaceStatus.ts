@@ -32,7 +32,7 @@ export function getUnavailableLabel(reason: string): string {
 }
 
 export function resolveCodexPaths(homeDir: string = os.homedir()): WorkspacePaths {
-	const codexDir = path.join(homeDir, '.codex');
+	const codexDir = process.env.CODEX_HOME || path.join(homeDir, '.codex');
 	return {
 		codexDir,
 		configPath: path.join(codexDir, 'config.toml'),

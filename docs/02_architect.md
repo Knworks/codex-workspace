@@ -88,7 +88,8 @@ codex-workspace/
   - コマンド登録は `registerFileCommands()` と `registerAgentCommands()` に委譲する
 
 - **Core Explorer**
-  - `coreExplorerProvider.ts` が `config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を生成する
+  - `coreExplorerProvider.ts` が `config.toml`、Codex ホーム直下の各 `<profile>.config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を生成する
+  - `resolveCodexPaths()` が空でない `CODEX_HOME` を優先し、未設定・空文字の場合は `~/.codex` を返す。プロファイル設定ファイルは直下の通常ファイルだけをファイル名順で列挙し、設定ファイルのアイコンと既存の open command を付ける
   - `config.toml` が不正な場合、warning アイコンと tooltip で状態を見せる
 
 - **Commands / Skills / Templates Explorer**
@@ -212,6 +213,7 @@ codex-workspace/
 
 - **Core ビュー**
   - `config.toml`
+  - Codex ホーム直下の各 `<profile>.config.toml`（ファイル名順）
   - `AGENTS.md`
   - `AGENTS.override.md` は存在時のみ
   - タイトルバー: open folder / open Codex Manager / sync

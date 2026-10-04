@@ -45,6 +45,32 @@ export class CoreExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 			configItem.iconPath = this.getIcon('settingsfile32.png');
 		}
 
+		const configItems = [configItem];
+		const profileNames = fs.existsSync(paths.codexDir)
+			? fs.readdirSync(paths.codexDir, { withFileTypes: true })
+				.filter((entry) => entry.isFile()
+					&& entry.name.endsWith('.config.toml')
+					&& entry.name !== '.config.toml')
+				.map((entry) => entry.name)
+				.sort()
+			: [];
+		for (const profileName of profileNames) {
+			const profileItem = new CodexTreeItem(
+				'file',
+				'core',
+				profileName,
+				vscode.TreeItemCollapsibleState.None,
+				path.join(paths.codexDir, profileName),
+			);
+			profileItem.command = {
+				command: 'codex-workspace.openFile',
+				title: `Open ${profileName}`,
+				arguments: [profileItem],
+			};
+			profileItem.iconPath = this.getIcon('settingsfile32.png');
+			configItems.push(profileItem);
+		}
+
 		const agentItem = new CodexTreeItem(
 			'file',
 			'core',
@@ -59,7 +85,7 @@ export class CoreExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 		};
 		agentItem.iconPath = this.getIcon('agents_light.png', 'agents_dark.png');
 
-		const items = [configItem, agentItem];
+		const items = [...configItems, agentItem];
 		const overridePath = path.join(paths.codexDir, 'AGENTS.override.md');
 		if (fs.existsSync(overridePath)) {
 			const overrideItem = new CodexTreeItem(
