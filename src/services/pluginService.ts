@@ -334,7 +334,7 @@ function findInstalledPluginRoots(homeDir: string): Array<{
 	version: string;
 	rootPath: string;
 }> {
-	const cacheRoot = path.join(homeDir, '.codex', 'plugins', 'cache');
+	const cacheRoot = path.join(resolveCodexPaths(homeDir).codexDir, 'plugins', 'cache');
 	if (!fs.existsSync(cacheRoot)) {
 		return [];
 	}

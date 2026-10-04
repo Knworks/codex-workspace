@@ -2,7 +2,7 @@
 
 ## 1. 🎯背景と目的
 
-- Codex 関連ファイルを VS Code から参照しやすくし、`~/.codex` と周辺保存場所の編集導線をまとめる。
+- Codex 関連ファイルを VS Code から参照しやすくし、`<codexHome>` と周辺保存場所の編集導線をまとめる。
 - `config.toml`、`AGENTS.md`、Skills、Sub Agents、MCP Server、Templates、Commands、Codex Pet Explore を Explorer と Webview で扱えるようにする。
 - Codex Manager から会話履歴、Core 設定周辺の診断、Plugin の構成情報を確認できるようにする。
 
@@ -11,7 +11,7 @@
 ## 2. 👥利用者とステークホルダー
 
 - 利用者
-  - Codex CLI を利用し、`~/.codex` やワークスペース配下の Codex 関連ファイルを編集する開発者
+  - Codex CLI を利用し、`<codexHome>` やワークスペース配下の Codex 関連ファイルを編集する開発者
 - ステークホルダー
   - 拡張機能開発者
   - 拡張機能利用者
@@ -20,29 +20,33 @@
 
 ## 3. 📚用語・ドメイン定義
 
+本書の `<codexHome>` は、空文字・空白のみでない環境変数 `CODEX_HOME` の値を優先し、未設定・空文字・空白のみの場合は `os.homedir()/.codex` にフォールバックする。空白のみかどうかの判定を除き、指定されたパスはそのまま使用する。
+
+Explorer、各 Manager、同期処理、Plugins、History、Templates、Pets は共通 resolver を使用する。プロジェクト配下の `.codex` / `.agents` と User Skills の `~/.agents/skills` は独立した保存場所として扱う。
+
 | 用語 | 定義 | 備考 |
 | --- | --- | --- |
-| `.codex` | Codex のホームディレクトリ配下にある設定ルート | `resolveCodexPaths()` は `~/.codex` を使用 |
-| `config.toml` | Codex の主要設定ファイル | `~/.codex/config.toml` |
-| `AGENTS.md` | Codex のグローバル AGENTS ファイル | `~/.codex/AGENTS.md` |
+| `Codexホーム` | Codex の設定・状態ファイルのルート | `codexPaths.ts` の共通 resolver で解決 |
+| `config.toml` | Codex の主要設定ファイル | `<codexHome>/config.toml` |
+| `AGENTS.md` | Codex のグローバル AGENTS ファイル | `<codexHome>/AGENTS.md` |
 | `AGENTS.override.md` | グローバル override 用 AGENTS ファイル | 存在時のみ Core Explorer に表示 |
-| `Commands` | `~/.codex/prompts` 配下のファイルを表示するビュー | View ID は `codex-workspace.prompts` |
+| `Commands` | `<codexHome>/prompts` 配下のファイルを表示するビュー | View ID は `codex-workspace.prompts` |
 | `Skills` | Skill ルート配下の `SKILL.md` を表示するビュー | Project / Workspace / User / System を列挙 |
-| `Templates` | テンプレート保存場所 | `~/.codex/codex-templates` 固定 |
+| `Templates` | テンプレート保存場所 | `<codexHome>/codex-templates` |
 | `Sub Agents` | Agent 定義 `*.toml` を表示するビュー | `getAgentLocations()` の結果を列挙 |
 | `MCP Server` | `config.toml` の `[mcp_servers.<id>]` 設定 | `env` / `http_headers` / `env_http_headers` / `tools.*` companion block は一覧表示しない |
 | `Codex Manager` | Core 画面から開く WebviewPanel | History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks / Plugins タブを持つ |
 | `Skill Manager` | Skills 一覧と有効/無効切替を行う WebviewPanel | `SKILL.md` frontmatter と `[[skills.config]]` を参照 |
 | `AGENTS Manager` | Sub Agents 一覧管理とオーケストレーション workflow 編集を行う WebviewPanel | `config.toml`、disabled store、Agent TOML、`developer_instructions`、`.codex-workspace/orchestrations/*.json` を参照 |
 | `MCP Manager` | MCP Server の一覧・作成・編集・削除を行う WebviewPanel | 左右 2 ペイン構成 |
-| `Plugins` | インストール済み Plugin の構成情報 | `~/.codex/plugins/cache` と marketplace 定義を参照 |
-| `Codex Pet Explore` | ペット表示、選択、接続状態、rate limit 吹き出しを扱う WebviewView | `~/.codex/pets/<petId>` を優先し、存在しない場合は `~/.codex/pet/<petId>` を参照 |
+| `Plugins` | インストール済み Plugin の構成情報 | `<codexHome>/plugins/cache` と marketplace 定義を参照 |
+| `Codex Pet Explore` | ペット表示、選択、接続状態、rate limit 吹き出しを扱う WebviewView | `<codexHome>/pets/<petId>` を優先し、存在しない場合は `<codexHome>/pet/<petId>` を参照 |
 | `pet.json` | ペット定義 JSON | `spritesheetPath` は必須、`id` / `displayName` / `description` は任意 |
-| `.codex-workspace` | 拡張機能のメタ領域 | `~/.codex/.codex-workspace` |
-| `config.toml.bk` | `Organize config.toml` 実行前バックアップ | `~/.codex/.codex-workspace/config.toml.bk` |
-| `agents-disabled.json` | 無効化した agent 設定ブロック退避先 | `~/.codex/.codex-workspace/agents-disabled.json` |
-| `codex-sync.json` | 同期状態の保存先 | `~/.codex/.codex-workspace/codex-sync.json` |
-| `orchestrations/*.json` | オーケストレーション workflow 定義 | `~/.codex/.codex-workspace/orchestrations/<workflowId>.json` |
+| `.codex-workspace` | 拡張機能のメタ領域 | `<codexHome>/.codex-workspace` |
+| `config.toml.bk` | `Organize config.toml` 実行前バックアップ | `<codexHome>/.codex-workspace/config.toml.bk` |
+| `agents-disabled.json` | 無効化した agent 設定ブロック退避先 | `<codexHome>/.codex-workspace/agents-disabled.json` |
+| `codex-sync.json` | 同期状態の保存先 | `<codexHome>/.codex-workspace/codex-sync.json` |
+| `orchestrations/*.json` | オーケストレーション workflow 定義 | `<codexHome>/.codex-workspace/orchestrations/<workflowId>.json` |
 | `maxHistoryCount` | 会話履歴一覧の最大件数設定 | 明示設定時のみ適用 |
 | `incrudeReasoningMessage` | 履歴プレビューに reasoning を含める設定 | キー名は実装のまま |
 
@@ -51,7 +55,7 @@
 ## 4. 🎭ユースケース / ユーザーストーリー
 
 - ユーザーは Core ビューから `config.toml`、`AGENTS.md`、`AGENTS.override.md` を開ける。
-- ユーザーは Commands ビューで `~/.codex/prompts` 配下のファイルを開き、タイトルバーから新規ファイルを追加できる。
+- ユーザーは Commands ビューで `<codexHome>/prompts` 配下のファイルを開き、タイトルバーから新規ファイルを追加できる。
 - ユーザーは Skills ビューで複数保存場所の Skill フォルダをまとめて見られる。
 - ユーザーは Skills ビューで `SKILL.md` を開き、Skill root と `SKILL.md` に有効/無効アイコンを確認できる。
 - ユーザーは Skill Manager で Skill 名、説明、保存場所、パスを一覧し、有効/無効を切り替えられる。
@@ -83,20 +87,20 @@
 - Core ビューは `config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を表示する。
 - Skills ビューは以下の順で Skill ルートを表示する。
   - Project Skills: `workspace/.agents/skills` を優先し、存在しない場合は `workspace/.codex/skills`
-  - Workspace Skills: `~/.codex/skills`
+  - Workspace Skills: `<codexHome>/skills`
   - User Skills: `~/.agents/skills`
-  - System Skills: `~/.codex/skills/.system`
+  - System Skills: `<codexHome>/skills/.system`
 - Sub Agents ビューは以下の順で Agent ルートを表示する。
   - Project Agents: `workspace/.codex/agents` を優先し、存在しない場合は `workspace/.agents/agents`
-  - Workspace Agents: `~/.codex/agents`
-  - User Agents: `~/.codex/agents` と異なるパスが返る場合のみ追加
-- Templates の実体パスは `~/.codex/codex-templates` 固定とする。
+  - Workspace Agents: `<codexHome>/agents`
+  - `CODEX_HOME` 指定時に、既定の `~/.codex/agents` を追加の User Agents として列挙しない
+- Templates の実体パスは `<codexHome>/codex-templates` とする。
 
 ### 5.2 利用可否判定（共通）
 
 - 一般ビューと更新コマンドは `getWorkspaceStatus()` を利用し、以下のいずれかで利用不可とする。
-  - `~/.codex` が存在しない
-  - `~/.codex/config.toml` が存在しない
+  - `<codexHome>` が存在しない
+  - `<codexHome>/config.toml` が存在しない
   - `config.toml` が読み取れない
   - `config.toml` が TOML として parse できない
 - Core ビューと Codex Manager 起動は `getCoreWorkspaceStatus()` を利用し、`config.toml` が不正でも利用可能とする。
@@ -121,7 +125,7 @@
 - `Skills` の folder に対する新規フォルダ作成時は `references/`、`scripts/`、`assets/` の候補を Quick Pick で選択できる。
 - `Skills` の folder に対する新規フォルダ作成時、候補にない入力を行った場合は、その入力値を正規化した名前で子フォルダを作成する。
 - `Skills` の `SKILL.md` と Skill root folder は `enabled` 状態に応じてアイコンを切り替える。
-- 新規ファイル作成時は `~/.codex/codex-templates` 配下のテンプレート候補から内容を適用できる。
+- 新規ファイル作成時は `<codexHome>/codex-templates` 配下のテンプレート候補から内容を適用できる。
 
 ### 5.4 Skills の有効/無効管理
 
@@ -160,7 +164,7 @@
 - AGENTS Manager は `Agents` タブと `Orchestration` タブを持つ。
 - `Orchestration` タブでは workflow / agent / loop card を canvas 上で編集できる。
 - workflow は `version` / `workflowId` / `name` / `description` / `finalOutputFormat` / `nodes` / `edges` / `createdAt` / `updatedAt` を持つ JSON として保存する。
-- workflow の保存先は `~/.codex/.codex-workspace/orchestrations` とする。
+- workflow の保存先は `<codexHome>/.codex-workspace/orchestrations` とする。
 - agent card は `order` / `agentName` / `purpose` / `input` / `expectedOutput` / `doneCriteria` を持つ。
 - loop card は `maxAttempts` / `acceptanceCriteria` を持つ。
 - edge は `workflow -> agent`、`agent -> loop`、`loop -> agent` のみを有効な接続とする。
@@ -213,7 +217,7 @@
   - Hooks
   - Plugins
 - History タブ
-  - `CODEX_HOME/sessions` または `~/.codex/sessions` 配下の `rollout-*.jsonl` を走査する
+  - `<codexHome>/sessions` 配下の `rollout-*.jsonl` を走査する
   - `task_started` / `task_complete` と `turn_id` を使ってタスク単位に集約する
   - 左ペインに `yyyy/mm/dd` ごとのカード一覧、右ペインにユーザー本文と assistant / reasoning タイムラインを表示する
   - `maxHistoryCount` が明示設定されている場合のみ件数制限する
@@ -231,7 +235,7 @@
   - user / project の `hooks.json` と inline hooks を診断表示する
   - source ごとの open / create 操作を提供する
 - Plugins タブ
-  - `~/.codex/plugins/cache` からインストール済み Plugin を列挙する
+  - `<codexHome>/plugins/cache` からインストール済み Plugin を列挙する
   - marketplace 情報は `~/.agents/plugins/marketplace.json`、`workspace/.agents/plugins/marketplace.json`、`workspace/.claude-plugin/marketplace.json` を参照する
   - `[plugins."<id>"]` の `enabled` を切り替えられる
   - manifest 不備で `needs-review` になった Plugin、または `config.toml` が parse できない場合は toggle を無効化する
@@ -243,7 +247,7 @@
 - View 自体の表示は `codex-workspace.pet.enabled` が true のときだけ有効にする。
 - 既定値は `pet.enabled = false`、`pet.appServer.enabled = false`、`pet.rateLimitRefreshMinutes = 5`、`pet.scale = 1`、`pet.selectedPetId = ""` とする。
 - 現行設定キーは `codex-workspace.pet.*` とし、読み取り時のみ legacy の `codexWorkspace.pet.*` も参照する。
-- ペット保存場所は `~/.codex/pets/<petId>` を優先し、存在しない場合は `~/.codex/pet/<petId>` を参照する。
+- ペット保存場所は `<codexHome>/pets/<petId>` を優先し、存在しない場合は `<codexHome>/pet/<petId>` を参照する。
 - 一覧対象はペット保存場所直下のディレクトリのうち、`pet.json` を持ち、かつ有効な `spritesheetPath` を解決できるものだけとする。
 - `pet.json` の必須項目は `spritesheetPath` のみとし、`id` / `displayName` がない場合はフォルダ名を使う。
 - `spritesheetPath` は pet フォルダからの相対パスのみ許可し、外部 URL、絶対パス、pet フォルダ外参照は禁止する。
@@ -270,7 +274,7 @@
 - Core 同期は `AGENTS.md`、`AGENTS.override.md`、`config.toml` を対象にする。
 - Commands / Skills / Templates / Sub Agents 同期は対応ディレクトリを相互同期する。
 - 同名ファイルは更新日時が新しい側で上書きする。
-- 削除同期状態は `~/.codex/.codex-workspace/codex-sync.json` に記録する。
+- 削除同期状態は `<codexHome>/.codex-workspace/codex-sync.json` に記録する。
 - 旧状態ファイル `.codex/.codex-sync/state.json` があれば新形式へ移行する。
 - 隠しファイル、隠しフォルダ、`.codex-workspace` メタディレクトリは同期対象外とする。
 - Sub Agents 同期後は `reconcileAgentConfigAfterSync()` により `config.toml`、disabled store、sync state を追従させる。
@@ -278,7 +282,7 @@
 ### 5.9 `Organize config.toml`
 
 - `codex-workspace.organizeConfigToml` コマンドを提供する。
-- 実行前に `~/.codex/.codex-workspace/config.toml.bk` を更新する。
+- 実行前に `<codexHome>/.codex-workspace/config.toml.bk` を更新する。
 - 実行時は Agent file を元に description と `config_file` を修復してから整理する。
 - 整理対象は以下とする。
   - `[features]`
@@ -307,8 +311,8 @@
 ## 7. 🔒制約条件
 
 - 実装は VS Code Extension API、TypeScript、Node.js を前提とする。
-- Templates の保存先は `~/.codex/codex-templates` 固定で、設定で変更しない。
-- `Commands` ビュー名は実装上の表示名であり、実体パスは `~/.codex/prompts` とする。
+- Templates の保存先は `<codexHome>/codex-templates` で、拡張機能の設定では変更しない。
+- `Commands` ビュー名は実装上の表示名であり、実体パスは `<codexHome>/prompts` とする。
 - `incrudeReasoningMessage` の設定キー名は既存互換のため変更しない。
 - Plugin 情報は plugin cache と marketplace 定義の読取結果に依存し、manifest や定義ファイルが不正な場合は `needs-review` として扱う。
 

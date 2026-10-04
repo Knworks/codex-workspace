@@ -14,10 +14,12 @@ type EnvSnapshot = {
 	USERPROFILE?: string;
 	HOMEDRIVE?: string;
 	HOMEPATH?: string;
+	CODEX_HOME?: string;
 };
 
 async function withTempHome(
 	run: (homeDir: string) => Promise<void>,
+	useCodexHome = false,
 ): Promise<void> {
 	const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-home-'));
 	const originalEnv: EnvSnapshot = {
@@ -25,11 +27,17 @@ async function withTempHome(
 		USERPROFILE: process.env.USERPROFILE,
 		HOMEDRIVE: process.env.HOMEDRIVE,
 		HOMEPATH: process.env.HOMEPATH,
+		CODEX_HOME: process.env.CODEX_HOME,
 	};
 	process.env.HOME = tempDir;
 	process.env.USERPROFILE = tempDir;
 	process.env.HOMEDRIVE = '';
 	process.env.HOMEPATH = tempDir;
+	if (useCodexHome) {
+		process.env.CODEX_HOME = path.join(tempDir, 'runtime home');
+	} else {
+		delete process.env.CODEX_HOME;
+	}
 
 	try {
 		await run(tempDir);
@@ -38,6 +46,11 @@ async function withTempHome(
 		process.env.USERPROFILE = originalEnv.USERPROFILE;
 		process.env.HOMEDRIVE = originalEnv.HOMEDRIVE;
 		process.env.HOMEPATH = originalEnv.HOMEPATH;
+		if (originalEnv.CODEX_HOME === undefined) {
+			delete process.env.CODEX_HOME;
+		} else {
+			process.env.CODEX_HOME = originalEnv.CODEX_HOME;
+		}
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	}
 }
@@ -86,43 +99,48 @@ function createItem(
 }
 
 suite('Sync commands', () => {
-	test('syncPrompts copies files when confirmed', async () => {
-		await withTempHome(async (homeDir) => {
-			await activateExtension();
+	for (const useCodexHome of [false, true]) {
+		test(`syncPrompts copies files when confirmed (CODEX_HOME ${useCodexHome ? 'set' : 'unset'})`, async () => {
+			await withTempHome(async (homeDir) => {
+				await activateExtension();
 
-			const codexDir = path.join(homeDir, '.codex');
-			const promptsDir = path.join(codexDir, 'prompts');
-			fs.mkdirSync(promptsDir, { recursive: true });
-			fs.writeFileSync(
-				path.join(codexDir, 'config.toml'),
-				'title = \"ok\"',
-				'utf8',
-			);
-			fs.writeFileSync(path.join(promptsDir, 'note.md'), 'note', 'utf8');
+				const codexDir = useCodexHome ? path.join(homeDir, 'runtime home') : path.join(homeDir, '.codex');
+				const promptsDir = path.join(codexDir, 'prompts');
+				fs.mkdirSync(promptsDir, { recursive: true });
+				fs.writeFileSync(
+					path.join(codexDir, 'config.toml'),
+					'title = \"ok\"',
+					'utf8',
+				);
+				fs.writeFileSync(path.join(promptsDir, 'note.md'), 'note', 'utf8');
 
-			const targetDir = path.join(homeDir, 'sync-prompts');
+				const targetDir = path.join(homeDir, 'sync-prompts');
 
-			const originalWarning = vscode.window.showWarningMessage;
-			(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
-				.showWarningMessage = async () => 'OK';
-
-			try {
-				await withSyncFolderSetting('promptsFolder', targetDir, async () => {
-					await vscode.commands.executeCommand(
-						'codex-workspace.syncPrompts',
-					);
-				});
-			} finally {
+				const originalWarning = vscode.window.showWarningMessage;
 				(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
-					.showWarningMessage = originalWarning;
-			}
+					.showWarningMessage = async () => 'OK';
 
-			assert.strictEqual(
-				fs.readFileSync(path.join(targetDir, 'note.md'), 'utf8'),
-				'note',
-			);
+				try {
+					await withSyncFolderSetting('promptsFolder', targetDir, async () => {
+						await vscode.commands.executeCommand(
+							'codex-workspace.syncPrompts',
+						);
+					});
+				} finally {
+					(vscode.window as unknown as { showWarningMessage: typeof originalWarning })
+						.showWarningMessage = originalWarning;
+				}
+
+				assert.strictEqual(
+					fs.readFileSync(path.join(targetDir, 'note.md'), 'utf8'),
+					'note',
+				);
+				if (useCodexHome) {
+					assert.strictEqual(fs.existsSync(path.join(homeDir, '.codex')), false);
+				}
+			}, useCodexHome);
 		});
-	});
+	}
 
 	test('syncPrompts does not copy files when cancelled', async () => {
 		await withTempHome(async (homeDir) => {

@@ -1,6 +1,8 @@
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
+import { resolveCodexHomeDir } from './codexPaths';
+
+export { resolveCodexHomeDir } from './codexPaths';
 
 type RecordLike = Record<string, unknown>;
 
@@ -395,14 +397,6 @@ function toDays(turns: HistoryTurnRecord[]): HistoryDayNode[] {
 			day: dayTurns[0].day,
 			turns: [...dayTurns].sort(compareTurnDesc),
 		}));
-}
-
-export function resolveCodexHomeDir(homeDir: string = os.homedir()): string {
-	const codexHome = process.env.CODEX_HOME;
-	if (typeof codexHome === 'string' && codexHome.trim()) {
-		return codexHome;
-	}
-	return path.join(homeDir, '.codex');
 }
 
 export function resolveSessionsRoot(codexHomeDir?: string): string {
