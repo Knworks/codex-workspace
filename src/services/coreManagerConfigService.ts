@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import * as vscode from 'vscode';
 import { messages } from '../i18n';
+import featureCatalog from '../data/codexFeatureFlags.json';
 import { listTrustedDirectories } from './coreDiagnosticsService';
 import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
 import { resolveCodexPaths } from './workspaceStatus';
@@ -137,83 +138,17 @@ function defineFeature(
 	};
 }
 
-const FEATURE_DEFINITIONS: FeatureFlagDefinition[] = [
-	defineFeature('apply_patch_freeform', false, 'Under development'),
-	defineFeature('apply_patch_streaming_events', false, 'Under development'),
-	defineFeature('apps', true, 'Stable'),
-	defineFeature('apps_mcp_path_override', false, 'Under development'),
-	defineFeature('artifact', false, 'Under development'),
-	defineFeature('auth_elicitation', false, 'Under development'),
-	defineFeature('browser_use', true, 'Stable'),
-	defineFeature('browser_use_external', true, 'Stable'),
-	defineFeature('builtin_mcp', false, 'Under development'),
-	defineFeature('child_agents_md', false, 'Under development'),
-	defineFeature('chronicle', false, 'Under development'),
-	defineFeature('code_mode', false, 'Under development'),
-	defineFeature('code_mode_only', false, 'Under development'),
-	defineFeature('codex_hooks', true, 'Stable'),
-	defineFeature('codex_git_commit', false, 'Under development'),
-	defineFeature('collaboration_modes', true, 'Removed'),
-	defineFeature('computer_use', true, 'Stable'),
-	defineFeature('default_mode_request_user_input', false, 'Under development'),
-	defineFeature('elevated_windows_sandbox', false, 'Removed'),
-	defineFeature('enable_fanout', false, 'Under development'),
-	defineFeature('enable_mcp_apps', false, 'Under development'),
-	defineFeature('enable_request_compression', true, 'Stable'),
-	defineFeature('exec_permission_approvals', false, 'Under development'),
-	defineFeature('experimental_windows_sandbox', false, 'Removed'),
-	defineFeature('external_migration', false, 'Experimental'),
-	defineFeature('fast_mode', true, 'Stable'),
-	defineFeature('goals', false, 'Experimental'),
-	defineFeature('guardian_approval', true, 'Stable'),
-	defineFeature('hooks', true, 'Stable'),
-	defineFeature('image_detail_original', false, 'Removed'),
-	defineFeature('image_generation', true, 'Stable'),
-	defineFeature('in_app_browser', true, 'Stable'),
-	defineFeature('js_repl', false, 'Removed'),
-	defineFeature('js_repl_tools_only', false, 'Removed'),
-	defineFeature('memories', false, 'Experimental'),
-	defineFeature('multi_agent', true, 'Stable'),
-	defineFeature('multi_agent_v2', false, 'Under development'),
-	defineFeature('personality', true, 'Stable'),
-	defineFeature('plugin_hooks', false, 'Under development'),
-	defineFeature('plugins', true, 'Stable'),
-	defineFeature('prevent_idle_sleep', false, 'Experimental'),
-	defineFeature('realtime_conversation', false, 'Under development'),
-	defineFeature('remote_compaction_v2', false, 'Under development'),
-	defineFeature('remote_control', false, 'Under development'),
-	defineFeature('remote_models', false, 'Removed'),
-	defineFeature('remote_plugin', false, 'Under development'),
-	defineFeature('request_permissions_tool', false, 'Under development'),
-	defineFeature('request_rule', false, 'Removed'),
-	defineFeature('responses_websocket_response_processed', false, 'Under development'),
-	defineFeature('responses_websockets', false, 'Removed'),
-	defineFeature('responses_websockets_v2', false, 'Removed'),
-	defineFeature('runtime_metrics', false, 'Under development'),
-	defineFeature('search_tool', false, 'Removed'),
-	defineFeature('shell_snapshot', true, 'Stable'),
-	defineFeature('shell_tool', true, 'Stable'),
-	defineFeature('shell_zsh_fork', false, 'Under development'),
-	defineFeature('skill_env_var_dependency_prompt', false, 'Under development'),
-	defineFeature('skill_mcp_dependency_install', true, 'Stable'),
-	defineFeature('sqlite', true, 'Removed'),
-	defineFeature('steer', true, 'Removed'),
-	defineFeature('terminal_resize_reflow', true, 'Experimental'),
-	defineFeature('tool_call_mcp_elicitation', true, 'Stable'),
-	defineFeature('tool_search', true, 'Stable'),
-	defineFeature('tool_search_always_defer_mcp_tools', false, 'Under development'),
-	defineFeature('tool_suggest', true, 'Stable'),
-	defineFeature('tui_app_server', true, 'Removed'),
-	defineFeature('unavailable_dummy_tools', true, 'Stable'),
-	defineFeature('undo', false, 'Removed'),
-	defineFeature('unified_exec', false, 'Stable'),
-	defineFeature('use_legacy_landlock', false, 'Deprecated'),
-	defineFeature('use_linux_sandbox_bwrap', false, 'Removed'),
-	defineFeature('web_search_cached', false, 'Deprecated'),
-	defineFeature('web_search_request', false, 'Deprecated'),
-	defineFeature('workspace_dependencies', true, 'Stable'),
-	defineFeature('workspace_owner_usage_nudge', false, 'Under development'),
-];
+const FEATURE_MATURITY: Record<string, FeatureFlagRecord['maturity']> = {
+	stable: 'Stable',
+	experimental: 'Experimental',
+	'under development': 'Under development',
+	deprecated: 'Deprecated',
+	removed: 'Removed',
+};
+
+const FEATURE_DEFINITIONS: FeatureFlagDefinition[] = featureCatalog.features.map(
+	(feature) => defineFeature(feature.key, feature.defaultEnabled, FEATURE_MATURITY[feature.stage]),
+);
 
 const HOOK_EVENTS: HookEventName[] = [
 	'SessionStart',
@@ -254,6 +189,10 @@ export function setFeatureFlag(
 	featureKey: string,
 	enabled: boolean,
 ): void {
+	const definition = FEATURE_DEFINITIONS.find((feature) => feature.key === featureKey);
+	if (!definition || (definition.maturity !== 'Stable' && definition.maturity !== 'Experimental')) {
+		throw new Error(`Unsupported feature flag: ${featureKey}`);
+	}
 	const contents = fs.existsSync(configPath)
 		? fs.readFileSync(configPath, 'utf8')
 		: '';

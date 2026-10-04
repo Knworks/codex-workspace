@@ -225,8 +225,9 @@
   - `[projects."<path>"]` のうち `trust_level = "trusted"` のみ表示する
   - 追加と削除を行える
 - Feature Flags タブ
-  - `FEATURE_DEFINITIONS` に列挙された定義を表示する
-  - toggle により `[features]` を更新できる
+  - CLI から生成したカタログの Stable / Experimental のみ表示する
+  - toggle により `[features]` を更新できる。Removed / Deprecated / Under development / 未掲載キーへの書き込みは拒否する
+  - 更新元・採用基準・CLI 更新時の検証は [Feature Flags 同期手順](feature-flags.md) に従う
 - Hooks タブ
   - user / project の `hooks.json` と inline hooks を診断表示する
   - source ごとの open / create 操作を提供する

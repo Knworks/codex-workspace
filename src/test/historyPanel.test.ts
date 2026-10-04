@@ -91,7 +91,10 @@ suite('History panel manager', () => {
 		assert.ok(source.includes('#featuresContent'));
 		assert.ok(source.includes('const previousScrollTop = featuresContent.scrollTop;'));
 		assert.ok(source.includes('featuresContent.scrollTop = previousScrollTop;'));
-		assert.ok(!source.includes("this.refreshTab('features');"));
+		const featureWrite = source.slice(source.indexOf('private async setFeatureFlag('), source.indexOf('private async togglePlugin('));
+		assert.ok(featureWrite.includes('} catch (error) {'));
+		assert.ok(!featureWrite.split('} catch (error) {')[0].includes("this.refreshTab('features');"));
+		assert.ok(featureWrite.split('} catch (error) {')[1].includes("this.refreshTab('features');"));
 		assert.ok(!source.includes("document.querySelector('[data-feature-effective=\"' + featureKey + '\"]')"));
 		assert.doesNotMatch(
 			source,
@@ -363,6 +366,12 @@ suite('History panel manager', () => {
 		assert.strictEqual(featuresMessage.type, 'tabContent');
 		assert.strictEqual(featuresMessage.tab, 'features');
 		assert.ok(featuresMessage.html.includes('data-feature-toggle='));
+		for (const key of ['goals', 'memories', 'remote_plugin', 'network_proxy']) {
+			assert.ok(featuresMessage.html.includes(`data-feature-toggle="${key}"`), key);
+		}
+		for (const key of ['personality', 'tool_search', 'codex_hooks', 'code_mode', 'web_search_cached']) {
+			assert.ok(!featuresMessage.html.includes(`data-feature-toggle="${key}"`), key);
+		}
 		manager.dispose();
 	});
 

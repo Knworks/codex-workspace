@@ -1849,7 +1849,7 @@ function buildHistoryWebviewHtml(
 			}
 			const enableHooksButton = target?.closest('[data-enable-hooks]');
 			if (enableHooksButton) {
-				vscode.postMessage({ type: 'setFeatureFlag', featureKey: 'codex_hooks', enabled: true });
+				vscode.postMessage({ type: 'setFeatureFlag', featureKey: 'hooks', enabled: true });
 			}
 		});
 		document.addEventListener('change', (event) => {
@@ -2543,9 +2543,14 @@ export class HistoryPanelManager implements vscode.Disposable {
 	}
 
 	private async setFeatureFlag(featureKey: string, enabled: boolean): Promise<void> {
-		setFeatureFlag(resolveCodexPaths().configPath, featureKey, enabled);
-		if (featureKey === 'hooks' || featureKey === 'codex_hooks') {
-			this.refreshTab('hooks');
+		try {
+			setFeatureFlag(resolveCodexPaths().configPath, featureKey, enabled);
+			if (featureKey === 'hooks') {
+				this.refreshTab('hooks');
+			}
+		} catch (error) {
+			void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
+			this.refreshTab('features');
 		}
 	}
 
