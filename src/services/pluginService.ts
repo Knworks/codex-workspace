@@ -4,6 +4,7 @@ import path from 'path';
 import { parse as parseToml } from 'toml';
 import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
 import { resolveCodexPaths } from './workspaceStatus';
+import { resolvePluginCacheRoot } from './codexPaths';
 
 export type PluginStatus = 'enabled' | 'disabled' | 'readonly' | 'needs-review';
 
@@ -334,7 +335,7 @@ function findInstalledPluginRoots(homeDir: string): Array<{
 	version: string;
 	rootPath: string;
 }> {
-	const cacheRoot = path.join(homeDir, '.codex', 'plugins', 'cache');
+	const cacheRoot = resolvePluginCacheRoot(homeDir);
 	if (!fs.existsSync(cacheRoot)) {
 		return [];
 	}

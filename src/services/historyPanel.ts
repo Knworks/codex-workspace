@@ -1,5 +1,4 @@
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import * as vscode from 'vscode';
 import { messages } from '../i18n';
@@ -19,6 +18,7 @@ import {
 	setFeatureFlag,
 } from './coreManagerConfigService';
 import { getCoreWorkspaceStatus, resolveCodexPaths } from './workspaceStatus';
+import { resolvePluginCacheRoot } from './codexPaths';
 import {
 	CODICON_RESOURCE_ROOTS,
 	getCodiconCssHref,
@@ -2354,7 +2354,7 @@ function buildHistoryWebviewHtml(
 }
 
 export function createHistoryWebviewPanel(): vscode.WebviewPanel {
-	const pluginCacheRoot = vscode.Uri.file(path.join(os.homedir(), '.codex', 'plugins', 'cache'));
+	const pluginCacheRoot = vscode.Uri.file(resolvePluginCacheRoot());
 	const panelOptions: vscode.WebviewPanelOptions & vscode.WebviewOptions = {
 		enableScripts: true,
 		retainContextWhenHidden: true,

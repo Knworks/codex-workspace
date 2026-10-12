@@ -5,6 +5,7 @@
 - **アプリ名**: `Codex Workspace`
 - **種別**: VS Code 拡張
 - **役割**: Codex の設定ファイル、Skills、Sub Agents、MCP Server、Templates、Pet、履歴・診断画面、Plugin 情報を VS Code 上で扱う
+- **Codex Home**: `services/codexPaths.ts` の共通 resolver で、空白のみでない `CODEX_HOME` を優先する。未設定・空文字・空白のみは `~/.codex` を使い、Core、Skills、Agents、History、Plugins、同期、バックアップの参照先を統一する。Plugin キャッシュと Manager の画像許可パスも同じホーム配下の `plugins/cache` を使う。プロジェクト内の `.codex` / `.agents` と User Skills の `~/.agents/skills` は独立した保存場所として維持する。
 - **主要 UI**:
   - View Container 配下の 6 Tree View
   - `Codex Pet Explore` の 1 WebviewView

@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { CodexTreeItem } from '../models/treeItems';
@@ -292,22 +293,22 @@ suite('File explorer provider', () => {
 	test('skills explorer combines multiple skill locations with location metadata', () => {
 		const entriesByRoot = new Map([
 			[
-				path.join(process.env.HOME ?? '', '.codex', 'skills'),
+				path.join(os.homedir(), '.codex', 'skills'),
 				[
 					{
 						name: 'workspace-skill',
-						fullPath: path.join(process.env.HOME ?? '', '.codex', 'skills', 'workspace-skill'),
+						fullPath: path.join(os.homedir(), '.codex', 'skills', 'workspace-skill'),
 						isDirectory: true,
 						isFile: false,
 					},
 				],
 			],
 			[
-				path.join(process.env.HOME ?? '', '.agents', 'skills'),
+				path.join(os.homedir(), '.agents', 'skills'),
 				[
 					{
 						name: 'user-skill',
-						fullPath: path.join(process.env.HOME ?? '', '.agents', 'skills', 'user-skill'),
+						fullPath: path.join(os.homedir(), '.agents', 'skills', 'user-skill'),
 						isDirectory: true,
 						isFile: false,
 					},
@@ -330,7 +331,7 @@ suite('File explorer provider', () => {
 	});
 
 	test('skills explorer shows status icons only for skill root folders and SKILL.md', () => {
-		const workspaceSkillsRoot = path.join(process.env.HOME ?? '', '.codex', 'skills');
+		const workspaceSkillsRoot = path.join(os.homedir(), '.codex', 'skills');
 		const enabledSkillRoot = path.join(workspaceSkillsRoot, 'enabled-skill');
 		const disabledSkillRoot = path.join(workspaceSkillsRoot, 'disabled-skill');
 		const entriesByRoot = new Map<string, Array<{
