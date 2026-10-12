@@ -3,7 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import {
-	buildHistoryIndex,
+	buildLegacyHistoryIndex as buildHistoryIndex,
 	formatLocalTime,
 	resolveSessionsRoot,
 } from '../services/historyService';

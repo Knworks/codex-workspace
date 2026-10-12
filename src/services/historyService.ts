@@ -415,16 +415,26 @@ export function formatLocalTime(input: string | number | Date): string {
 	return `[${hours}:${minutes}:${seconds}]`;
 }
 
-export function buildHistoryIndex(codexHomeDir?: string): HistoryIndex {
-	const fileEntries = collectRolloutFileEntries(resolveSessionsRoot(codexHomeDir));
-	const turns = fileEntries
-		.flatMap((entry) =>
-			parseRolloutTurns(entry.filePath, entry.year, entry.month, entry.day),
-		)
-		.sort(compareTurnDesc);
+export function buildLegacyHistoryIndex(codexHomeDir?: string): HistoryIndex {
+	const baseDir = codexHomeDir ?? resolveCodexHomeDir();
+	const fileEntries = collectRolloutFileEntries(resolveSessionsRoot(baseDir));
+	const turns = fileEntries.flatMap((entry) =>
+		parseRolloutTurns(entry.filePath, entry.year, entry.month, entry.day),
+	);
+	const archivedRoot = path.join(baseDir, 'archived_sessions');
+	if (fs.existsSync(archivedRoot)) {
+		for (const name of fs.readdirSync(archivedRoot)) {
+			const date = /^rollout-(\d{4})-(\d{2})-(\d{2})T/.exec(name);
+			const filePath = path.join(archivedRoot, name);
+			if (date && ROLLOUT_FILE_PATTERN.test(name) && fs.statSync(filePath).isFile()) {
+				turns.push(...parseRolloutTurns(filePath, date[1], date[2], date[3]));
+			}
+		}
+	}
+	return createHistoryIndex(turns);
+}
 
-	return {
-		days: toDays(turns),
-		turns,
-	};
+export function createHistoryIndex(turns: HistoryTurnRecord[]): HistoryIndex {
+	const sorted = [...turns].sort(compareTurnDesc);
+	return { days: toDays(sorted), turns: sorted };
 }

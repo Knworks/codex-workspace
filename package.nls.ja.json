@@ -1,4 +1,7 @@
 {
+	"message.historyLoadFailed": "会話履歴を取得できませんでした。",
+	"message.historyLoading": "履歴を取得中: {0}件。検索対象は取得済みの履歴です。",
+	"message.historyLoaded": "履歴の取得完了: {0}件。",
   "displayName": "Codex Workspace",
   "description": "VS Code 内で .codex ワークスペース（config.toml、AGENTS.md、prompts、skill、mcp）を閲覧・編集します。",
   "viewContainer.codexWorkspace.title": "Codex Workspace",

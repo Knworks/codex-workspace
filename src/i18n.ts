@@ -990,6 +990,9 @@ export const messages = {
 	),
 	historyCopy: localize('message.historyCopy', 'Copy'),
 	historyCopied: localize('message.historyCopied', 'Copied to clipboard.'),
+	historyLoadFailed: localize('message.historyLoadFailed', 'Failed to load conversation history.'),
+	historyLoading: localize('message.historyLoading', 'Loading history: {0} entries. Search covers loaded entries.'),
+	historyLoaded: localize('message.historyLoaded', 'History loaded: {0} entries.'),
 	historyUserLabel: localize('message.historyUserLabel', 'User'),
 	historyAssistantLabel: localize(
 		'message.historyAssistantLabel',
