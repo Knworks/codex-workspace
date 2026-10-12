@@ -11,6 +11,46 @@ const contextStub = {
 } as vscode.ExtensionContext;
 
 suite('Core explorer provider', () => {
+	let originalCodexHome: string | undefined;
+	let isolatedCodexHome: string;
+	setup(() => {
+		originalCodexHome = process.env.CODEX_HOME;
+		isolatedCodexHome = fs.mkdtempSync(path.join(os.tmpdir(), 'core-profiles-'));
+		process.env.CODEX_HOME = isolatedCodexHome;
+		fs.writeFileSync(path.join(isolatedCodexHome, 'config.toml'), 'model = "test"');
+	});
+	teardown(async () => {
+		if (originalCodexHome === undefined) {
+			delete process.env.CODEX_HOME;
+		} else {
+			process.env.CODEX_HOME = originalCodexHome;
+		}
+		await fs.promises.rm(isolatedCodexHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+	});
+
+	test('lists profiles with editor commands while preserving base and AGENTS operations', async function () {
+		this.timeout(10000);
+		for (const fileName of ['config.toml', 'AGENTS.md', 'AGENTS.override.md', 'dev.config.toml', 'prod.config.toml']) {
+			fs.writeFileSync(path.join(isolatedCodexHome, fileName), 'invalid TOML');
+		}
+		const provider = new CoreExplorerProvider(contextStub);
+		const items = provider.getChildren() as import('../models/treeItems').CodexTreeItem[];
+		assert.deepStrictEqual(items.map((item) => item.label), [
+			'config.toml', 'AGENTS.md', 'AGENTS.override.md', 'dev.config.toml', 'prod.config.toml',
+		]);
+		for (const item of items) {
+			assert.strictEqual(item.command?.command, 'codex-workspace.openFile');
+			assert.deepStrictEqual(item.command?.arguments, [item]);
+			assert.strictEqual(item.fsPath, path.join(isolatedCodexHome, item.label as string));
+		}
+		assert.strictEqual(items[3].description, 'Profile V2');
+		const extension = vscode.extensions.getExtension('Knworks.codex-workspace');
+		assert.ok(extension);
+		await extension.activate();
+		await vscode.commands.executeCommand(items[3].command!.command, items[3]);
+		assert.strictEqual(vscode.window.activeTextEditor?.document.uri.fsPath, vscode.Uri.file(items[3].fsPath!).fsPath);
+		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+	});
 	test('returns core items when available', () => {
 		const provider = new CoreExplorerProvider(contextStub, () => ({ isAvailable: true }));
 		const items = provider.getChildren() as vscode.TreeItem[];
@@ -31,6 +71,7 @@ suite('Core explorer provider', () => {
 			process.env.HOMEDRIVE = '';
 			process.env.HOMEPATH = tempDir;
 			const codexDir = path.join(tempDir, '.codex');
+			process.env.CODEX_HOME = codexDir;
 			fs.mkdirSync(codexDir, { recursive: true });
 			fs.writeFileSync(path.join(codexDir, 'AGENTS.override.md'), 'override', 'utf8');
 

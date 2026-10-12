@@ -26,6 +26,7 @@
 | `config.toml` | Codex の主要設定ファイル | `~/.codex/config.toml` |
 | `AGENTS.md` | Codex のグローバル AGENTS ファイル | `~/.codex/AGENTS.md` |
 | `AGENTS.override.md` | グローバル override 用 AGENTS ファイル | 存在時のみ Core Explorer に表示 |
+| Profile V2 設定ファイル | Codex Home 直下の `<name>.config.toml` | Base の `config.toml` と区別し、設定値は合成しない |
 | `Commands` | `~/.codex/prompts` 配下のファイルを表示するビュー | View ID は `codex-workspace.prompts` |
 | `Skills` | Skill ルート配下の `SKILL.md` を表示するビュー | Project / Workspace / User / System を列挙 |
 | `Templates` | テンプレート保存場所 | `~/.codex/codex-templates` 固定 |
@@ -81,6 +82,7 @@
   - `codex-workspace.templates` : `Templates`
   - `codex-workspace.pet` : `Codex Pet Explore`
 - Core ビューは `config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を表示する。
+- Core ビューは Codex Home 直下の `<name>.config.toml` を名前順に追加表示し、Profile V2 として区別する。各ファイルを VS Code エディタで開ける。一覧表示とOpen操作は App Server 接続や TOML の解析を必要としない。Profiles 専用タブは設けない。
 - Skills ビューは以下の順で Skill ルートを表示する。
   - Project Skills: `workspace/.agents/skills` を優先し、存在しない場合は `workspace/.codex/skills`
   - Workspace Skills: `~/.codex/skills`

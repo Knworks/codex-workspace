@@ -899,11 +899,13 @@ function buildHistoryWebviewHtml(
 		}
 		.tabs {
 			display: flex;
+			overflow-x: auto;
 			gap: 4px;
 			padding: 8px 12px 0;
 			border-bottom: 1px solid var(--vscode-panel-border);
 		}
 		.tab {
+			flex-shrink: 0;
 			border: 1px solid var(--vscode-panel-border);
 			border-bottom: 0;
 			background: var(--vscode-tab-inactiveBackground);

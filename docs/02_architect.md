@@ -91,6 +91,8 @@ codex-workspace/
 - **Core Explorer**
   - `coreExplorerProvider.ts` が `config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を生成する
   - `config.toml` が不正な場合、warning アイコンと tooltip で状態を見せる
+  - `profileConfigService.ts` の `listProfileConfigFiles()` で Profile V2 ファイルを追加し、既存の `codex-workspace.openFile` で開く。Profile 操作は Core Explorer に集約し、Manager に専用タブは設けない
+  - 共通列挙処理は `codexPaths.ts` の resolver を利用し、Codex Home 直下の通常ファイル `<name>.config.toml` を名前順で返す。Base、空の名前、ディレクトリ、バックアップ、配下のサブディレクトリは対象外。ホームが存在しない場合は空の一覧を返し、他の読み取りエラーは呼び出し元へ返す
 
 - **Commands / Skills / Templates Explorer**
   - `fileExplorerProvider.ts` がフォルダとファイルを列挙する
