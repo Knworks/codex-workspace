@@ -149,13 +149,19 @@
 - タイトルバー操作は新規作成、編集、削除、更新、フォルダを開く、同期、AGENTS Manager 起動とする。
 - enable / disable command は実装されているが、`package.json` のメニュー寄与には含めない。
 - 新規作成時は保存先ルートを選び、Agent 名、説明、テンプレート内容の順に入力する。
-- 新規作成時はテンプレート内容に不足があっても、少なくとも `name`、`description`、`developer_instructions` を満たす Agent TOML を生成する。
+- 作成・編集・有効化・設定整理では Agent TOML に `name`、`description`、`developer_instructions` を自動補完せず、テンプレートまたは既存ファイルの内容を保持する。
 - Agent 作成後、`config.toml` に description と `config_file` を含む `[agents.<name>]` block を自動追記または更新する。
 - 編集時はファイル名と description を更新し、`config.toml` の block と `config_file` を追従させる。
 - 削除時は TOML ファイルを削除し、`config.toml` の対応 block、disabled store、sync state の退避も削除する。
 - 無効化時は対応 block を `agents-disabled.json` に退避し、`config.toml` から削除する。
-- 有効化時は退避 block があれば復元し、その前後で `name`、`description`、`developer_instructions` の必須項目を Agent TOML 側へ補完し、その後に description と `config_file` を Agent TOML の実体へ再同期する。
+- Explorer command の有効化時は退避 block があれば復元し、description と `config_file` を実体へ同期する。Agent TOML 自体は変更しない。
 - AGENTS Manager は `Agents` タブで一覧詳細レイアウトを表示する。
+- 一覧の正本は Base `config.toml`、Profile V2 `<name>.config.toml`、認識済み Project `.codex/config.toml` 内の `[agents.<role>]` 宣言とする。Profile 列挙は共通処理を再利用する。
+- `config_file` の相対パスは宣言元設定のディレクトリを基準に解決し、絶対パスも扱う。role key はファイル名から独立して扱う。
+- 同名 role は宣言元設定ごとに別行として表示し、ON/OFF は選択した宣言元設定だけを更新する。Base の既存 disabled store を維持し、Profile ごと・Project ごとの退避を分離する。
+- 無効化した role は退避宣言から引き続き表示し、元の `config_file` を保持して再有効化できる。未登録 TOML は Manager の一覧に含めない。
+- `config_file` がない role は継承設定として表示し、Open で宣言元設定を開く。参照先ファイルが存在しない宣言も一覧に含める。
+- 設定レイヤーを合成した effective Agent の完全再現は対象外とする。
 - 一覧は name / description / model / reasoningEffort / sandboxMode / path / location / toggle / open button を表示する。
 - 詳細ペインは model / reasoningEffort / sandboxMode / location / path と `developer_instructions` のプレビューを表示する。
 - `developer_instructions` のプレビューは Markdown を HTML 描画し、空の場合は空状態メッセージを表示する。

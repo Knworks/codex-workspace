@@ -18,9 +18,7 @@ import {
 	getAgentDescription,
 	hasAgentConfigBlock,
 	readAgentTomlDescription,
-	syncAgentTomlMetadata,
 	toAgentConfigFilePath,
-	ensureAgentTomlRequiredFields,
 	upsertAgentConfigBlock,
 	upsertAgentConfigMetadata,
 } from '../services/agentConfigService';
@@ -145,11 +143,7 @@ async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
 	if (templateContent === null) {
 		return;
 	}
-	const initialAgentContents = ensureAgentTomlRequiredFields(
-		templateContent,
-		agentName,
-		description,
-	);
+	const initialAgentContents = templateContent;
 
 	fs.mkdirSync(agentsDir, { recursive: true });
 	const agentFilePath = path.join(agentsDir, `${agentName}.toml`);
@@ -200,11 +194,7 @@ async function editAgent(
 		return;
 	}
 	const currentAgentContents = fs.readFileSync(agentFilePath, 'utf8');
-	const nextAgentContents = ensureAgentTomlRequiredFields(
-		currentAgentContents,
-		nextName,
-		nextDescription,
-	);
+	const nextAgentContents = currentAgentContents;
 
 	const nextFilePath = path.join(path.dirname(agentFilePath), `${nextName}.toml`);
 	if (
@@ -312,15 +302,6 @@ async function enableAgent(
 	const { codexDir, configPath } = resolveCodexPaths();
 	const storePath = getDisabledAgentsStorePath(codexDir);
 	const agentId = path.basename(agentFilePath, path.extname(agentFilePath));
-	const originalAgentContents = fs.readFileSync(agentFilePath, 'utf8');
-	const repairedAgentContents = ensureAgentTomlRequiredFields(
-		originalAgentContents,
-		agentId,
-		readAgentTomlDescription(agentFilePath),
-	);
-	if (repairedAgentContents !== originalAgentContents) {
-		fs.writeFileSync(agentFilePath, repairedAgentContents, 'utf8');
-	}
 	const configContents = fs.readFileSync(configPath, 'utf8');
 	if (hasAgentConfigBlock(configContents, agentId)) {
 		vscode.window.showWarningMessage(messages.agent.configExists(agentId));
@@ -337,7 +318,6 @@ async function enableAgent(
 		readAgentTomlDescription(agentFilePath),
 		toAgentConfigFilePath(configPath, agentFilePath),
 	);
-	syncAgentTomlMetadata(agentFilePath, agentId);
 	fs.writeFileSync(
 		configPath,
 		stabilizeManagedConfigToml(nextContents),

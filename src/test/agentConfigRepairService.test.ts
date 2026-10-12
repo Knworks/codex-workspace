@@ -66,7 +66,7 @@ suite('Agent config repair service', () => {
 		});
 	});
 
-	test('repairAgentConfigEntries also syncs agent TOML name with the file basename', () => {
+	test('repairAgentConfigEntries leaves agent TOML contents untouched', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, '.codex', 'config.toml');
 			const workspaceAgentsRoot = path.join(root, '.codex', 'agents');
@@ -92,8 +92,8 @@ suite('Agent config repair service', () => {
 
 			assert.strictEqual(repaired.changed, true);
 			const nextAgentContents = fs.readFileSync(agentPath, 'utf8');
-			assert.ok(nextAgentContents.includes('name = "reviewer"'));
-			assert.ok(!nextAgentContents.includes('name = "legacy-reviewer"'));
+			assert.ok(!nextAgentContents.includes('name = "reviewer"'));
+			assert.ok(nextAgentContents.includes('name = "legacy-reviewer"'));
 		});
 	});
 });

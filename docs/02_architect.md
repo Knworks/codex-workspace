@@ -135,11 +135,14 @@ codex-workspace/
 
 - **Sub Agents 操作**
   - `agentCommands.ts` が add / edit / delete / enable / disable を担当する
-  - 作成時と有効化時は `ensureAgentTomlRequiredFields()` により `name`、`description`、`developer_instructions` の必須項目を補完する
+  - 作成時はテンプレートをそのまま保存し、編集・有効化・設定整理では Agent TOML の内容を保持する。`name`、`description`、`developer_instructions` は自動補完しない
   - 作成、編集、有効化後は `upsertAgentConfigMetadata()` で `description` と `config_file` を実体へ同期する
   - 無効化時は block を `agents-disabled.json` に退避する
   - 同期や整理の前後では `agentConfigRepairService.ts` と `agentSyncCleanupService.ts` が `config.toml` を補正する
-  - `agentManagerService.ts` は Agents タブの一覧モデルを作り、Agent TOML から `developer_instructions` を抽出して preview data に含める
+  - `agentManagerService.ts` は Base、`profileConfigService.ts` が列挙する Profile V2、認識済み Project の設定を TOML parser で直接解析し、`[agents.<role>]` と退避済み宣言から一覧モデルを作る
+  - 行 ID は宣言元設定パスと role key の組とし、`config_file` は宣言元設定のディレクトリを基準に解決する。ファイル名から role key を推定しない
+  - Manager の ON/OFF は行 ID から宣言元設定を特定して更新する。Base と Project は各設定ディレクトリの `.codex-workspace/agents-disabled.json`、Profile は `.codex-workspace/<name>.config.toml.agents-disabled.json` に退避する
+  - Agent TOML の表示項目と `developer_instructions` は TOML parser で読み取る。参照ファイルなしは継承表示、`config_file` なしの Open は宣言元設定を開く。未登録ファイル列挙と設定レイヤーの完全合成は行わない
   - `agentManagerPanel.ts` は `Agents` / `Orchestration` の 2 タブを持つ Webview を提供する
   - Agents タブは左の一覧と右の詳細からなる list-detail レイアウトで、詳細ペインに `developer_instructions` の Markdown preview を HTML 描画する
   - `orchestrationService.ts` が workflow JSON の保存、読込、削除、一覧化、バリデーション、prompt 生成を担当する

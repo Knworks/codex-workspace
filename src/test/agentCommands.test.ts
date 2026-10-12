@@ -230,8 +230,8 @@ suite('Agent commands', () => {
 			const createdPath = path.join(agentsDir, 'reviewer.toml');
 			assert.ok(fs.existsSync(createdPath));
 			const createdContents = fs.readFileSync(createdPath, 'utf8');
-			assert.ok(createdContents.includes('name = "reviewer"'));
-			assert.ok(createdContents.includes('description = "Security reviewer"'));
+			assert.ok(!createdContents.includes('name = "reviewer"'));
+			assert.ok(!createdContents.includes('description = "Security reviewer"'));
 			const config = fs.readFileSync(configPath, 'utf8');
 			assert.ok(config.includes('[agents.reviewer]'));
 			assert.ok(config.includes('description = "Security reviewer"'));
@@ -276,14 +276,14 @@ suite('Agent commands', () => {
 
 			const createdPath = path.join(agentsDir, 'templated.toml');
 			const createdContents = fs.readFileSync(createdPath, 'utf8');
-			assert.ok(createdContents.includes('name = "templated"'));
-			assert.ok(createdContents.includes('description = "Template agent"'));
+			assert.ok(!createdContents.includes('name = "templated"'));
+			assert.ok(!createdContents.includes('description = "Template agent"'));
 			assert.ok(createdContents.includes('mode = "from-template"'));
 			assert.ok(createdContents.includes('developer_instructions = """'));
 		});
 	});
 
-	test('addAgent synthesizes developer_instructions when the template omits it', async () => {
+	test('addAgent preserves templates without developer_instructions', async () => {
 		await withTempHome(async (homeDir) => {
 			const { codexDir, agentsDir } = createWorkspace(homeDir);
 			const templateRoot = path.join(codexDir, 'codex-templates');
@@ -315,7 +315,7 @@ suite('Agent commands', () => {
 			const createdPath = path.join(agentsDir, 'broken-agent.toml');
 			assert.strictEqual(fs.existsSync(createdPath), true);
 			assert.ok(
-				fs.readFileSync(createdPath, 'utf8').includes('developer_instructions = """'),
+				!fs.readFileSync(createdPath, 'utf8').includes('developer_instructions = """'),
 			);
 		});
 	});
@@ -455,8 +455,8 @@ suite('Agent commands', () => {
 			const nextFilePath = path.join(agentsDir, 'new_name.toml');
 			assert.ok(fs.existsSync(nextFilePath));
 			const nextAgentContents = fs.readFileSync(nextFilePath, 'utf8');
-			assert.ok(nextAgentContents.includes('name = "new_name"'));
-			assert.ok(nextAgentContents.includes('description = "new description"'));
+			assert.ok(!nextAgentContents.includes('name = "new_name"'));
+			assert.ok(!nextAgentContents.includes('description = "new description"'));
 			const config = fs.readFileSync(configPath, 'utf8');
 			assert.ok(!config.includes('[agents.old_name]'));
 			assert.ok(config.includes('[agents.new_name]'));
@@ -639,7 +639,7 @@ suite('Agent commands', () => {
 			assert.ok(nextConfig.includes('[agents.restorable]'));
 			assert.ok(nextConfig.includes('# from stash'));
 			const nextAgentContents = fs.readFileSync(targetPath, 'utf8');
-			assert.ok(nextAgentContents.includes('name = "restorable"'));
+			assert.ok(!nextAgentContents.includes('name = "restorable"'));
 
 			const store = JSON.parse(fs.readFileSync(storePath, 'utf8')) as {
 				disabledAgents: Record<string, unknown>;
@@ -665,7 +665,7 @@ suite('Agent commands', () => {
 			assert.ok(nextConfig.includes('description = ""'));
 			assert.ok(nextConfig.includes('config_file = "agents/fallback.toml"'));
 			const nextAgentContents = fs.readFileSync(targetPath, 'utf8');
-			assert.ok(nextAgentContents.includes('name = "fallback"'));
+			assert.ok(!nextAgentContents.includes('name = "fallback"'));
 		});
 	});
 });

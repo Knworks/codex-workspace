@@ -11,6 +11,10 @@ export type ProfileConfigFile = {
 /** Lists Profile V2 files without parsing or merging their settings. */
 export function listProfileConfigFiles(homeDir?: string): ProfileConfigFile[] {
 	const codexDir = resolveCodexHomeDir(homeDir);
+	return listProfileConfigFilesInDirectory(codexDir);
+}
+
+export function listProfileConfigFilesInDirectory(codexDir: string): ProfileConfigFile[] {
 	let entries: fs.Dirent[];
 	try {
 		entries = fs.readdirSync(codexDir, { withFileTypes: true });
