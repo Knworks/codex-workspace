@@ -555,10 +555,11 @@ function buildHooksHtml(): string {
 			<div class="setting-card-title-row">
 				<div>
 					<h3 class="setting-card-title">${escapeHtml(entry.event)}</h3>
-					<p class="setting-card-subtitle">${escapeHtml(entry.command ?? messages.hooksNoCommand)}</p>
+					<p class="setting-card-subtitle">${escapeHtml(entry.handlerType === 'command' ? entry.command ?? messages.hooksNoCommand : entry.handlerType)}</p>
 				</div>
 				<div class="feature-badges">
 					<span class="feature-badge subtle">${escapeHtml(entry.layer === 'user' ? messages.hooksLayerUser : messages.hooksLayerProject)} / ${escapeHtml(entry.format)}</span>
+					${!entry.supported ? `<span class="feature-badge deprecated">${escapeHtml(messages.hooksUnknown)}</span>` : ''}
 				</div>
 			</div>
 			<div class="setting-card-meta muted">
@@ -567,6 +568,7 @@ function buildHooksHtml(): string {
 				<span>${escapeHtml(messages.hooksTimeoutLabel)}: ${escapeHtml(entry.timeout?.toString() ?? '600')}</span>
 			</div>
 			${entry.statusMessage ? `<p class="muted">${escapeHtml(messages.hooksStatusMessageLabel)}: ${escapeHtml(entry.statusMessage)}</p>` : ''}
+			${entry.handlerType !== 'command' || !entry.supported ? `<pre class="hook-handler-definition">${escapeHtml(JSON.stringify(entry.handler, null, 2))}</pre>` : ''}
 			${entry.warning ? `<p class="muted">${escapeHtml(entry.warning)}</p>` : ''}
 		</article>`)
 				.join('');
@@ -1418,6 +1420,10 @@ function buildHistoryWebviewHtml(
 			padding: 10px 12px;
 			background: var(--vscode-editorWidget-background);
 			margin: 0;
+		}
+		.hook-handler-definition {
+			white-space: pre-wrap;
+			overflow-wrap: anywhere;
 		}
 		.warning-card {
 			display: flex;

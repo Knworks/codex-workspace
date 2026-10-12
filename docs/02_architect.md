@@ -193,7 +193,7 @@ codex-workspace/
 | `TrustedDirectory` | `path` / `exists` / `reason` | object | Trusted Directory 表示モデル |
 | `FeatureFlagRecord` | `key` / `enabled` / `configuredValue` / `defaultEnabled` / `maturity` / `description` | object | Feature Flags 表示モデル |
 | `HookSourceRecord` | `id` / `layer` / `format` / `path` / `exists` / `active` / `entryCount` / `warning` | object | Hooks source 表示モデル |
-| `HookEntryRecord` | `event` / `matcher` / `handlerType` / `command` / `timeout` / `statusMessage` / `active` / `supported` | object | Hooks entry 表示モデル |
+| `HookEntryRecord` | `event` / `matcher` / `handlerType` / `handler` / `command` / `timeout` / `statusMessage` / `active` / `supported` | object | Hooks entry 表示モデル。`event` / `handlerType` は未知の名前も保持し、`handler` は元のHandler定義、`supported` は12 Event・4 Handler typeの両方が既知の場合のみtrue |
 | `PluginRecord` | `id` / `displayName` / `version` / `marketplace` / `status` / `enabled` / `toggleDisabled` / `skills` / `mcpServers` / `apps` / `agents` | object | Plugins タブ表示モデル |
 | `PetDefinition` | `id` / `displayName` / `description` / `spritesheetPath` / `petRootPath` / `spritesheetFsPath` | object | Pet 定義 |
 | `PetSettings` | `enabled` / `appServerEnabled` / `rateLimitRefreshMinutes` / `scale` / `selectedPetId` | object | Pet 表示設定 |
@@ -276,6 +276,8 @@ codex-workspace/
   - Trusted Directory: add / remove / refresh
   - Feature Flags: list + toggle + refresh
   - Hooks: summary + source list + entry list
+    - JSON / inline TOML は共通のHook分類処理で読み、未知のEvent / Handlerを除外しない。inlineは既存のTOMLライブラリで解析する
+    - 未知定義は `Unknown` の読み取り専用表示、command以外と未知定義の詳細はエスケープしたJSONで表示する。Hook定義の書き換え・実行は行わず、既存のファイルopen / create操作を維持する
   - Plugins: 検索 + 左一覧 + 右詳細
 
 ## 7. 🗺️システム構成図
