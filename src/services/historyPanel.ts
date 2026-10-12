@@ -19,7 +19,6 @@ import {
 } from './coreManagerConfigService';
 import { getCoreWorkspaceStatus, resolveCodexPaths } from './workspaceStatus';
 import { resolvePluginCacheRoot } from './codexPaths';
-import { listProfileConfigFiles } from './profileConfigService';
 import {
 	CODICON_RESOURCE_ROOTS,
 	getCodiconCssHref,
@@ -53,7 +52,7 @@ type HistoryPanelInboundMessage =
 	| { type: 'createHooksFile'; targetPath: string }
 	| { type: 'createEmptyFile'; targetPath: string };
 
-type CoreViewTab = 'history' | 'chain' | 'trusted' | 'features' | 'hooks' | 'plugins' | 'profiles';
+type CoreViewTab = 'history' | 'chain' | 'trusted' | 'features' | 'hooks' | 'plugins';
 
 type HistoryTurnSummary = {
 	turnId: string;
@@ -298,8 +297,7 @@ function isCoreViewTab(value: unknown): value is CoreViewTab {
 		value === 'trusted' ||
 		value === 'features' ||
 		value === 'hooks' ||
-		value === 'plugins' ||
-		value === 'profiles'
+		value === 'plugins'
 	);
 }
 
@@ -494,26 +492,6 @@ function buildFeatureFlagsHtml(): string {
 		${coreStatus.isConfigInvalid ? `<span class="muted">${messages.reasonConfigInvalid}</span>` : ''}
 	</div>
 	<div class="settings-list">${rows || `<p class="muted">${messages.historyNoResult}</p>`}</div>`;
-}
-
-function buildProfilesHtml(): string {
-	const { configPath } = resolveCodexPaths();
-	const files = [
-		{ fileName: 'config.toml', configPath, kind: messages.profileConfigBase },
-		...listProfileConfigFiles().map((profile) => ({ ...profile, kind: 'Profile V2' })),
-	];
-	const rows = files.map((file) => `<article class="setting-card">
-		<div class="setting-card-main">
-			<h3 class="setting-card-title">${escapeHtml(file.fileName)}</h3>
-			<p class="setting-card-subtitle">${escapeHtml(file.kind)}</p>
-			<p class="setting-card-subtitle">${escapeHtml(file.configPath)}</p>
-		</div>
-		<button class="icon-button" type="button" data-open-path="${escapeHtml(file.configPath)}" title="${escapeHtml(messages.skillManagerOpen)}" aria-label="${escapeHtml(messages.skillManagerOpen)}"><span class="codicon codicon-go-to-file" aria-hidden="true"></span></button>
-	</article>`).join('');
-	return `<div class="trusted-toolbar">${buildRefreshButtonHtml('profiles')}</div>
-		<div class="settings-list">${rows}
-			${files.length === 1 ? `<p class="muted">${escapeHtml(messages.profileConfigNoResult)}</p>` : ''}
-		</div>`;
 }
 
 function buildHooksHtml(): string {
@@ -1158,8 +1136,7 @@ function buildHistoryWebviewHtml(
 		#trustedTab.active,
 		#featuresTab.active,
 		#hooksTab.active,
-		#pluginsTab.active,
-		#profilesTab.active {
+		#pluginsTab.active {
 			display: grid;
 			grid-template-rows: 1fr;
 			height: 100%;
@@ -1169,8 +1146,7 @@ function buildHistoryWebviewHtml(
 		#trustedContent,
 		#featuresContent,
 		#hooksContent,
-		#pluginsContent,
-		#profilesContent {
+		#pluginsContent {
 			height: 100%;
 			min-height: 0;
 			overflow: auto;
@@ -1741,7 +1717,6 @@ function buildHistoryWebviewHtml(
 			<button class="tab" data-tab="features" type="button"><span class="codicon codicon-settings-gear" aria-hidden="true"></span>${messages.coreViewFeatureFlagsTab}</button>
 			<button class="tab" data-tab="hooks" type="button"><span class="codicon codicon-symbol-event" aria-hidden="true"></span>${messages.coreViewHooksTab}</button>
 			<button class="tab" data-tab="plugins" type="button"><span class="codicon codicon-plug" aria-hidden="true"></span>${messages.pluginsTab}</button>
-			<button class="tab" data-tab="profiles" type="button"><span class="codicon codicon-settings-gear" aria-hidden="true"></span>${messages.profileConfigTab}</button>
 		</nav>
 		<div class="tab-panels">
 		<section id="historyTab" class="diag-tab active">
@@ -1786,9 +1761,6 @@ function buildHistoryWebviewHtml(
 		</section>
 		<section id="pluginsTab" class="diag-tab">
 			<div id="pluginsContent"></div>
-		</section>
-		<section id="profilesTab" class="diag-tab">
-			<div id="profilesContent"></div>
 		</section>
 		</div>
 	</div>
@@ -2325,13 +2297,6 @@ function buildHistoryWebviewHtml(
 		window.addEventListener('message', (event) => {
 			const message = event.data;
 			if (message?.type === 'tabContent') {
-				if (message.tab === 'profiles') {
-					loadedTabs.add('profiles');
-					const profilesContent = document.getElementById('profilesContent');
-					if (profilesContent) {
-						profilesContent.innerHTML = message.html;
-					}
-				}
 				if (message.tab === 'chain') {
 					loadedTabs.add('chain');
 					chainPayload = message.payload || {
@@ -2627,12 +2592,6 @@ export class HistoryPanelManager implements vscode.Disposable {
 
 	private refreshTab(tab: CoreViewTab): void {
 		if (!this.panel || !this.state) {
-			return;
-		}
-		if (tab === 'profiles') {
-			void this.panel.webview.postMessage({
-				type: 'tabContent', tab, html: buildProfilesHtml(),
-			});
 			return;
 		}
 		if (tab === 'chain') {

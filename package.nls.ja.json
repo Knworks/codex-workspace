@@ -1,7 +1,4 @@
 {
-	"message.profileConfigTab": "Profiles",
-	"message.profileConfigBase": "基本設定",
-	"message.profileConfigNoResult": "Profile V2 の設定ファイルはありません。",
   "displayName": "Codex Workspace",
   "description": "VS Code 内で .codex ワークスペース（config.toml、AGENTS.md、prompts、skill、mcp）を閲覧・編集します。",
   "viewContainer.codexWorkspace.title": "Codex Workspace",

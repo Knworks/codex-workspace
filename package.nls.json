@@ -1,7 +1,4 @@
 {
-	"message.profileConfigTab": "Profiles",
-	"message.profileConfigBase": "Base configuration",
-	"message.profileConfigNoResult": "No Profile V2 configuration files found.",
   "displayName": "Codex Workspace",
   "description": "Explore and edit your .codex workspace (config.toml, AGENTS.md, prompts, skill, mcp) in VS Code.",
   "viewContainer.codexWorkspace.title": "Codex Workspace",

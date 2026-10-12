@@ -91,7 +91,7 @@ codex-workspace/
 - **Core Explorer**
   - `coreExplorerProvider.ts` が `config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を生成する
   - `config.toml` が不正な場合、warning アイコンと tooltip で状態を見せる
-  - `profileConfigService.ts` の `listProfileConfigFiles()` で Profile V2 ファイルを追加し、既存の `codex-workspace.openFile` で開く
+  - `profileConfigService.ts` の `listProfileConfigFiles()` で Profile V2 ファイルを追加し、既存の `codex-workspace.openFile` で開く。Profile 操作は Core Explorer に集約し、Manager に専用タブは設けない
   - 共通列挙処理は `codexPaths.ts` の resolver を利用し、Codex Home 直下の通常ファイル `<name>.config.toml` を名前順で返す。Base、空の名前、ディレクトリ、バックアップ、配下のサブディレクトリは対象外。ホームが存在しない場合は空の一覧を返し、他の読み取りエラーは呼び出し元へ返す
 
 - **Commands / Skills / Templates Explorer**
@@ -163,7 +163,6 @@ codex-workspace/
   - AGENTS Loading Chain は `coreDiagnosticsService.ts` が Global / Project tier の `AGENTS.override.md`、`AGENTS.md`、`project_doc_fallback_filenames` を診断し、`Active` / `Skipped` / `Missing` / `Error` 状態を作る
   - Trusted Directory、Feature Flags、Hooks は `coreDiagnosticsService.ts` と `coreManagerConfigService.ts` を用いる
   - Plugins タブは `pluginService.ts` で cache / marketplace / manifest 情報を集約し、`[plugins."<id>"]` の有効状態を切り替える
-  - Profiles タブは同じ `listProfileConfigFiles()` を利用し、Base を区別して表示する。既存の `openPath` メッセージでエディタを開く。App Server、設定合成、プロファイル切替、同期処理には依存しない
 
 - **同期**
   - `syncService.ts` が Core / directory 単位の双方向同期を行う
@@ -273,8 +272,7 @@ codex-workspace/
   - 詳細フォーム: `env` / `httpHeaders` / `envHttpHeaders` は key-value rows、`tools` は tool name + enabled + approval_mode rows
 
 - **Codex Manager**
-  - タブ: History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks / Plugins / Profiles
-  - Profiles: Base / Profile V2 のファイル一覧 + Open / 更新操作
+  - タブ: History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks / Plugins
   - History: 検索バー + 左一覧 + 右プレビュー
   - AGENTS Loading Chain: 左一覧 + 右詳細
   - Trusted Directory: add / remove / refresh

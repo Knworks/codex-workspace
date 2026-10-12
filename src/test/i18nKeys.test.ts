@@ -17,9 +17,6 @@ suite('Localization keys', () => {
 		>;
 
 		const keys = [
-			'message.profileConfigTab',
-			'message.profileConfigBase',
-			'message.profileConfigNoResult',
 			'message.selectionRequired',
 			'message.unavailablePrefix',
 			'message.unavailableUnknown',
