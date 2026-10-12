@@ -159,6 +159,10 @@ codex-workspace/
   - `historyPanel.ts` がタブ付き Core WebviewPanel を提供する
   - History タブは `historyService.ts` から `HistoryIndex` を構築する
   - AGENTS Loading Chain は `coreDiagnosticsService.ts` が Global / Project tier の `AGENTS.override.md`、`AGENTS.md`、`project_doc_fallback_filenames` を診断し、`Active` / `Skipped` / `Missing` / `Error` 状態を作る
+  - 共通 `resolveCodexPaths()` の Base `config.toml` を一度読み、`project_root_markers` と fallback 名を解決する。root marker は指定配列が既定 `.git` を置き換え、最寄りの祖先を採用する。空配列・一致なしは workspace root のみ、設定ファイルの欠落・解析失敗は既定値を使用する
+  - fallback は trim 後に空欄・標準候補との重複・重複名・OS のパス構文を除外し、設定順を維持する。通常ファイルの最初の候補を採用し、その読み取りエラーで後続候補へ切り替えない
+  - これは workspace root と Base 設定による推定であり、Profile / Project layer、実 thread cwd、trust、`project_doc_max_bytes` を含む Codex 本体の実効読み込み結果は再現しない。App Server の `config/read` は使用しない
+  - 既知ルールの参照元（2026-10-12 確認）: <https://github.com/openai/codex/blob/6e5f665feb9b71e1500a5721036fbdb8e871f4b0/codex-rs/core/src/agents_md.rs>、<https://github.com/openai/codex/blob/6e5f665feb9b71e1500a5721036fbdb8e871f4b0/codex-rs/config/src/project_root_markers.rs>
   - Trusted Directory、Feature Flags、Hooks は `coreDiagnosticsService.ts` と `coreManagerConfigService.ts` を用いる
   - Plugins タブは `pluginService.ts` で cache / marketplace / manifest 情報を集約し、`[plugins."<id>"]` の有効状態を切り替える
 

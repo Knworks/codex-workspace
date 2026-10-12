@@ -220,6 +220,9 @@
   - `incrudeReasoningMessage` が false の場合 reasoning は非表示とする
 - AGENTS Loading Chain タブ
   - workspace root を基準に Global / Project tier の `AGENTS.override.md`、`AGENTS.md`、fallback 候補を診断する
+  - 表示は VS Code workspace root と Base `config.toml` による推定であり、Codex 本体の実行結果ではない。Profile / Project layer、実 thread cwd、trust、読み込み上限を含む完全な実効状態は再現しない
+  - 共通 Codex Home resolver の Base `config.toml` にある `project_root_markers` を使用し、最寄りの marker がある祖先から workspace root までを探索する。未設定は `.git`、空配列または marker が見つからない場合は workspace root のみを対象とする
+  - Project tier の候補順は `AGENTS.override.md`、`AGENTS.md`、`project_doc_fallback_filenames` の設定順とする。fallback は前後の空白を除去し、空欄・重複・OS のパス構文を含む項目を除外する。各ディレクトリの最初の通常ファイルを選び、ディレクトリは選択しない。Global tier に fallback は追加しない
   - `Current` / `Ignored` / `Problems` に分類表示し、各候補の詳細を右ペインに表示する
 - Trusted Directory タブ
   - `[projects."<path>"]` のうち `trust_level = "trusted"` のみ表示する
