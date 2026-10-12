@@ -190,10 +190,11 @@
   - tool_timeout_sec
   - enabled_tools
   - disabled_tools
-- `enabled_tools` と `disabled_tools` の同時指定は保存不可とする。
+- `enabled_tools` と `disabled_tools` は同時に指定・保存できる。
 - 保存時は既存 block の未管理キーを保持する。
 - `env` / `http_headers` / `env_http_headers` は key-value 行編集で扱う。
-- `tools` は tool name ごとに `enabled` / `approval_mode` を持つ行編集で扱う。
+- `tools` は tool name ごとに `enabled` / `approval_mode` / `output_token_limit` を持つ行編集で扱う。`approval_mode` は `writes` を含み、`output_token_limit` は 0 以上の安全な整数とする。
+- 既存の `tools.*` ブロックの未知 key は、未削除の同名ツールを保存するときに保持する。
 - `env` は `[mcp_servers.<id>.env]` block と inline table の両方を読める。
 - `http_headers` / `env_http_headers` は companion block を優先し、inline table があれば読み込み対象に含める。
 - MCP Manager が UI で管理する companion block は `env` / `http_headers` / `env_http_headers` / `tools.*` のみとする。

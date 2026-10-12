@@ -93,8 +93,6 @@ function localizeValidationErrors(errors: string[]): string[] {
 				return messages.mcpValidationUrlRequired;
 			case 'timeoutInvalid':
 				return messages.mcpValidationTimeoutInvalid;
-			case 'toolsMutuallyExclusive':
-				return messages.mcpValidationToolsMutuallyExclusive;
 			case 'envKeyRequired':
 				return messages.mcpValidationEnvKeyRequired;
 			case 'envKeyInvalid':
@@ -105,6 +103,8 @@ function localizeValidationErrors(errors: string[]): string[] {
 				return messages.mcpValidationToolNameRequired;
 			case 'toolApprovalModeInvalid':
 				return messages.mcpValidationToolApprovalModeInvalid;
+			case 'toolOutputTokenLimitInvalid':
+				return messages.mcpValidationToolOutputTokenLimitInvalid;
 			default:
 				return error;
 		}
@@ -233,7 +233,9 @@ function buildToolRows(entries: McpToolEntry[]): string {
 					<option value="auto" ${entry.approvalMode === 'auto' ? 'selected' : ''}>auto</option>
 					<option value="prompt" ${entry.approvalMode === 'prompt' ? 'selected' : ''}>prompt</option>
 					<option value="approve" ${entry.approvalMode === 'approve' ? 'selected' : ''}>approve</option>
+					<option value="writes" ${entry.approvalMode === 'writes' ? 'selected' : ''}>writes</option>
 				</select>
+				<input name="toolOutputTokenLimit" type="number" min="0" step="1" value="${entry.outputTokenLimit ?? ''}" placeholder="output_token_limit" aria-label="output_token_limit" />
 				<button class="icon-button tool-remove" type="button" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>
 			</div>`,
 		)
@@ -333,7 +335,9 @@ function buildHtml(
 		.env-rows, .list-rows, .tool-rows { display: grid; gap: 8px; }
 		.env-row { display: grid; grid-template-columns: minmax(120px, 0.9fr) minmax(0, 1.1fr) auto; gap: 8px; align-items: center; }
 		.list-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
-		.tool-row { display: grid; grid-template-columns: minmax(140px, 1fr) 140px 160px auto; gap: 8px; align-items: center; }
+		.tool-row { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(80px, 0.8fr) minmax(80px, 0.8fr) minmax(120px, 1fr) auto; gap: 8px; align-items: center; }
+		.tool-row > input, .tool-row > select { min-width: 0; }
+		@media (max-width: 700px) { .tool-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; } .tool-row > input[name="toolName"] { grid-column: 1 / -1; } }
 		input, textarea, select { width: 100%; box-sizing: border-box; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--vscode-panel-border)); border-radius: 6px; padding: 6px 8px; }
 		textarea { min-height: 70px; }
 		.icon-button { width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--vscode-panel-border); border-radius: 4px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); cursor: pointer; }
@@ -419,7 +423,9 @@ function buildHtml(
 				'<option value="auto" ' + (entry.approvalMode === 'auto' ? 'selected' : '') + '>auto</option>' +
 				'<option value="prompt" ' + (entry.approvalMode === 'prompt' ? 'selected' : '') + '>prompt</option>' +
 				'<option value="approve" ' + (entry.approvalMode === 'approve' ? 'selected' : '') + '>approve</option>' +
+				'<option value="writes" ' + (entry.approvalMode === 'writes' ? 'selected' : '') + '>writes</option>' +
 				'</select>' +
+				'<input name="toolOutputTokenLimit" type="number" min="0" step="1" value="' + escapeHtml(entry.outputTokenLimit ?? '') + '" placeholder="output_token_limit" aria-label="output_token_limit" />' +
 				'<button class="icon-button tool-remove" type="button" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>' +
 				'</div>'
 			).join('');
@@ -537,7 +543,9 @@ function buildHtml(
 				'<option value="auto" ' + (tool.approvalMode === 'auto' ? 'selected' : '') + '>auto</option>' +
 				'<option value="prompt" ' + (tool.approvalMode === 'prompt' ? 'selected' : '') + '>prompt</option>' +
 				'<option value="approve" ' + (tool.approvalMode === 'approve' ? 'selected' : '') + '>approve</option>' +
+				'<option value="writes" ' + (tool.approvalMode === 'writes' ? 'selected' : '') + '>writes</option>' +
 				'</select>' +
+				'<input name="toolOutputTokenLimit" type="number" min="0" step="1" value="' + escapeHtml(tool.outputTokenLimit ?? '') + '" placeholder="output_token_limit" aria-label="output_token_limit" />' +
 				'<button class="icon-button tool-remove" type="button" title="${escapeHtml(messages.mcpManagerDelete)}" aria-label="${escapeHtml(messages.mcpManagerDelete)}"><span class="codicon codicon-close" aria-hidden="true"></span></button>';
 			return row;
 		};
@@ -562,13 +570,15 @@ function buildHtml(
 				const name = row.querySelector('input[name="toolName"]')?.value || '';
 				const enabledValue = row.querySelector('select[name="toolEnabled"]')?.value || '';
 				const approvalMode = row.querySelector('select[name="toolApprovalMode"]')?.value || '';
+				const outputTokenLimit = row.querySelector('input[name="toolOutputTokenLimit"]')?.value.trim() || '';
 				return {
 					name: String(name).trim(),
 					enabled:
 						enabledValue === 'true' ? true : enabledValue === 'false' ? false : undefined,
 					approvalMode: approvalMode || undefined,
+					outputTokenLimit: outputTokenLimit ? Number(outputTokenLimit) : undefined,
 				};
-			}).filter((entry) => entry.name || entry.enabled !== undefined || entry.approvalMode);
+			}).filter((entry) => entry.name || entry.enabled !== undefined || entry.approvalMode || entry.outputTokenLimit !== undefined);
 		const collectListEntries = (name) =>
 			Array.from(document.querySelectorAll('input[name="' + name + 'Item"]'))
 				.map((input) => String(input.value || '').trim())
