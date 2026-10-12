@@ -97,6 +97,9 @@ export const messages = {
 		'Plugin settings updated. Please restart Codex to apply changes.',
 	),
 	pluginsTab: localize('message.pluginsTab', 'Plugins'),
+	profileConfigTab: localize('message.profileConfigTab', 'Profiles'),
+	profileConfigBase: localize('message.profileConfigBase', 'Base configuration'),
+	profileConfigNoResult: localize('message.profileConfigNoResult', 'No Profile V2 configuration files found.'),
 	pluginsSearchPlaceholder: localize(
 		'message.pluginsSearchPlaceholder',
 		'Search plugins',

@@ -1,5 +1,7 @@
 import * as assert from 'assert';
 import fs from 'fs';
+import os from 'os';
+import vm from 'vm';
 import path from 'path';
 import * as vscode from 'vscode';
 import { HistoryPanelManager } from '../services/historyPanel';
@@ -54,6 +56,54 @@ function createFakePanel(): FakePanelHandle {
 }
 
 suite('History panel manager', () => {
+	test('lists and opens profiles without loading history or connecting an App Server', async function () {
+		this.timeout(10000);
+		const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'profile-panel-'));
+		const originalCodexHome = process.env.CODEX_HOME;
+		process.env.CODEX_HOME = tempRoot;
+		const fakePanel = createFakePanel();
+		const manager = new HistoryPanelManager(() => fakePanel.panel, () => {
+			throw new Error('Profiles must not load history');
+		});
+		try {
+			fs.writeFileSync(path.join(tempRoot, 'config.toml'), 'invalid TOML');
+			manager.show();
+			const script = fakePanel.panel.webview.html.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)?.[1];
+			assert.ok(script);
+			new vm.Script(script);
+			assert.ok(fakePanel.panel.webview.html.includes('id="profilesTab"'));
+			fakePanel.sendMessage({ type: 'refreshTab', tab: 'profiles' });
+			const first = fakePanel.getPostedMessages()[0] as { html: string };
+			assert.ok(first.html.includes('No Profile V2 configuration files found.'));
+			for (const fileName of ['dev.config.toml', 'prod.config.toml']) {
+				fs.writeFileSync(path.join(tempRoot, fileName), 'model = "test"');
+			}
+			fakePanel.sendMessage({ type: 'refreshTab', tab: 'profiles' });
+			const result = fakePanel.getPostedMessages()[1] as { type: string; tab: string; html: string };
+			assert.strictEqual(result.type, 'tabContent');
+			assert.strictEqual(result.tab, 'profiles');
+			assert.ok(result.html.includes('Base configuration'));
+			assert.ok(result.html.includes('dev.config.toml'));
+			assert.ok(result.html.includes('prod.config.toml'));
+			assert.strictEqual((result.html.match(/data-open-path=/g) ?? []).length, 3);
+			const targetPath = path.join(tempRoot, 'dev.config.toml');
+			const expectedPath = vscode.Uri.file(targetPath).fsPath;
+			fakePanel.sendMessage({ type: 'openPath', targetPath });
+			for (let attempt = 0; attempt < 250 && vscode.window.activeTextEditor?.document.uri.fsPath !== expectedPath; attempt++) {
+				await new Promise((resolve) => setTimeout(resolve, 20));
+			}
+			assert.strictEqual(vscode.window.activeTextEditor?.document.uri.fsPath, expectedPath);
+			await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+		} finally {
+			manager.dispose();
+			if (originalCodexHome === undefined) {
+				delete process.env.CODEX_HOME;
+			} else {
+				process.env.CODEX_HOME = originalCodexHome;
+			}
+			await fs.promises.rm(tempRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+		}
+	});
 	test('feature flag toggles update inline without refreshing the feature list', () => {
 		const sourcePath = path.resolve(
 			__dirname,

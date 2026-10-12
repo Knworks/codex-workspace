@@ -26,12 +26,13 @@
 | `config.toml` | Codex の主要設定ファイル | `~/.codex/config.toml` |
 | `AGENTS.md` | Codex のグローバル AGENTS ファイル | `~/.codex/AGENTS.md` |
 | `AGENTS.override.md` | グローバル override 用 AGENTS ファイル | 存在時のみ Core Explorer に表示 |
+| Profile V2 設定ファイル | Codex Home 直下の `<name>.config.toml` | Base の `config.toml` と区別し、設定値は合成しない |
 | `Commands` | `~/.codex/prompts` 配下のファイルを表示するビュー | View ID は `codex-workspace.prompts` |
 | `Skills` | Skill ルート配下の `SKILL.md` を表示するビュー | Project / Workspace / User / System を列挙 |
 | `Templates` | テンプレート保存場所 | `~/.codex/codex-templates` 固定 |
 | `Sub Agents` | Agent 定義 `*.toml` を表示するビュー | `getAgentLocations()` の結果を列挙 |
 | `MCP Server` | `config.toml` の `[mcp_servers.<id>]` 設定 | `env` / `http_headers` / `env_http_headers` / `tools.*` companion block は一覧表示しない |
-| `Codex Manager` | Core 画面から開く WebviewPanel | History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks / Plugins タブを持つ |
+| `Codex Manager` | Core 画面から開く WebviewPanel | History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks / Plugins / Profiles タブを持つ |
 | `Skill Manager` | Skills 一覧と有効/無効切替を行う WebviewPanel | `SKILL.md` frontmatter と `[[skills.config]]` を参照 |
 | `AGENTS Manager` | Sub Agents 一覧管理とオーケストレーション workflow 編集を行う WebviewPanel | `config.toml`、disabled store、Agent TOML、`developer_instructions`、`.codex-workspace/orchestrations/*.json` を参照 |
 | `MCP Manager` | MCP Server の一覧・作成・編集・削除を行う WebviewPanel | 左右 2 ペイン構成 |
@@ -81,6 +82,7 @@
   - `codex-workspace.templates` : `Templates`
   - `codex-workspace.pet` : `Codex Pet Explore`
 - Core ビューは `config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を表示する。
+- Core ビューは Codex Home 直下の `<name>.config.toml` を名前順に追加表示し、Profile V2 として区別する。各ファイルを VS Code エディタで開ける。
 - Skills ビューは以下の順で Skill ルートを表示する。
   - Project Skills: `workspace/.agents/skills` を優先し、存在しない場合は `workspace/.codex/skills`
   - Workspace Skills: `~/.codex/skills`
@@ -212,6 +214,12 @@
   - Feature Flags
   - Hooks
   - Plugins
+  - Profiles
+- Profiles タブ
+  - Base の `config.toml` と Codex Home 直下の `<name>.config.toml` を区別して一覧表示する
+  - Open 操作で各設定ファイルを VS Code エディタで開き、更新操作で一覧を再取得する
+  - App Server 接続や TOML の解析を必要としない
+  - プロファイルの切替、実効設定の合成、設定値の由来表示、同期対象への追加は行わない
 - History タブ
   - `CODEX_HOME/sessions` または `~/.codex/sessions` 配下の `rollout-*.jsonl` を走査する
   - `task_started` / `task_complete` と `turn_id` を使ってタスク単位に集約する
