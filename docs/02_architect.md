@@ -191,7 +191,7 @@ codex-workspace/
 | `HistoryTurnRecord` | `turnId` / `sessionId` / `dateKey` / `userMessage` / `agentMessages` / `reasoningMessages` / `aiTimeline` | object | 会話履歴 1 タスク分 |
 | `AgentsChainNode` | `status` / `kind` / `type` / `fileName` / `absolutePath` / `reason` | object | AGENTS Loading Chain 診断ノード |
 | `TrustedDirectory` | `path` / `exists` / `reason` | object | Trusted Directory 表示モデル |
-| `FeatureFlagRecord` | `key` / `enabled` / `configuredValue` / `defaultEnabled` / `maturity` / `description` | object | Feature Flags 表示モデル |
+| `FeatureFlagRecord` | `key` / `enabled` / `maturity` / `maturityClass` / `description` | object | Feature Flags 表示モデル |
 | `HookSourceRecord` | `id` / `layer` / `format` / `path` / `exists` / `active` / `entryCount` / `warning` | object | Hooks source 表示モデル |
 | `HookEntryRecord` | `event` / `matcher` / `handlerType` / `command` / `timeout` / `statusMessage` / `active` / `supported` | object | Hooks entry 表示モデル |
 | `PluginRecord` | `id` / `displayName` / `version` / `marketplace` / `status` / `enabled` / `toggleDisabled` / `skills` / `mcpServers` / `apps` / `agents` | object | Plugins タブ表示モデル |
@@ -274,7 +274,12 @@ codex-workspace/
   - History: 検索バー + 左一覧 + 右プレビュー
   - AGENTS Loading Chain: 左一覧 + 右詳細
   - Trusted Directory: add / remove / refresh
-  - Feature Flags: list + toggle + refresh
+  - Feature Flags: CLI の `features list` を非同期実行して一覧を表示し、`features enable` / `features disable` の完了後に再取得する
+  - Feature CLI は共通 resolver の Base ホームを `CODEX_HOME` に設定し、一時作業ディレクトリから実行する。15 秒のタイムアウトと 1 MiB の出力上限を設け、失敗を Webview に表示する
+  - Windows は `codex.exe` を優先し、未検出時のみ `codex.cmd` を試す。Feature key は検証し、CLI に存在しないキーは更新しない
+  - 古いFeature設定の削除は、CLI未掲載または `removed` の設定だけを確認ダイアログで提示する。確認時のファイル内容を保持し、削除直前にCLI一覧とファイルを再検証する
+  - 単一行のboolean設定を局所削除し、削除前後のTOML解析結果が対象キー以外で一致することを検証する。未保存の編集、設定変更、未対応形式では書き込まない
+  - Featureの切り替えと削除は同じキューで順番に実行する。削除後は再取得し、古い非同期取得結果による表示の上書きを防ぐ
   - Hooks: summary + source list + entry list
   - Plugins: 検索 + 左一覧 + 右詳細
 

@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import * as vscode from 'vscode';
 import { HistoryPanelManager } from '../services/historyPanel';
@@ -10,6 +11,7 @@ type FakePanelHandle = {
 	getRevealCount: () => number;
 	sendMessage: (message: unknown) => void;
 	getPostedMessages: () => unknown[];
+	waitForPostedMessage: (index: number) => Promise<unknown>;
 };
 
 function createFakePanel(): FakePanelHandle {
@@ -17,12 +19,14 @@ function createFakePanel(): FakePanelHandle {
 	let disposeListener: (() => void) | undefined;
 	let receiveListener: ((message: unknown) => void) | undefined;
 	const postedMessages: unknown[] = [];
+	const messageWaiters = new Map<number, (message: unknown) => void>();
 	const webview = {
 		html: '',
 		cspSource: 'vscode-webview://test',
 		asWebviewUri: (uri: vscode.Uri) => uri,
 		postMessage: async (message: unknown) => {
 			postedMessages.push(message);
+			messageWaiters.get(postedMessages.length - 1)?.(message);
 			return true;
 		},
 		onDidReceiveMessage: (listener: (message: unknown) => void) => {
@@ -50,11 +54,14 @@ function createFakePanel(): FakePanelHandle {
 		getRevealCount: () => revealCount,
 		sendMessage: (message: unknown) => receiveListener?.(message),
 		getPostedMessages: () => postedMessages,
+		waitForPostedMessage: (index) => index < postedMessages.length
+			? Promise.resolve(postedMessages[index])
+			: new Promise((resolve) => messageWaiters.set(index, resolve)),
 	};
 }
 
 suite('History panel manager', () => {
-	test('feature flag toggles update inline without refreshing the feature list', () => {
+	test('feature flag toggles preserve layout and scrolling while awaiting CLI state', () => {
 		const sourcePath = path.resolve(
 			__dirname,
 			'..',
@@ -68,10 +75,10 @@ suite('History panel manager', () => {
 		assert.ok(source.includes('data-feature-effective='));
 		assert.ok(source.includes('data-feature-source='));
 		assert.ok(source.includes('labels.featureFlagEffectiveLabel'));
-		assert.ok(source.includes('labels.featureFlagSourceConfig'));
+		assert.ok(source.includes('target.disabled = true;'));
 		assert.ok(source.includes("target.closest('.setting-card')"));
 		assert.ok(source.includes("querySelector('[data-feature-effective]')"));
-		assert.ok(source.includes("querySelector('[data-feature-source]')"));
+		assert.ok(source.includes('await setFeatureFlag('));
 		assert.ok(source.includes('Failed to update feature flag row inline'));
 		assert.match(source, /\.setting-toggle\s*\{\s*position: relative;/);
 		assert.match(
@@ -91,13 +98,159 @@ suite('History panel manager', () => {
 		assert.ok(source.includes('#featuresContent'));
 		assert.ok(source.includes('const previousScrollTop = featuresContent.scrollTop;'));
 		assert.ok(source.includes('featuresContent.scrollTop = previousScrollTop;'));
-		assert.ok(!source.includes("this.refreshTab('features');"));
+		assert.ok(source.includes("this.refreshTab('features');"));
 		assert.ok(!source.includes("document.querySelector('[data-feature-effective=\"' + featureKey + '\"]')"));
 		assert.doesNotMatch(
 			source,
 			/vscode\.window\.showInformationMessage\(messages\.mcpToggleUpdated\);\s*if \(featureKey ===/,
 		);
 	});
+
+	test('feature messages render CLI stages and reload after a toggle', async () => {
+		const fakePanel = createFakePanel();
+		let enabled = false;
+		const calls: string[][] = [];
+		const manager = new HistoryPanelManager(
+			() => fakePanel.panel,
+			undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+			async (args) => {
+				calls.push(args);
+				if (args[1] === 'enable') {
+					enabled = true;
+					return '';
+				}
+				return `cli_only stable ${enabled}\nold_cli deprecated false\nremoved_cli removed false\nnew_cli under development true`;
+			},
+		);
+		try {
+			manager.show();
+			// Validate the generated embedded script as JavaScript, not just source fragments.
+			const script = fakePanel.panel.webview.html.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)?.[1];
+			assert.ok(script);
+			assert.doesNotThrow(() => new Function(script));
+			fakePanel.sendMessage({ type: 'refreshTab', tab: 'features' });
+			const initial = await fakePanel.waitForPostedMessage(0) as { html: string };
+			for (const key of ['cli_only', 'old_cli', 'removed_cli', 'new_cli']) {
+				assert.ok(initial.html.includes(`data-feature-toggle="${key}"`));
+			}
+			assert.ok(!initial.html.includes('data-feature-toggle="memories"'));
+			assert.match(initial.html, /data-feature-toggle="removed_cli"\s+disabled/);
+			assert.match(initial.html, /data-feature-toggle="cli_only"\s+\/>/);
+			fakePanel.sendMessage({ type: 'setFeatureFlag', featureKey: 'cli_only', enabled: true });
+			const updated = await fakePanel.waitForPostedMessage(1) as { html: string };
+			assert.match(updated.html, /data-feature-toggle="cli_only" checked/);
+			assert.deepStrictEqual(calls, [
+				['features', 'list'], ['features', 'list'],
+				['features', 'enable', 'cli_only'], ['features', 'list'],
+			]);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('feature refresh ignores older CLI results that finish last', async () => {
+		const fakePanel = createFakePanel();
+		let finishFirst: ((output: string) => void) | undefined;
+		let calls = 0;
+		const manager = new HistoryPanelManager(
+			() => fakePanel.panel,
+			undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+			async () => {
+				calls += 1;
+				return calls === 1
+					? new Promise<string>((resolve) => { finishFirst = resolve; })
+					: 'current stable true';
+			},
+		);
+		try {
+			manager.show();
+			fakePanel.sendMessage({ type: 'refreshTab', tab: 'features' });
+			fakePanel.sendMessage({ type: 'refreshTab', tab: 'features' });
+			const current = await fakePanel.waitForPostedMessage(0) as { html: string };
+			assert.ok(current.html.includes('data-feature-toggle="current" checked'));
+			finishFirst?.('stale stable false');
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			assert.strictEqual(fakePanel.getPostedMessages().length, 1);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('feature CLI failures render escaped errors with a retry action', async () => {
+		const fakePanel = createFakePanel();
+		const manager = new HistoryPanelManager(
+			() => fakePanel.panel,
+			undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+			async () => { throw new Error('CLI unavailable <script>'); },
+		);
+		try {
+			manager.show();
+			fakePanel.sendMessage({ type: 'refreshTab', tab: 'features' });
+			const message = await fakePanel.waitForPostedMessage(0) as { html: string };
+			assert.ok(message.html.includes('role="alert"'));
+			assert.ok(message.html.includes('CLI unavailable &lt;script&gt;'));
+			assert.ok(message.html.includes('data-refresh-tab="features"'));
+			assert.ok(!message.html.includes('data-feature-toggle='));
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	for (const approved of [false, true]) {
+		test(`obsolete feature cleanup ${approved ? 'deletes approved keys' : 'preserves the file on cancel'}`, async () => {
+			const root = fs.mkdtempSync(path.join(os.tmpdir(), 'feature-cleanup-panel-'));
+			const previousHome = process.env.CODEX_HOME;
+			const configPath = path.join(root, 'config.toml');
+			const contents = '[features]\nactive = true\nlegacy = true\nremoved_flag = true\nunknown_flag = false\n';
+			const fakePanel = createFakePanel();
+			let confirmations = 0;
+			const calls: string[][] = [];
+			const manager = new HistoryPanelManager(
+				() => fakePanel.panel,
+				undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+				async (args) => {
+					calls.push(args);
+					return 'active stable true\nlegacy deprecated true\nremoved_flag removed false';
+				},
+				async (plan) => {
+					confirmations += 1;
+					assert.strictEqual(plan.configPath, configPath);
+					assert.deepStrictEqual(plan.settings.map((setting) => setting.key), ['removed_flag', 'unknown_flag']);
+					assert.strictEqual(fs.readFileSync(configPath, 'utf8'), contents);
+					return approved;
+				},
+			);
+			try {
+				process.env.CODEX_HOME = root;
+				fs.writeFileSync(configPath, contents);
+				manager.show();
+				assert.ok(fakePanel.panel.webview.html.includes("vscode.postMessage({ type: 'cleanupFeatureFlags' })"));
+				fakePanel.sendMessage({ type: 'cleanupFeatureFlags' });
+				const refreshed = await fakePanel.waitForPostedMessage(0) as { html: string };
+				assert.strictEqual(confirmations, 1);
+				assert.strictEqual(fs.readFileSync(configPath, 'utf8'), approved
+					? '[features]\nactive = true\nlegacy = true\n'
+					: contents);
+				assert.ok(refreshed.html.includes('data-cleanup-features="true"'));
+				if (approved) {
+					assert.match(refreshed.html, /data-cleanup-features="true"[^>]*\sdisabled(?:\s|>)/);
+				} else {
+					assert.ok(refreshed.html.includes('Obsolete settings: 2'));
+				}
+				assert.ok(!refreshed.html.includes('class="warning-card"'));
+				assert.match(refreshed.html, /class="icon-button"[^>]+data-cleanup-features="true"[^>]+aria-label=/);
+				assert.deepStrictEqual(calls, Array.from({ length: approved ? 3 : 2 }, () => ['features', 'list']));
+			} finally {
+				manager.dispose();
+				if (previousHome === undefined) {
+					delete process.env.CODEX_HOME;
+				} else {
+					process.env.CODEX_HOME = previousHome;
+				}
+				fs.rmSync(root, { recursive: true, force: true });
+			}
+		});
+	}
 
 	test('show reuses a single panel instance and reveals it', () => {
 		const fakePanel = createFakePanel();
@@ -320,7 +473,7 @@ suite('History panel manager', () => {
 		manager.dispose();
 	});
 
-	test('refreshTab refreshes only the requested core view tab', () => {
+	test('refreshTab refreshes only the requested core view tab', async () => {
 		const fakePanel = createFakePanel();
 		let loadCount = 0;
 		const index: HistoryIndex = { turns: [], days: [] };
@@ -330,6 +483,8 @@ suite('History panel manager', () => {
 				loadCount += 1;
 				return index;
 			},
+			undefined, undefined, undefined, undefined, undefined, undefined,
+			async () => 'new_cli_feature stable true',
 		);
 		manager.show();
 
@@ -355,7 +510,7 @@ suite('History panel manager', () => {
 		assert.strictEqual(loadCount, 1);
 
 		fakePanel.sendMessage({ type: 'refreshTab', tab: 'features' });
-		const featuresMessage = fakePanel.getPostedMessages()[2] as {
+		const featuresMessage = await fakePanel.waitForPostedMessage(2) as {
 			type: string;
 			tab: string;
 			html: string;

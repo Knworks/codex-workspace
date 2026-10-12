@@ -225,8 +225,16 @@
   - `[projects."<path>"]` のうち `trust_level = "trusted"` のみ表示する
   - 追加と削除を行える
 - Feature Flags タブ
-  - `FEATURE_DEFINITIONS` に列挙された定義を表示する
-  - toggle により `[features]` を更新できる
+  - インストール済み Codex CLI の `codex features list` から key、stage、現在の enabled を表示する
+  - toggle は `codex features enable <feature>` / `codex features disable <feature>` を実行し、CLI から状態を再取得する
+  - 対象は Base の `$CODEX_HOME/config.toml` とする。Profile 別の実効値管理と App Server API は対象外とする
+  - CLI 未検出、実行失敗、出力形式不正ではエラーと再取得ボタンを表示し、固定定義へフォールバックしない
+  - CLI が返さない既定値や設定元は推測して表示しない
+  - `[features]` に残った、CLI 未掲載または `removed` のキーを削除候補とし、ツールバーに件数を表示する。対象キーと理由は削除確認ダイアログで表示する。`deprecated` や開発中のキーは候補にしない
+  - 「古い設定を削除」で対象ファイル・キー・値・理由を確認し、承認された場合に限り削除する。通常の起動や再取得では自動削除しない
+  - 確認中に設定内容やCLIの対応状況が変わった場合、未保存の編集がある場合、または安全に編集できないTOML形式では削除せずエラーを表示する
+  - 対象以外の設定・コメント・改行とProfile設定を維持する。削除後に一覧を再取得する
+  - `removed` のFeatureは表示のみとし、トグルから廃止済み設定を再作成しない
 - Hooks タブ
   - user / project の `hooks.json` と inline hooks を診断表示する
   - source ごとの open / create 操作を提供する

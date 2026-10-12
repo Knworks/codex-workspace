@@ -13,8 +13,14 @@ import {
 } from './coreDiagnosticsService';
 import {
 	createHooksJsonFile,
+	ensureFeatureConfigSaved,
+	type FeatureCommandRunner,
+	type FeatureFlagRecord,
+	type FeatureCleanupPlan,
 	listFeatureFlagRecords,
 	listHookDiagnostics,
+	planFeatureFlagCleanup,
+	removeObsoleteFeatureFlags,
 	setFeatureFlag,
 } from './coreManagerConfigService';
 import { getCoreWorkspaceStatus, resolveCodexPaths } from './workspaceStatus';
@@ -45,6 +51,7 @@ type HistoryPanelInboundMessage =
 	| { type: 'addTrustedDirectory' }
 	| { type: 'removeTrustedDirectory'; targetPath: string }
 	| { type: 'setFeatureFlag'; featureKey: string; enabled: boolean }
+	| { type: 'cleanupFeatureFlags' }
 	| { type: 'togglePlugin'; pluginId: string; enabled: boolean }
 	| { type: 'openPath'; targetPath: string }
 	| { type: 'openFolder'; targetPath: string }
@@ -438,14 +445,22 @@ function buildTrustedDirectoriesHtml(): string {
 	<div class="trusted-list">${trustedHtml || `<p class="muted">${messages.historyNoResult}</p>`}</div>`;
 }
 
-function buildFeatureFlagsHtml(): string {
-	const configPath = resolveCodexPaths().configPath;
+function buildFeatureFlagsHtml(records: FeatureFlagRecord[]): string {
+	let cleanupSummary = '';
+	let cleanupButton = '';
+	try {
+		const plan = planFeatureFlagCleanup(resolveCodexPaths().configPath, records);
+		cleanupSummary = escapeHtml(messages.featureCleanupSummary(plan.settings.length));
+		const label = escapeHtml(`${messages.featureCleanupAction} (${plan.settings.length})`);
+		cleanupButton = `<button class="icon-button" type="button" data-cleanup-features="true" title="${label}" aria-label="${label}" ${plan.settings.length ? '' : 'disabled'}><span class="codicon codicon-trash" aria-hidden="true"></span></button>`;
+	} catch (error) {
+		cleanupSummary = escapeHtml(String(error));
+	}
 	const stageOrder = new Map([
 		['Stable', 0],
 		['Experimental', 1],
 	]);
-	const flags = listFeatureFlagRecords(configPath)
-		.filter((flag) => flag.maturity === 'Stable' || flag.maturity === 'Experimental')
+	const flags = [...records]
 		.sort((left, right) => {
 			const stageDiff = (stageOrder.get(left.maturity) ?? Number.MAX_SAFE_INTEGER)
 				- (stageOrder.get(right.maturity) ?? Number.MAX_SAFE_INTEGER);
@@ -457,12 +472,9 @@ function buildFeatureFlagsHtml(): string {
 	const coreStatus = getCoreWorkspaceStatus();
 	const rows = flags
 		.map((flag) => {
-			const configuredLabel =
-				flag.configuredValue === undefined
-					? messages.featureFlagSourceDefault
-					: messages.featureFlagSourceConfig;
+			const configuredLabel = 'Codex CLI';
 			const checked = flag.enabled ? 'checked' : '';
-			const disabled = coreStatus.isConfigInvalid ? 'disabled' : '';
+			const disabled = coreStatus.isConfigInvalid || flag.maturity.toLowerCase() === 'removed' ? 'disabled' : '';
 			return `<article class="setting-card">
 				<div class="setting-card-main">
 					<div class="setting-card-title-row">
@@ -476,7 +488,6 @@ function buildFeatureFlagsHtml(): string {
 						</div>
 					</div>
 					<div class="setting-card-meta muted">
-						<span>${escapeHtml(messages.featureFlagDefaultLabel)}: ${flag.defaultEnabled ? 'true' : 'false'}</span>
 						<span data-feature-effective="${escapeHtml(flag.key)}">${escapeHtml(messages.featureFlagEffectiveLabel)}: ${flag.enabled ? 'true' : 'false'}</span>
 					</div>
 				</div>
@@ -487,8 +498,12 @@ function buildFeatureFlagsHtml(): string {
 			</article>`;
 		})
 		.join('');
-	return `<div class="trusted-toolbar">
-		${buildRefreshButtonHtml('features')}
+	return `<div class="trusted-toolbar feature-toolbar">
+		<span class="muted feature-cleanup-summary">${cleanupSummary}</span>
+		<div class="feature-toolbar-actions">
+			${buildRefreshButtonHtml('features')}
+			${cleanupButton}
+		</div>
 		${coreStatus.isConfigInvalid ? `<span class="muted">${messages.reasonConfigInvalid}</span>` : ''}
 	</div>
 	<div class="settings-list">${rows || `<p class="muted">${messages.historyNoResult}</p>`}</div>`;
@@ -882,6 +897,7 @@ function buildHistoryWebviewHtml(
 		}
 		.root {
 			display: grid;
+			grid-template-columns: minmax(0, 1fr);
 			grid-template-rows: auto minmax(0, 1fr);
 			height: 100%;
 			min-height: 0;
@@ -899,11 +915,14 @@ function buildHistoryWebviewHtml(
 		}
 		.tabs {
 			display: flex;
+			overflow-x: auto;
 			gap: 4px;
 			padding: 8px 12px 0;
 			border-bottom: 1px solid var(--vscode-panel-border);
 		}
 		.tab {
+			flex: 0 0 auto;
+			white-space: nowrap;
 			border: 1px solid var(--vscode-panel-border);
 			border-bottom: 0;
 			background: var(--vscode-tab-inactiveBackground);
@@ -1381,6 +1400,22 @@ function buildHistoryWebviewHtml(
 			border-bottom: 1px solid var(--vscode-panel-border);
 		}
 		.trusted-list { padding: 10px 8px 0; }
+		.feature-toolbar { flex-wrap: wrap; }
+		.feature-cleanup-summary {
+			flex: 1;
+			min-width: 0;
+			overflow-wrap: anywhere;
+		}
+		.feature-toolbar-actions {
+			display: flex;
+			gap: 8px;
+			flex: 0 0 auto;
+		}
+		.feature-toolbar-actions .icon-button { flex: 0 0 24px; }
+		#featuresContent .setting-card { grid-template-columns: minmax(0, 1fr) auto; }
+		#featuresContent .setting-card-title-row { flex-wrap: wrap; }
+		#featuresContent .setting-card-title-row > div:first-child { min-width: 0; }
+		#featuresContent .setting-card-title { overflow-wrap: anywhere; }
 		.settings-list {
 			padding: 10px 8px 0;
 			display: grid;
@@ -1848,8 +1883,12 @@ function buildHistoryWebviewHtml(
 				return;
 			}
 			const enableHooksButton = target?.closest('[data-enable-hooks]');
+			const cleanupFeaturesButton = target?.closest('[data-cleanup-features]');
+			if (cleanupFeaturesButton) {
+				vscode.postMessage({ type: 'cleanupFeatureFlags' });
+			}
 			if (enableHooksButton) {
-				vscode.postMessage({ type: 'setFeatureFlag', featureKey: 'codex_hooks', enabled: true });
+				vscode.postMessage({ type: 'setFeatureFlag', featureKey: 'hooks', enabled: true });
 			}
 		});
 		document.addEventListener('change', (event) => {
@@ -1862,10 +1901,7 @@ function buildHistoryWebviewHtml(
 					if (effectiveLabel) {
 						effectiveLabel.textContent = labels.featureFlagEffectiveLabel + ': ' + (target.checked ? 'true' : 'false');
 					}
-					const sourceBadge = settingCard?.querySelector('[data-feature-source]');
-					if (sourceBadge) {
-						sourceBadge.textContent = labels.featureFlagSourceConfig;
-					}
+					target.disabled = true;
 				} catch (error) {
 					console.error('Failed to update feature flag row inline', error);
 				}
@@ -2373,6 +2409,8 @@ export function createHistoryWebviewPanel(): vscode.WebviewPanel {
 export class HistoryPanelManager implements vscode.Disposable {
 	private panel: vscode.WebviewPanel | undefined;
 	private state: HistoryPanelState | undefined;
+	private featureRefreshVersion = 0;
+	private featureUpdates: Promise<void> = Promise.resolve();
 
 	constructor(
 		private readonly panelFactory: () => vscode.WebviewPanel = createHistoryWebviewPanel,
@@ -2390,6 +2428,12 @@ export class HistoryPanelManager implements vscode.Disposable {
 			listener: () => void,
 		) => vscode.Disposable | void = (panel, listener) => panel.onDidDispose(listener),
 		private readonly onDidChangePlugins: () => void = () => {},
+		private readonly featureCommandRunner?: FeatureCommandRunner,
+		private readonly confirmFeatureCleanup: (plan: FeatureCleanupPlan) => Promise<boolean> = async (plan) => {
+			const detail = `${plan.configPath}\n\n${plan.settings.map((setting) => `${setting.key} = ${setting.value}: ${setting.reason === 'removed' ? messages.featureCleanupReasonRemoved : messages.featureCleanupReasonUnlisted}`).join('\n')}`;
+			return await vscode.window.showWarningMessage(messages.featureCleanupConfirm,
+				{ modal: true, detail }, messages.featureCleanupAction) === messages.featureCleanupAction;
+		},
 	) {}
 
 	show(): vscode.WebviewPanel {
@@ -2475,7 +2519,12 @@ export class HistoryPanelManager implements vscode.Disposable {
 			typeof incoming.featureKey === 'string' &&
 			typeof incoming.enabled === 'boolean'
 		) {
-			void this.setFeatureFlag(incoming.featureKey, incoming.enabled);
+			const { featureKey, enabled } = incoming;
+			this.featureUpdates = this.featureUpdates.then(() => this.setFeatureFlag(featureKey, enabled));
+			return;
+		}
+		if (incoming.type === 'cleanupFeatureFlags') {
+			this.featureUpdates = this.featureUpdates.then(() => this.cleanupFeatureFlags());
 			return;
 		}
 		if (
@@ -2543,9 +2592,42 @@ export class HistoryPanelManager implements vscode.Disposable {
 	}
 
 	private async setFeatureFlag(featureKey: string, enabled: boolean): Promise<void> {
-		setFeatureFlag(resolveCodexPaths().configPath, featureKey, enabled);
-		if (featureKey === 'hooks' || featureKey === 'codex_hooks') {
-			this.refreshTab('hooks');
+		const panel = this.panel;
+		try {
+			const records = await setFeatureFlag(resolveCodexPaths().configPath, featureKey, enabled, this.featureCommandRunner);
+			this.featureRefreshVersion += 1;
+			if (panel && this.panel === panel) {
+				void panel.webview.postMessage({ type: 'tabContent', tab: 'features', html: buildFeatureFlagsHtml(records) });
+			}
+			if (featureKey === 'hooks') {
+				this.refreshTab('hooks');
+			}
+		} catch (error) {
+			void vscode.window.showErrorMessage(String(error));
+			this.refreshTab('features');
+		}
+	}
+
+	private async cleanupFeatureFlags(): Promise<void> {
+		const configPath = resolveCodexPaths().configPath;
+		try {
+			ensureFeatureConfigSaved(configPath);
+			const records = await listFeatureFlagRecords(configPath, this.featureCommandRunner);
+			const plan = planFeatureFlagCleanup(configPath, records);
+			if (!plan.settings.length) {
+				void vscode.window.showInformationMessage(messages.featureCleanupNone);
+				return;
+			}
+			if (!await this.confirmFeatureCleanup(plan)) {
+				return;
+			}
+			ensureFeatureConfigSaved(configPath);
+			const count = await removeObsoleteFeatureFlags(plan, this.featureCommandRunner);
+			void vscode.window.showInformationMessage(messages.featureCleanupSuccess(count));
+		} catch (error) {
+			void vscode.window.showErrorMessage(String(error));
+		} finally {
+			this.refreshTab('features');
 		}
 	}
 
@@ -2609,11 +2691,16 @@ export class HistoryPanelManager implements vscode.Disposable {
 			return;
 		}
 		if (tab === 'features') {
-			void this.panel.webview.postMessage({
-				type: 'tabContent',
-				tab,
-				html: buildFeatureFlagsHtml(),
-			});
+			const panel = this.panel;
+			const version = ++this.featureRefreshVersion;
+			void listFeatureFlagRecords(resolveCodexPaths().configPath, this.featureCommandRunner)
+				.then(buildFeatureFlagsHtml)
+				.catch((error: unknown) => `<div class="trusted-toolbar">${buildRefreshButtonHtml('features')}</div><p role="alert">${escapeHtml(String(error))}</p>`)
+				.then((html) => {
+					if (this.panel === panel && version === this.featureRefreshVersion) {
+						void panel.webview.postMessage({ type: 'tabContent', tab, html });
+					}
+				});
 			return;
 		}
 		if (tab === 'hooks') {
