@@ -1,18 +1,14 @@
 import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import { parse } from 'toml';
 import { messages } from '../i18n';
+import { resolveCodexPaths } from './codexPaths';
+
+export { resolveCodexPaths, type WorkspacePaths } from './codexPaths';
 
 export type WorkspaceStatus = {
 	isAvailable: boolean;
 	reason?: string;
 	isConfigInvalid?: boolean;
-};
-
-export type WorkspacePaths = {
-	codexDir: string;
-	configPath: string;
 };
 
 // NOTE: Use a distinct folder name to avoid VS Code language heuristics (e.g., Django templates) in user template files.
@@ -29,14 +25,6 @@ export const UNAVAILABLE_PREFIX = messages.unavailablePrefix;
 
 export function getUnavailableLabel(reason: string): string {
 	return `${UNAVAILABLE_PREFIX}${reason}`;
-}
-
-export function resolveCodexPaths(homeDir: string = os.homedir()): WorkspacePaths {
-	const codexDir = path.join(homeDir, '.codex');
-	return {
-		codexDir,
-		configPath: path.join(codexDir, 'config.toml'),
-	};
 }
 
 export function getWorkspaceStatus(homeDir?: string): WorkspaceStatus {

@@ -46,16 +46,6 @@ export function getAgentLocations(
 		createPath: workspaceRoot,
 		priority: 2,
 	});
-	const userRoot = path.join(homeDir, '.codex', 'agents');
-	if (path.resolve(userRoot) !== path.resolve(workspaceRoot)) {
-		locations.push({
-			kind: 'user',
-			label: 'User Agents',
-			rootPath: userRoot,
-			createPath: userRoot,
-			priority: 3,
-		});
-	}
 	return locations;
 }
 

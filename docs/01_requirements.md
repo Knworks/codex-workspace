@@ -22,7 +22,7 @@
 
 | 用語 | 定義 | 備考 |
 | --- | --- | --- |
-| `.codex` | Codex のホームディレクトリ配下にある設定ルート | `resolveCodexPaths()` は `~/.codex` を使用 |
+| Codex Home | Codex の設定・状態ファイルのルート | 共通 resolver は空白のみでない `CODEX_HOME` を優先し、未設定・空文字・空白のみの場合は `~/.codex` を使用 |
 | `config.toml` | Codex の主要設定ファイル | `~/.codex/config.toml` |
 | `AGENTS.md` | Codex のグローバル AGENTS ファイル | `~/.codex/AGENTS.md` |
 | `AGENTS.override.md` | グローバル override 用 AGENTS ファイル | 存在時のみ Core Explorer に表示 |
