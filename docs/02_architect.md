@@ -269,7 +269,8 @@ codex-workspace/
   - 上部: search / clear / refresh
   - 左ペイン: server list, add / delete / save / cancel
   - 右ペイン: server detail form
-  - 詳細フォーム: `env` / `httpHeaders` / `envHttpHeaders` は key-value rows、`tools` は tool name + enabled + approval_mode rows
+  - 詳細フォーム: `env` / `httpHeaders` / `envHttpHeaders` は key-value rows、`tools` は tool name + enabled + approval_mode（`writes` を含む）+ output_token_limit rows
+  - 保存時は元の同名 `tools.*` ブロックから未知 key の TOML 文を保持し、既知の編集項目を再構築する。
 
 - **Codex Manager**
   - タブ: History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks / Plugins
