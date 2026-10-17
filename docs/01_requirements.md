@@ -84,10 +84,11 @@
 - Core ビューは `config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を表示する。
 - Core ビューは Codex Home 直下の `<name>.config.toml` を名前順に追加表示し、Profile V2 として区別する。各ファイルを VS Code エディタで開ける。一覧表示とOpen操作は App Server 接続や TOML の解析を必要としない。Profiles 専用タブは設けない。
 - Skills ビューは以下の順で Skill ルートを表示する。
-  - Project Skills: `workspace/.agents/skills` を優先し、存在しない場合は `workspace/.codex/skills`
-  - Workspace Skills: `~/.codex/skills`
+  - Project Skills: workspace から最寄りの `.git`（ディレクトリまたはファイル）がある階層まで、各階層の `.agents/skills` と `.codex/skills` を両方列挙する。Git 境界がなければ workspace のみを対象にする
+  - Workspace Skills: `$CODEX_HOME/skills`（未設定時は `~/.codex/skills`）
   - User Skills: `~/.agents/skills`
-  - System Skills: `~/.codex/skills/.system`
+  - System Skills: `$CODEX_HOME/skills/.system`（未設定時は `~/.codex/skills/.system`）
+  - 同じ root パスは重複列挙せず、異なる root の同名 Skill はファイルパスで区別する。新規 Project Skill の作成先は各階層の `.agents/skills` とする
 - Sub Agents ビューは以下の順で Agent ルートを表示する。
   - Project Agents: `workspace/.codex/agents` を優先し、存在しない場合は `workspace/.agents/agents`
   - Workspace Agents: `~/.codex/agents`

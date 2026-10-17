@@ -99,6 +99,9 @@ codex-workspace/
   - 隠しファイルは除外する
   - ソートは「folder 優先 + 名前昇順」
   - Skills のみ複数 root をフラットに表示する
+  - `skillLocations.ts` は workspace から最寄りの `.git` 境界まで各階層の `.agents/skills` と `.codex/skills` を独立 root として追加する。`.git` ファイルにも対応し、境界がなければ workspace のみを対象にする
+  - User scope の保存場所は共通 resolver による `$CODEX_HOME/skills` と `~/.agents/skills` の両方を扱い、既存の Workspace / User 表示ラベルを維持する。同じ root パスは重複排除し、同名 Skill の行・Open・トグルはファイルパスで区別する
+  - Project の新規作成候補は各階層の `.agents/skills` に限定する。`.codex/skills` は探索対象として追加する
   - Skills の `SKILL.md` と Skill root folder には有効/無効状態アイコンを付与する
 
 - **Sub Agents Explorer**
