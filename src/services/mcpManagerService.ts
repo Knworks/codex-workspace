@@ -1,5 +1,7 @@
 import fs from 'fs';
+import * as toml from 'toml';
 import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
+import { scanTomlTableLines } from './tomlTableHeaders';
 
 export type McpTransport = 'stdio' | 'http';
 
@@ -11,7 +13,8 @@ export type McpEnvEntry = {
 export type McpToolEntry = {
 	name: string;
 	enabled?: boolean;
-	approvalMode?: 'auto' | 'prompt' | 'approve';
+	approvalMode?: 'auto' | 'prompt' | 'approve' | 'writes';
+	outputTokenLimit?: number;
 };
 
 export type McpFormModel = {
@@ -53,9 +56,9 @@ type McpHeaderInfo = {
 };
 
 const MCP_HEADER_PATTERN =
-	/^\s*\[mcp_servers\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.-]+))\]\s*$/;
+	/^\s*\[mcp_servers\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.-]+))\]\s*(?:#.*)?$/;
 const MCP_ENV_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const MCP_TOOL_APPROVAL_MODES = new Set(['auto', 'prompt', 'approve']);
+const MCP_TOOL_APPROVAL_MODES = new Set(['auto', 'prompt', 'approve', 'writes']);
 
 function parseKnownMcpCompanionId(
 	id: string,
@@ -149,9 +152,6 @@ export function validateMcpModel(
 			errors.push('timeoutInvalid');
 		}
 	}
-	if (model.enabledTools.length > 0 && model.disabledTools.length > 0) {
-		errors.push('toolsMutuallyExclusive');
-	}
 	const seenEnvKeys = new Set<string>();
 	for (const entry of [
 		...model.env,
@@ -180,7 +180,7 @@ export function validateMcpModel(
 	for (const entry of model.tools ?? []) {
 		const name = entry.name.trim();
 		if (!name) {
-			if (entry.enabled === undefined && !entry.approvalMode) {
+			if (entry.enabled === undefined && !entry.approvalMode && entry.outputTokenLimit === undefined) {
 				continue;
 			}
 			errors.push('toolNameRequired');
@@ -188,6 +188,10 @@ export function validateMcpModel(
 		}
 		if (entry.approvalMode && !MCP_TOOL_APPROVAL_MODES.has(entry.approvalMode)) {
 			errors.push('toolApprovalModeInvalid');
+		}
+		if (entry.outputTokenLimit !== undefined &&
+			(!Number.isSafeInteger(entry.outputTokenLimit) || entry.outputTokenLimit < 0)) {
+			errors.push('toolOutputTokenLimitInvalid');
 		}
 	}
 	return { ok: errors.length === 0, errors };
@@ -222,7 +226,7 @@ export function saveMcpServer(
 		tools: model.tools ?? existingModel?.tools ?? [],
 	};
 	const newBlock = buildMcpBlock(effectiveModel, target).split('\n');
-	const newCompanionBlocks = buildManagedCompanionBlocks(effectiveModel);
+	const newCompanionBlocks = buildManagedCompanionBlocks(effectiveModel, targetCompanions);
 	if (!target) {
 		const separator = contents.trim().length > 0 ? '\n\n' : '';
 		const companionSection =
@@ -307,28 +311,29 @@ export function deleteMcpServer(configPath: string, serverId: string): boolean {
 
 function parseMcpBlocks(contents: string): McpBlock[] {
 	const lines = contents.split(/\r?\n/);
+	const { headers } = scanTomlTableLines(lines);
 	const blocks: McpBlock[] = [];
 	let current: McpBlock | undefined;
 	for (let index = 0; index < lines.length; index += 1) {
-		const header = lines[index].match(/^\s*\[[^\]]+\]\s*$/);
-		if (header) {
-			if (current) {
-				current.endLine = index - 1;
-				current.lines = lines.slice(current.startLine, current.endLine + 1);
-				current = undefined;
-			}
-			const headerInfo = parseMcpHeader(lines[index]);
-			if (headerInfo) {
-				current = {
-					id: headerInfo.id,
-					startLine: index,
-					endLine: lines.length - 1,
-					lines: [],
-					parentId: headerInfo.parentId,
-					settingName: headerInfo.settingName,
-				};
-				blocks.push(current);
-			}
+		if (!headers.has(index)) {
+			continue;
+		}
+		if (current) {
+			current.endLine = index - 1;
+			current.lines = lines.slice(current.startLine, current.endLine + 1);
+			current = undefined;
+		}
+		const headerInfo = parseMcpHeader(lines[index]);
+		if (headerInfo) {
+			current = {
+				id: headerInfo.id,
+				startLine: index,
+				endLine: lines.length - 1,
+				lines: [],
+				parentId: headerInfo.parentId,
+				settingName: headerInfo.settingName,
+			};
+			blocks.push(current);
 		}
 	}
 	if (current) {
@@ -387,7 +392,7 @@ function toToolEntry(block: McpBlock): McpToolEntry | undefined {
 	if (!toolName) {
 		return undefined;
 	}
-	const values = readBlockValues(block.lines);
+	const values = toml.parse(block.lines.slice(1).join('\n'));
 	const approvalMode =
 		typeof values.approval_mode === 'string' && MCP_TOOL_APPROVAL_MODES.has(values.approval_mode)
 			? (values.approval_mode as McpToolEntry['approvalMode'])
@@ -396,17 +401,21 @@ function toToolEntry(block: McpBlock): McpToolEntry | undefined {
 		name: toolName,
 		enabled: typeof values.enabled === 'boolean' ? values.enabled : undefined,
 		approvalMode,
+		...(typeof values.output_token_limit === 'number' ? { outputTokenLimit: values.output_token_limit } : {}),
 	};
 }
 
 function readBlockValues(lines: string[]): Record<string, unknown> {
 	const values: Record<string, unknown> = {};
-	for (const line of lines.slice(1)) {
-		const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*(?:#.*)?$/);
-		if (!match) {
+	const { valueLines } = scanTomlTableLines(lines);
+	for (let index = 1; index < lines.length; index += 1) {
+		if (!valueLines.has(index)) {
 			continue;
 		}
-		values[match[1]] = parseTomlScalarOrArray(match[2]);
+		const match = lines[index].match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*(?:#.*)?$/);
+		if (match) {
+			values[match[1]] = parseTomlScalarOrArray(match[2]);
+		}
 	}
 	return values;
 }
@@ -471,11 +480,17 @@ function readEnvBlockEntries(lines: string[]): McpEnvEntry[] {
 function buildMcpBlock(model: McpFormModel, previous?: McpBlock): string {
 	const preserved = new Map<string, string>();
 	if (previous) {
-		for (const line of previous.lines.slice(1)) {
-			const key = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/)?.[1];
-			if (key) {
-				preserved.set(key, line);
+		const { valueLines } = scanTomlTableLines(previous.lines);
+		for (let index = 1; index < previous.lines.length; index += 1) {
+			const key = previous.lines[index].match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/)?.[1];
+			if (!key || !valueLines.has(index)) {
+				continue;
 			}
+			const value = [previous.lines[index]];
+			while (index + 1 < previous.lines.length && !valueLines.has(index + 1)) {
+				value.push(previous.lines[++index]);
+			}
+			preserved.set(key, value.join('\n'));
 		}
 	}
 	const controlled = new Set([
@@ -549,7 +564,7 @@ function buildMcpEnvBlock(model: McpFormModel): string {
 	return buildKeyValueCompanionBlock(model.id, 'env', model.env);
 }
 
-function buildManagedCompanionBlocks(model: McpFormModel): string[] {
+function buildManagedCompanionBlocks(model: McpFormModel, originalBlocks: McpBlock[] = []): string[] {
 	const blocks: string[] = [];
 	if (model.env.length > 0) {
 		blocks.push(buildKeyValueCompanionBlock(model.id, 'env', model.env));
@@ -572,7 +587,8 @@ function buildManagedCompanionBlocks(model: McpFormModel): string[] {
 		if (!tool.name.trim()) {
 			continue;
 		}
-		blocks.push(buildToolCompanionBlock(model.id, tool));
+		const original = originalBlocks.find((block) => block.settingName === `tools.${tool.name.trim()}`);
+		blocks.push(buildToolCompanionBlock(model.id, tool, original));
 	}
 	return blocks;
 }
@@ -592,7 +608,7 @@ function buildKeyValueCompanionBlock(
 	return lines.join('\n');
 }
 
-function buildToolCompanionBlock(parentId: string, entry: McpToolEntry): string {
+function buildToolCompanionBlock(parentId: string, entry: McpToolEntry, original?: McpBlock): string {
 	const lines = [buildCompanionHeader(parentId, `tools.${entry.name.trim()}`)];
 	if (entry.enabled !== undefined) {
 		lines.push(`enabled = ${entry.enabled ? 'true' : 'false'}`);
@@ -600,6 +616,26 @@ function buildToolCompanionBlock(parentId: string, entry: McpToolEntry): string 
 	if (entry.approvalMode) {
 		lines.push(`approval_mode = "${escapeTomlString(entry.approvalMode)}"`);
 	}
+	if (entry.outputTokenLimit !== undefined) {
+		lines.push(`output_token_limit = ${entry.outputTokenLimit}`);
+	}
+	// Parse complete statements so multiline unknown values remain untouched.
+	const controlled = new Set(['enabled', 'approval_mode', 'output_token_limit']);
+	let statement: string[] = [];
+	for (const line of original?.lines.slice(1) ?? []) {
+		statement.push(line);
+		let values: Record<string, unknown>;
+		try {
+			values = toml.parse(statement.join('\n'));
+		} catch {
+			continue;
+		}
+		if (!Object.keys(values).some((key) => controlled.has(key))) {
+			lines.push(...statement);
+		}
+		statement = [];
+	}
+	lines.push(...statement);
 	return lines.join('\n');
 }
 

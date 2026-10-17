@@ -20,30 +20,30 @@ suite('Skill locations', () => {
 
 			assert.deepStrictEqual(
 				locations.map((location) => location.kind),
-				['project', 'project', 'project', 'workspace', 'user', 'system'],
+				['project', 'project', 'project', 'project', 'project', 'project', 'workspace', 'user', 'system'],
 			);
 			assert.strictEqual(
 				locations[0].rootPath,
 				path.join(projectRoot, '.agents', 'skills'),
 			);
 			assert.strictEqual(
-				locations[1].rootPath,
+				locations[2].rootPath,
 				path.join(repoRoot, 'packages', '.agents', 'skills'),
 			);
 			assert.strictEqual(
-				locations[2].rootPath,
+				locations[4].rootPath,
 				path.join(repoRoot, '.agents', 'skills'),
 			);
 			assert.strictEqual(
-				locations[3].rootPath,
+				locations[6].rootPath,
 				path.join(homeDir, '.codex', 'skills'),
 			);
 			assert.strictEqual(
-				locations[4].rootPath,
+				locations[7].rootPath,
 				path.join(homeDir, '.agents', 'skills'),
 			);
 			assert.strictEqual(
-				locations[5].rootPath,
+				locations[8].rootPath,
 				path.join(homeDir, '.codex', 'skills', '.system'),
 			);
 		} finally {
@@ -69,7 +69,7 @@ suite('Skill locations', () => {
 		}
 	});
 
-	test('falls back to legacy project skills location when preferred path is absent', () => {
+	test('includes legacy project skills without changing the creation destination', () => {
 		const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-skills-'));
 		const homeDir = path.join(tempRoot, 'home');
 		const projectRoot = path.join(tempRoot, 'repo');
@@ -80,11 +80,73 @@ suite('Skill locations', () => {
 
 			const locations = getSkillLocations(homeDir, projectRoot);
 
-			assert.strictEqual(locations[0].rootPath, legacyRoot);
+			assert.strictEqual(locations[1].rootPath, legacyRoot);
+			assert.strictEqual(locations[1].createPath, undefined);
 			assert.strictEqual(
 				locations[0].createPath,
 				path.join(projectRoot, '.agents', 'skills'),
 			);
+		} finally {
+			fs.rmSync(tempRoot, { recursive: true, force: true });
+		}
+	});
+
+	test('includes both roots at each ancestor and stops at a Git worktree marker', () => {
+		const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-skills-'));
+		const repoRoot = path.join(tempRoot, 'repo');
+		const projectRoot = path.join(repoRoot, 'feature');
+		try {
+			fs.mkdirSync(projectRoot, { recursive: true });
+			fs.writeFileSync(path.join(repoRoot, '.git'), 'gitdir: elsewhere');
+			const expectedRoots = [
+				path.join(projectRoot, '.agents', 'skills'),
+				path.join(projectRoot, '.codex', 'skills'),
+				path.join(repoRoot, '.agents', 'skills'),
+				path.join(repoRoot, '.codex', 'skills'),
+			];
+			for (const root of [...expectedRoots, path.join(tempRoot, '.agents', 'skills')]) {
+				fs.mkdirSync(root, { recursive: true });
+			}
+			const locations = getSkillLocations(path.join(tempRoot, 'home'), projectRoot)
+				.filter((location) => location.kind === 'project');
+			assert.deepStrictEqual(locations.map((location) => location.rootPath), expectedRoots);
+			for (const location of locations) {
+				assert.strictEqual(
+					findSkillLocationForPath(path.join(location.rootPath, 'review', 'SKILL.md'), locations),
+					location,
+				);
+			}
+		} finally {
+			fs.rmSync(tempRoot, { recursive: true, force: true });
+		}
+	});
+
+	test('without a Git marker only searches the selected project directory', () => {
+		const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-skills-'));
+		const projectRoot = path.join(tempRoot, 'feature');
+		try {
+			fs.mkdirSync(projectRoot, { recursive: true });
+			const locations = getSkillLocations(path.join(tempRoot, 'home'), projectRoot)
+				.filter((location) => location.kind === 'project');
+			assert.deepStrictEqual(locations.map((location) => location.rootPath), [
+				path.join(projectRoot, '.agents', 'skills'),
+				path.join(projectRoot, '.codex', 'skills'),
+			]);
+		} finally {
+			fs.rmSync(tempRoot, { recursive: true, force: true });
+		}
+	});
+
+	test('deduplicates a root shared by project and user scope', () => {
+		const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-skills-'));
+		try {
+			const locations = getSkillLocations(tempRoot, tempRoot);
+			assert.strictEqual(locations.filter((location) =>
+				location.rootPath === path.join(tempRoot, '.agents', 'skills')).length, 1);
+			assert.strictEqual(locations.find((location) => location.kind === 'workspace')?.rootPath,
+				path.join(tempRoot, '.codex', 'skills'));
+			assert.strictEqual(locations.find((location) => location.kind === 'user')?.rootPath,
+				path.join(tempRoot, '.agents', 'skills'));
 		} finally {
 			fs.rmSync(tempRoot, { recursive: true, force: true });
 		}
