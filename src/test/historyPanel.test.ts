@@ -762,7 +762,7 @@ suite('History panel manager', () => {
 				loadCount += 1;
 				return index;
 			},
-			undefined, undefined, undefined, undefined, undefined, undefined,
+			undefined, undefined, undefined, undefined, undefined, undefined, undefined,
 			async () => 'new_cli_feature stable true',
 		);
 		manager.show();
