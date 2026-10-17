@@ -615,7 +615,7 @@ export const messages = {
 	),
 	mcpManagerDescriptionTools: localize(
 		'message.mcpManagerDescriptionTools',
-		'Per-tool settings. Each row can override enabled and approval_mode for one tool.',
+		'Per-tool settings. Each row can override enabled, approval_mode, and output_token_limit for one tool.',
 	),
 	mcpManagerDescriptionRequired: localize(
 		'message.mcpManagerDescriptionRequired',
@@ -690,7 +690,11 @@ export const messages = {
 	),
 	mcpValidationToolApprovalModeInvalid: localize(
 		'message.mcpValidationToolApprovalModeInvalid',
-		'Tool approval_mode must be auto, prompt, or approve.',
+		'Tool approval_mode must be auto, prompt, approve, or writes.',
+	),
+	mcpValidationToolOutputTokenLimitInvalid: localize(
+		'message.mcpValidationToolOutputTokenLimitInvalid',
+		'Tool output_token_limit must be a non-negative safe integer.',
 	),
 	coreViewAgentsChainTab: localize(
 		'message.coreViewAgentsChainTab',

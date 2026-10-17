@@ -26,6 +26,7 @@
 | `config.toml` | Codex の主要設定ファイル | `~/.codex/config.toml` |
 | `AGENTS.md` | Codex のグローバル AGENTS ファイル | `~/.codex/AGENTS.md` |
 | `AGENTS.override.md` | グローバル override 用 AGENTS ファイル | 存在時のみ Core Explorer に表示 |
+| Profile V2 設定ファイル | Codex Home 直下の `<name>.config.toml` | Base の `config.toml` と区別し、設定値は合成しない |
 | `Commands` | `~/.codex/prompts` 配下のファイルを表示するビュー | View ID は `codex-workspace.prompts` |
 | `Skills` | Skill ルート配下の `SKILL.md` を表示するビュー | Project / Workspace / User / System を列挙 |
 | `Templates` | テンプレート保存場所 | `~/.codex/codex-templates` 固定 |
@@ -81,11 +82,13 @@
   - `codex-workspace.templates` : `Templates`
   - `codex-workspace.pet` : `Codex Pet Explore`
 - Core ビューは `config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を表示する。
+- Core ビューは Codex Home 直下の `<name>.config.toml` を名前順に追加表示し、Profile V2 として区別する。各ファイルを VS Code エディタで開ける。一覧表示とOpen操作は App Server 接続や TOML の解析を必要としない。Profiles 専用タブは設けない。
 - Skills ビューは以下の順で Skill ルートを表示する。
-  - Project Skills: `workspace/.agents/skills` を優先し、存在しない場合は `workspace/.codex/skills`
-  - Workspace Skills: `~/.codex/skills`
+  - Project Skills: workspace から最寄りの `.git`（ディレクトリまたはファイル）がある階層まで、各階層の `.agents/skills` と `.codex/skills` を両方列挙する。Git 境界がなければ workspace のみを対象にする
+  - Workspace Skills: `$CODEX_HOME/skills`（未設定時は `~/.codex/skills`）
   - User Skills: `~/.agents/skills`
-  - System Skills: `~/.codex/skills/.system`
+  - System Skills: `$CODEX_HOME/skills/.system`（未設定時は `~/.codex/skills/.system`）
+  - 同じ root パスは重複列挙せず、異なる root の同名 Skill はファイルパスで区別する。新規 Project Skill の作成先は各階層の `.agents/skills` とする
 - Sub Agents ビューは以下の順で Agent ルートを表示する。
   - Project Agents: `workspace/.codex/agents` を優先し、存在しない場合は `workspace/.agents/agents`
   - Workspace Agents: `~/.codex/agents`
@@ -190,10 +193,11 @@
   - tool_timeout_sec
   - enabled_tools
   - disabled_tools
-- `enabled_tools` と `disabled_tools` の同時指定は保存不可とする。
+- `enabled_tools` と `disabled_tools` は同時に指定・保存できる。
 - 保存時は既存 block の未管理キーを保持する。
 - `env` / `http_headers` / `env_http_headers` は key-value 行編集で扱う。
-- `tools` は tool name ごとに `enabled` / `approval_mode` を持つ行編集で扱う。
+- `tools` は tool name ごとに `enabled` / `approval_mode` / `output_token_limit` を持つ行編集で扱う。`approval_mode` は `writes` を含み、`output_token_limit` は 0 以上の安全な整数とする。
+- 既存の `tools.*` ブロックの未知 key は、未削除の同名ツールを保存するときに保持する。
 - `env` は `[mcp_servers.<id>.env]` block と inline table の両方を読める。
 - `http_headers` / `env_http_headers` は companion block を優先し、inline table があれば読み込み対象に含める。
 - MCP Manager が UI で管理する companion block は `env` / `http_headers` / `env_http_headers` / `tools.*` のみとする。
@@ -229,6 +233,9 @@
   - 拡張機能の実行中は取得済みの本文を Codex Home ごとにメモリに保持し、再表示時にすぐ表示する。更新時は一覧を再取得し、更新日時等が同じ会話の本文を再利用する。実行中・更新直後・更新日時不明の会話は再取得し、削除の反映は取得完了時に行う
 - AGENTS Loading Chain タブ
   - workspace root を基準に Global / Project tier の `AGENTS.override.md`、`AGENTS.md`、fallback 候補を診断する
+  - 表示は VS Code workspace root と Base `config.toml` による推定であり、Codex 本体の実行結果ではない。Profile / Project layer、実 thread cwd、trust、読み込み上限を含む完全な実効状態は再現しない
+  - 共通 Codex Home resolver の Base `config.toml` にある `project_root_markers` を使用し、最寄りの marker がある祖先から workspace root までを探索する。未設定は `.git`、空配列または marker が見つからない場合は workspace root のみを対象とする
+  - Project tier の候補順は `AGENTS.override.md`、`AGENTS.md`、`project_doc_fallback_filenames` の設定順とする。fallback は前後の空白を除去し、空欄・重複・OS のパス構文を含む項目を除外する。各ディレクトリの最初の通常ファイルを選び、ディレクトリは選択しない。Global tier に fallback は追加しない
   - `Current` / `Ignored` / `Problems` に分類表示し、各候補の詳細を右ペインに表示する
 - Trusted Directory タブ
   - `[projects."<path>"]` のうち `trust_level = "trusted"` のみ表示する

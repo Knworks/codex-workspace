@@ -93,12 +93,17 @@ codex-workspace/
 - **Core Explorer**
   - `coreExplorerProvider.ts` が `config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を生成する
   - `config.toml` が不正な場合、warning アイコンと tooltip で状態を見せる
+  - `profileConfigService.ts` の `listProfileConfigFiles()` で Profile V2 ファイルを追加し、既存の `codex-workspace.openFile` で開く。Profile 操作は Core Explorer に集約し、Manager に専用タブは設けない
+  - 共通列挙処理は `codexPaths.ts` の resolver を利用し、Codex Home 直下の通常ファイル `<name>.config.toml` を名前順で返す。Base、空の名前、ディレクトリ、バックアップ、配下のサブディレクトリは対象外。ホームが存在しない場合は空の一覧を返し、他の読み取りエラーは呼び出し元へ返す
 
 - **Commands / Skills / Templates Explorer**
   - `fileExplorerProvider.ts` がフォルダとファイルを列挙する
   - 隠しファイルは除外する
   - ソートは「folder 優先 + 名前昇順」
   - Skills のみ複数 root をフラットに表示する
+  - `skillLocations.ts` は workspace から最寄りの `.git` 境界まで各階層の `.agents/skills` と `.codex/skills` を独立 root として追加する。`.git` ファイルにも対応し、境界がなければ workspace のみを対象にする
+  - User scope の保存場所は共通 resolver による `$CODEX_HOME/skills` と `~/.agents/skills` の両方を扱い、既存の Workspace / User 表示ラベルを維持する。同じ root パスは重複排除し、同名 Skill の行・Open・トグルはファイルパスで区別する
+  - Project の新規作成候補は各階層の `.agents/skills` に限定する。`.codex/skills` は探索対象として追加する
   - Skills の `SKILL.md` と Skill root folder には有効/無効状態アイコンを付与する
 
 - **Sub Agents Explorer**
@@ -167,6 +172,10 @@ codex-workspace/
   - `thread/list(sortKey: updated_at)` の active / archived 結果を更新日時順に統合し、`thread/turns/list(sortDirection: desc)` のページ取得時に途中結果を通知する。画面への反映は100ms間隔にまとめ、完了・失敗時は保留分を反映する。表示済みカードを基準に一覧のスクロールを補正し、変更のない選択本文を再描画しない
   - `ThreadHistoryCache` は Manager が保持するメモリ内キャッシュで、Codex Home と thread ID ごとに完全取得した本文と更新日時・作成日時・path を保持する。初期表示で再利用した後、一覧の再取得で変更を検証する。active・直近2秒以内の更新・更新日時不明は本文を再取得し、成功した取得の終端で削除済み thread をキャッシュから除去する。途中失敗・キャンセルでは完全取得済みの本文を残し、未完の本文を再利用対象にしない
   - AGENTS Loading Chain は `coreDiagnosticsService.ts` が Global / Project tier の `AGENTS.override.md`、`AGENTS.md`、`project_doc_fallback_filenames` を診断し、`Active` / `Skipped` / `Missing` / `Error` 状態を作る
+  - 共通 `resolveCodexPaths()` の Base `config.toml` を一度読み、`project_root_markers` と fallback 名を解決する。root marker は指定配列が既定 `.git` を置き換え、最寄りの祖先を採用する。空配列・一致なしは workspace root のみ、設定ファイルの欠落・解析失敗は既定値を使用する
+  - fallback は trim 後に空欄・標準候補との重複・重複名・OS のパス構文を除外し、設定順を維持する。通常ファイルの最初の候補を採用し、その読み取りエラーで後続候補へ切り替えない
+  - これは workspace root と Base 設定による推定であり、Profile / Project layer、実 thread cwd、trust、`project_doc_max_bytes` を含む Codex 本体の実効読み込み結果は再現しない。App Server の `config/read` は使用しない
+  - 既知ルールの参照元（2026-10-12 確認）: <https://github.com/openai/codex/blob/6e5f665feb9b71e1500a5721036fbdb8e871f4b0/codex-rs/core/src/agents_md.rs>、<https://github.com/openai/codex/blob/6e5f665feb9b71e1500a5721036fbdb8e871f4b0/codex-rs/config/src/project_root_markers.rs>
   - Trusted Directory、Feature Flags、Hooks は `coreDiagnosticsService.ts` と `coreManagerConfigService.ts` を用いる
   - Plugins タブは `pluginService.ts` で cache / marketplace / manifest 情報を集約し、`[plugins."<id>"]` の有効状態を切り替える
 
@@ -275,7 +284,8 @@ codex-workspace/
   - 上部: search / clear / refresh
   - 左ペイン: server list, add / delete / save / cancel
   - 右ペイン: server detail form
-  - 詳細フォーム: `env` / `httpHeaders` / `envHttpHeaders` は key-value rows、`tools` は tool name + enabled + approval_mode rows
+  - 詳細フォーム: `env` / `httpHeaders` / `envHttpHeaders` は key-value rows、`tools` は tool name + enabled + approval_mode（`writes` を含む）+ output_token_limit rows
+  - 保存時は元の同名 `tools.*` ブロックから未知 key の TOML 文を保持し、既知の編集項目を再構築する。
 
 - **Codex Manager**
   - タブ: History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks / Plugins

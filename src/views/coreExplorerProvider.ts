@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { CodexTreeDataProvider, WorkspaceStatusProvider } from './codexTreeProvider';
 import { CodexTreeItem } from '../models/treeItems';
+import { listProfileConfigFiles } from '../services/profileConfigService';
 import {
 	getCoreWorkspaceStatus,
 	getWorkspaceStatus,
@@ -78,6 +79,21 @@ export class CoreExplorerProvider extends CodexTreeDataProvider<CodexTreeItem> {
 			items.push(overrideItem);
 		}
 
+		for (const profile of listProfileConfigFiles()) {
+			const profileItem = new CodexTreeItem(
+				'file', 'core', profile.fileName,
+				vscode.TreeItemCollapsibleState.None, profile.configPath,
+			);
+			profileItem.description = 'Profile V2';
+			profileItem.tooltip = profile.configPath;
+			profileItem.iconPath = this.getIcon('settingsfile32.png');
+			profileItem.command = {
+				command: 'codex-workspace.openFile',
+				title: `Open ${profile.fileName}`,
+				arguments: [profileItem],
+			};
+			items.push(profileItem);
+		}
 		return items;
 	}
 
