@@ -5,6 +5,8 @@ import path from 'path';
 import * as vscode from 'vscode';
 import { AgentManagerPanelManager } from '../services/agentManagerPanel';
 import { createEmptyWorkflow } from '../services/orchestrationService';
+import { getAgentLocations } from '../services/agentLocations';
+import { listAgentManagerRecords } from '../services/agentManagerService';
 
 type EnvSnapshot = {
 	HOME?: string;
@@ -80,6 +82,56 @@ async function withTempHome(run: (homeDir: string) => Promise<void>): Promise<vo
 }
 
 suite('Agent manager panel', () => {
+	test('renders Profile roles and routes Open and ON/OFF to the selected declaration', async () => {
+		await withTempHome(async (homeDir) => {
+			const codexDir = path.join(homeDir, '.codex');
+			fs.mkdirSync(codexDir);
+			const basePath = path.join(codexDir, 'config.toml');
+			const profilePath = path.join(codexDir, 'review.config.toml');
+			const rolePath = path.join(homeDir, 'custom-role.toml');
+			const roleContents = 'model = "test-model"\n';
+			fs.writeFileSync(rolePath, roleContents);
+			const declaration = '[agents.reviewer]\ndescription = "Reviewer"\nconfig_file = "../custom-role.toml"\n';
+			fs.writeFileSync(basePath, declaration);
+			fs.writeFileSync(profilePath, declaration);
+			const fakePanel = createFakePanel();
+			const originalCreate = vscode.window.createWebviewPanel;
+			const originalExecute = vscode.commands.executeCommand;
+			const opened: vscode.Uri[] = [];
+			(vscode.window as unknown as { createWebviewPanel: typeof originalCreate }).createWebviewPanel = () => fakePanel.panel;
+			(vscode.commands as unknown as { executeCommand: typeof originalExecute }).executeCommand = (async (command: string, uri: vscode.Uri) => {
+				if (command === 'vscode.open') { opened.push(uri); }
+				return undefined;
+			}) as typeof originalExecute;
+			let changes = 0;
+			const manager = new AgentManagerPanelManager(() => { changes += 1; });
+			try {
+				manager.show();
+				const records = listAgentManagerRecords(basePath, getAgentLocations(homeDir));
+				const profile = records.find((record) => record.configPath === profilePath)!;
+				assert.ok(profile);
+				assert.ok(fakePanel.panel.webview.html.includes('Profile: review'));
+				assert.ok(fakePanel.panel.webview.html.includes('test-model'));
+				fakePanel.dispatchMessage({ type: 'openAgent', agentPath: profile.agentPath });
+				assert.strictEqual(opened[0].fsPath, vscode.Uri.file(rolePath).fsPath);
+				fakePanel.dispatchMessage({ type: 'toggleAgent', id: profile.id, enabled: false });
+				assert.strictEqual(fs.readFileSync(basePath, 'utf8'), declaration);
+				assert.ok(!fs.readFileSync(profilePath, 'utf8').includes('[agents.reviewer]'));
+				assert.strictEqual(listAgentManagerRecords(basePath, getAgentLocations(homeDir)).find((record) => record.id === profile.id)?.enabled, false);
+				fakePanel.dispatchMessage({ type: 'toggleAgent', id: profile.id, enabled: true });
+				assert.ok(fs.readFileSync(profilePath, 'utf8').includes('custom-role.toml'));
+				assert.strictEqual(fs.readFileSync(rolePath, 'utf8'), roleContents);
+				assert.strictEqual(changes, 2);
+				const script = fakePanel.panel.webview.html.match(/<script nonce="[^"]+">([\s\S]+)<\/script>/);
+				assert.ok(script);
+				assert.doesNotThrow(() => new Function(script![1]));
+			} finally {
+				manager.dispose();
+				(vscode.window as unknown as { createWebviewPanel: typeof originalCreate }).createWebviewPanel = originalCreate;
+				(vscode.commands as unknown as { executeCommand: typeof originalExecute }).executeCommand = originalExecute;
+			}
+		});
+	});
 	test('ready message does not trigger a full refresh loop', () => {
 		const sourcePath = path.resolve(
 			__dirname,
