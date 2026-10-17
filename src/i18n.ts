@@ -962,8 +962,13 @@ export const messages = {
 	),
 	hooksWarningUnsupportedHandler: localize(
 		'message.hooksWarningUnsupportedHandler',
-		'Only command hook handlers are currently executed by Codex.',
+		'Unknown handler type. This definition is preserved and shown read-only.',
 	),
+	hooksWarningUnknownEvent: localize(
+		'message.hooksWarningUnknownEvent',
+		'Unknown hook event. This definition is preserved and shown read-only.',
+	),
+	hooksUnknown: localize('message.hooksUnknown', 'Unknown (read-only)'),
 	trustedDirectoryDeleteConfirm: (targetPath: string) =>
 		localize(
 			'message.trustedDirectoryDeleteConfirm',

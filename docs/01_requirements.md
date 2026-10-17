@@ -231,7 +231,11 @@
   - toggle により `[features]` を更新できる
 - Hooks タブ
   - user / project の `hooks.json` と inline hooks を診断表示する
+  - Event は `PreToolUse`、`PermissionRequest`、`PostToolUse`、`PreCompact`、`PostCompact`、`SessionStart`、`SessionEnd`、`UserPromptSubmit`、`SubagentStart`、`SubagentStop`、`Stop`、`Interrupt` を認識する
+  - Handler type は `command`、`mcp_tool`、`prompt`、`agent` を認識し、command 以外は定義内容も表示する
+  - 未知の Event / Handler は元の名前と定義を保持し、`Unknown` として読み取り専用で表示する。Manager の設定保存で削除しない
   - source ごとの open / create 操作を提供する
+  - ファイルベースの管理を維持し、App Server の `hooks/list` は使用しない
 - Plugins タブ
   - `~/.codex/plugins/cache` からインストール済み Plugin を列挙する
   - marketplace 情報は `~/.agents/plugins/marketplace.json`、`workspace/.agents/plugins/marketplace.json`、`workspace/.claude-plugin/marketplace.json` を参照する
