@@ -187,6 +187,7 @@ codex-workspace/
   - Core 同期対象は `AGENTS.md`、`AGENTS.override.md`、`config.toml`
   - 隠しパスと `.codex-workspace` メタディレクトリは除外する
   - 管理状態は `.codex-workspace/codex-sync.json` に保存する
+  - 削除履歴のキーは `pair:` に scope・`path.resolve()` した同期元・同期先を並べた JSON 配列を続けた形式とする。旧 scope 単位のキーは相手先を識別できないため削除判定に使わず、新しい組み合わせの初回同期で履歴を作成する
   - Sub Agents 同期後は `agentSyncCleanupService.ts` で `config.toml`、disabled store、sync state を補正する
 
 - **`Organize config.toml`**

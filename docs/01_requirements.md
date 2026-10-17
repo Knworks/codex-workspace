@@ -306,6 +306,7 @@
 - 同名ファイルは更新日時が新しい側で上書きする。
 - 削除同期状態は `~/.codex/.codex-workspace/codex-sync.json` に記録する。
 - 旧状態ファイル `.codex/.codex-sync/state.json` があれば新形式へ移行する。
+- 削除履歴は同期範囲と正規化した同期元・同期先のパスの組み合わせごとに管理する。相手先を特定できない旧 scope 単位の履歴は保持しても削除判断に使用せず、各組み合わせの初回同期で現存ファイルを相互にコピーして新しい履歴を作る。
 - 隠しファイル、隠しフォルダ、`.codex-workspace` メタディレクトリは同期対象外とする。
 - Sub Agents 同期後は `reconcileAgentConfigAfterSync()` により `config.toml`、disabled store、sync state を追従させる。
 

@@ -29,21 +29,34 @@ function getNewSyncStatePath(codexRoot: string): string {
 /**
  * Removes a tracked path from sync metadata for the given scope.
  */
+function getPairStateKey(scopeKey: string, sourceRoot: string, targetRoot: string): string {
+	return `pair:${JSON.stringify([scopeKey, path.resolve(sourceRoot), path.resolve(targetRoot)])}`;
+}
+
 export function removeSyncStateEntry(
 	codexRoot: string,
 	scopeKey: string,
 	relativePath: string,
 ): void {
 	const state = readSyncState(codexRoot);
-	const scopeState = state[scopeKey];
-	if (!scopeState || scopeState[relativePath] !== true) {
-		return;
+	const pairPrefix = `pair:[${JSON.stringify(scopeKey)},`;
+	let changed = false;
+	for (const [stateKey, scopeState] of Object.entries(state)) {
+		if (
+			(stateKey !== scopeKey && !stateKey.startsWith(pairPrefix)) ||
+			scopeState[relativePath] !== true
+		) {
+			continue;
+		}
+		delete scopeState[relativePath];
+		if (Object.keys(scopeState).length === 0) {
+			delete state[stateKey];
+		}
+		changed = true;
 	}
-	delete scopeState[relativePath];
-	if (Object.keys(scopeState).length === 0) {
-		delete state[scopeKey];
+	if (changed) {
+		writeSyncState(codexRoot, state);
 	}
-	writeSyncState(codexRoot, state);
 }
 
 function isHiddenSegment(segment: string): boolean {
@@ -258,7 +271,9 @@ function syncEntries(
 	targetEntries: Map<string, FileEntry>,
 ): SyncResult {
 	const state = readSyncState(codexRoot);
-	const scopeState = state[scopeKey] ?? {};
+	const stateKey = getPairStateKey(scopeKey, codexScopeRoot, targetRoot);
+	// Legacy scope-only entries cannot prove a deletion for this destination.
+	const scopeState = state[stateKey] ?? {};
 	const skipped: string[] = [];
 	const allPaths = new Set<string>([
 		...codexEntries.keys(),
@@ -333,7 +348,7 @@ function syncEntries(
 		}
 	}
 
-	state[scopeKey] = scopeState;
+	state[stateKey] = scopeState;
 	writeSyncState(codexRoot, state);
 	return { skipped };
 }
