@@ -22,6 +22,12 @@ export type HookEventName =
 	| 'PreToolUse'
 	| 'PermissionRequest'
 	| 'PostToolUse'
+	| 'PreCompact'
+	| 'PostCompact'
+	| 'SessionEnd'
+	| 'SubagentStart'
+	| 'SubagentStop'
+	| 'Interrupt'
 	| 'UserPromptSubmit'
 	| 'Stop';
 
@@ -40,9 +46,10 @@ export type HookEntryRecord = {
 	id: string;
 	layer: 'user' | 'project';
 	format: 'hooks.json' | 'inline';
-	event: HookEventName;
+	event: string;
 	matcher?: string;
 	handlerType: string;
+	handler: Record<string, unknown>;
 	command?: string;
 	timeout?: number;
 	statusMessage?: string;
@@ -62,10 +69,11 @@ export type HookDiagnosticsSnapshot = {
 };
 
 type ParsedHookGroup = {
-	event: HookEventName;
+	event: string;
 	matcher?: string;
 	handlers: Array<{
 		type: string;
+		definition: Record<string, unknown>;
 		command?: string;
 		timeout?: number;
 		statusMessage?: string;
@@ -112,9 +120,17 @@ const HOOK_EVENTS: HookEventName[] = [
 	'PreToolUse',
 	'PermissionRequest',
 	'PostToolUse',
+	'PreCompact',
+	'PostCompact',
+	'SessionEnd',
+	'SubagentStart',
+	'SubagentStop',
+	'Interrupt',
 	'UserPromptSubmit',
 	'Stop',
 ];
+
+const HOOK_HANDLER_TYPES = new Set(['command', 'mcp_tool', 'prompt', 'agent']);
 
 const FEATURES_HEADER_PATTERN = /^\s*\[features\]\s*$/;
 const BOOLEAN_FEATURE_PATTERN = /^\s*([A-Za-z0-9_]+)\s*=\s*(true|false)(\s*#.*)?$/i;
@@ -472,14 +488,17 @@ function toHookEntries(
 			event: group.event,
 			matcher: group.matcher,
 			handlerType: handler.type,
+			handler: handler.definition,
 			command: handler.command,
 			timeout: handler.timeout,
 			statusMessage: handler.statusMessage,
 			active,
-			supported: handler.type === 'command',
+			supported: HOOK_EVENTS.includes(group.event as HookEventName) && HOOK_HANDLER_TYPES.has(handler.type),
 			sourcePath,
 			warning:
-				handler.type !== 'command'
+				!HOOK_EVENTS.includes(group.event as HookEventName)
+					? messages.hooksWarningUnknownEvent
+					: !HOOK_HANDLER_TYPES.has(handler.type)
 					? messages.hooksWarningUnsupportedHandler
 					: undefined,
 		})),
@@ -494,33 +513,7 @@ function parseHooksJson(filePath: string): {
 		return { groups: [] };
 	}
 	try {
-		const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as {
-			hooks?: Partial<Record<HookEventName, Array<{ matcher?: string; hooks?: Array<Record<string, unknown>> }>>>;
-		};
-		const groups: ParsedHookGroup[] = [];
-		for (const event of HOOK_EVENTS) {
-			for (const group of parsed.hooks?.[event] ?? []) {
-				groups.push({
-					event,
-					matcher: typeof group.matcher === 'string' ? group.matcher : undefined,
-					handlers: (group.hooks ?? []).map((handler) => ({
-						type: typeof handler.type === 'string' ? handler.type : 'unknown',
-						command: typeof handler.command === 'string' ? handler.command : undefined,
-						timeout:
-							typeof handler.timeout === 'number'
-								? handler.timeout
-								: typeof handler.timeout === 'string'
-									? Number(handler.timeout)
-									: undefined,
-						statusMessage:
-							typeof handler.statusMessage === 'string'
-								? handler.statusMessage
-								: undefined,
-					})),
-				});
-			}
-		}
-		return { groups };
+		return { groups: parseHookGroups(JSON.parse(fs.readFileSync(filePath, 'utf8'))) };
 	} catch (error) {
 		return {
 			groups: [],
@@ -536,87 +529,47 @@ function parseInlineHooks(filePath: string): {
 	if (!fs.existsSync(filePath)) {
 		return { groups: [] };
 	}
-	const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
-	const groups: ParsedHookGroup[] = [];
-	let currentGroup: ParsedHookGroup | undefined;
-	let currentHandler:
-		| {
-				type: string;
-				command?: string;
-				timeout?: number;
-				statusMessage?: string;
-		  }
-		| undefined;
-
-	for (const line of lines) {
-		const groupMatch = line.match(/^\s*\[\[hooks\.(SessionStart|PreToolUse|PermissionRequest|PostToolUse|UserPromptSubmit|Stop)\]\]\s*$/);
-		if (groupMatch) {
-			currentGroup = {
-				event: groupMatch[1] as HookEventName,
-				handlers: [],
-			};
-			groups.push(currentGroup);
-			currentHandler = undefined;
-			continue;
-		}
-
-		const handlerMatch = line.match(/^\s*\[\[hooks\.(SessionStart|PreToolUse|PermissionRequest|PostToolUse|UserPromptSubmit|Stop)\.hooks\]\]\s*$/);
-		if (handlerMatch) {
-			if (!currentGroup || currentGroup.event !== handlerMatch[1]) {
-				currentGroup = {
-					event: handlerMatch[1] as HookEventName,
-					handlers: [],
-				};
-				groups.push(currentGroup);
-			}
-			currentHandler = { type: 'unknown' };
-			currentGroup.handlers.push(currentHandler);
-			continue;
-		}
-
-		const keyValueMatch = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*(?:#.*)?$/);
-		if (!keyValueMatch) {
-			continue;
-		}
-		const key = keyValueMatch[1];
-		const value = parseTomlScalar(keyValueMatch[2]);
-		if (currentHandler) {
-			if (key === 'type' && typeof value === 'string') {
-				currentHandler.type = value;
-			}
-			if (key === 'command' && typeof value === 'string') {
-				currentHandler.command = value;
-			}
-			if (key === 'timeout' && typeof value === 'number') {
-				currentHandler.timeout = value;
-			}
-			if (key === 'statusMessage' && typeof value === 'string') {
-				currentHandler.statusMessage = value;
-			}
-			continue;
-		}
-		if (currentGroup && key === 'matcher' && typeof value === 'string') {
-			currentGroup.matcher = value;
-		}
+	try {
+		return { groups: parseHookGroups(parse(fs.readFileSync(filePath, 'utf8'))) };
+	} catch (error) {
+		return {
+			groups: [],
+			error: error instanceof Error ? error.message : String(error),
+		};
 	}
-
-	return { groups };
 }
 
-function parseTomlScalar(rawValue: string): string | number | boolean | undefined {
-	const value = rawValue.trim();
-	if (
-		(value.startsWith('"') && value.endsWith('"')) ||
-		(value.startsWith("'") && value.endsWith("'"))
-	) {
-		return value.slice(1, -1).replace(/''/g, "'");
+function isHookObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseHookGroups(parsed: unknown): ParsedHookGroup[] {
+	if (!isHookObject(parsed) || !isHookObject(parsed.hooks)) {
+		return [];
 	}
-	if (value === 'true' || value === 'false') {
-		return value === 'true';
+	const groups: ParsedHookGroup[] = [];
+	for (const [event, eventGroups] of Object.entries(parsed.hooks)) {
+		if (!Array.isArray(eventGroups)) {
+			continue;
+		}
+		for (const group of eventGroups) {
+			if (!isHookObject(group) || !Array.isArray(group.hooks)) {
+				continue;
+			}
+			groups.push({
+				event,
+				matcher: typeof group.matcher === 'string' ? group.matcher : undefined,
+				handlers: group.hooks.filter(isHookObject).map((handler) => ({
+					type: typeof handler.type === 'string' ? handler.type : 'unknown',
+					definition: handler,
+					command: typeof handler.command === 'string' ? handler.command : undefined,
+					timeout: typeof handler.timeout === 'number'
+						? handler.timeout
+						: typeof handler.timeout === 'string' ? Number(handler.timeout) : undefined,
+					statusMessage: typeof handler.statusMessage === 'string' ? handler.statusMessage : undefined,
+				})),
+			});
+		}
 	}
-	const numeric = Number(value);
-	if (!Number.isNaN(numeric)) {
-		return numeric;
-	}
-	return undefined;
+	return groups;
 }

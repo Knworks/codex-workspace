@@ -91,6 +91,8 @@ codex-workspace/
 - **Core Explorer**
   - `coreExplorerProvider.ts` が `config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を生成する
   - `config.toml` が不正な場合、warning アイコンと tooltip で状態を見せる
+  - `profileConfigService.ts` の `listProfileConfigFiles()` で Profile V2 ファイルを追加し、既存の `codex-workspace.openFile` で開く。Profile 操作は Core Explorer に集約し、Manager に専用タブは設けない
+  - 共通列挙処理は `codexPaths.ts` の resolver を利用し、Codex Home 直下の通常ファイル `<name>.config.toml` を名前順で返す。Base、空の名前、ディレクトリ、バックアップ、配下のサブディレクトリは対象外。ホームが存在しない場合は空の一覧を返し、他の読み取りエラーは呼び出し元へ返す
 
 - **Commands / Skills / Templates Explorer**
   - `fileExplorerProvider.ts` がフォルダとファイルを列挙する
@@ -133,11 +135,14 @@ codex-workspace/
 
 - **Sub Agents 操作**
   - `agentCommands.ts` が add / edit / delete / enable / disable を担当する
-  - 作成時と有効化時は `ensureAgentTomlRequiredFields()` により `name`、`description`、`developer_instructions` の必須項目を補完する
+  - 作成時はテンプレートをそのまま保存し、編集・有効化・設定整理では Agent TOML の内容を保持する。`name`、`description`、`developer_instructions` は自動補完しない
   - 作成、編集、有効化後は `upsertAgentConfigMetadata()` で `description` と `config_file` を実体へ同期する
   - 無効化時は block を `agents-disabled.json` に退避する
   - 同期や整理の前後では `agentConfigRepairService.ts` と `agentSyncCleanupService.ts` が `config.toml` を補正する
-  - `agentManagerService.ts` は Agents タブの一覧モデルを作り、Agent TOML から `developer_instructions` を抽出して preview data に含める
+  - `agentManagerService.ts` は Base、`profileConfigService.ts` が列挙する Profile V2、認識済み Project の設定を TOML parser で直接解析し、`[agents.<role>]` と退避済み宣言から一覧モデルを作る
+  - 行 ID は宣言元設定パスと role key の組とし、`config_file` は宣言元設定のディレクトリを基準に解決する。ファイル名から role key を推定しない
+  - Manager の ON/OFF は行 ID から宣言元設定を特定して更新する。Base と Project は各設定ディレクトリの `.codex-workspace/agents-disabled.json`、Profile は `.codex-workspace/<name>.config.toml.agents-disabled.json` に退避する
+  - Agent TOML の表示項目と `developer_instructions` は TOML parser で読み取る。参照ファイルなしは継承表示、`config_file` なしの Open は宣言元設定を開く。未登録ファイル列挙と設定レイヤーの完全合成は行わない
   - `agentManagerPanel.ts` は `Agents` / `Orchestration` の 2 タブを持つ Webview を提供する
   - Agents タブは左の一覧と右の詳細からなる list-detail レイアウトで、詳細ペインに `developer_instructions` の Markdown preview を HTML 描画する
   - `orchestrationService.ts` が workflow JSON の保存、読込、削除、一覧化、バリデーション、prompt 生成を担当する
@@ -193,7 +198,7 @@ codex-workspace/
 | `TrustedDirectory` | `path` / `exists` / `reason` | object | Trusted Directory 表示モデル |
 | `FeatureFlagRecord` | `key` / `enabled` / `maturity` / `maturityClass` / `description` | object | Feature Flags 表示モデル |
 | `HookSourceRecord` | `id` / `layer` / `format` / `path` / `exists` / `active` / `entryCount` / `warning` | object | Hooks source 表示モデル |
-| `HookEntryRecord` | `event` / `matcher` / `handlerType` / `command` / `timeout` / `statusMessage` / `active` / `supported` | object | Hooks entry 表示モデル |
+| `HookEntryRecord` | `event` / `matcher` / `handlerType` / `handler` / `command` / `timeout` / `statusMessage` / `active` / `supported` | object | Hooks entry 表示モデル。`event` / `handlerType` は未知の名前も保持し、`handler` は元のHandler定義、`supported` は12 Event・4 Handler typeの両方が既知の場合のみtrue |
 | `PluginRecord` | `id` / `displayName` / `version` / `marketplace` / `status` / `enabled` / `toggleDisabled` / `skills` / `mcpServers` / `apps` / `agents` | object | Plugins タブ表示モデル |
 | `PetDefinition` | `id` / `displayName` / `description` / `spritesheetPath` / `petRootPath` / `spritesheetFsPath` | object | Pet 定義 |
 | `PetSettings` | `enabled` / `appServerEnabled` / `rateLimitRefreshMinutes` / `scale` / `selectedPetId` | object | Pet 表示設定 |
@@ -281,6 +286,8 @@ codex-workspace/
   - 単一行のboolean設定を局所削除し、削除前後のTOML解析結果が対象キー以外で一致することを検証する。未保存の編集、設定変更、未対応形式では書き込まない
   - Featureの切り替えと削除は同じキューで順番に実行する。削除後は再取得し、古い非同期取得結果による表示の上書きを防ぐ
   - Hooks: summary + source list + entry list
+    - JSON / inline TOML は共通のHook分類処理で読み、未知のEvent / Handlerを除外しない。inlineは既存のTOMLライブラリで解析する
+    - 未知定義は `Unknown` の読み取り専用表示、command以外と未知定義の詳細はエスケープしたJSONで表示する。Hook定義の書き換え・実行は行わず、既存のファイルopen / create操作を維持する
   - Plugins: 検索 + 左一覧 + 右詳細
 
 ## 7. 🗺️システム構成図

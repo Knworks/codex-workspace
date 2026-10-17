@@ -61,6 +61,52 @@ function createFakePanel(): FakePanelHandle {
 }
 
 suite('History panel manager', () => {
+	test('hooks panels display known handlers and read-only unknown definitions safely', () => {
+		const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hooks-panel-'));
+		const originalHome = process.env.CODEX_HOME;
+		const fakePanel = createFakePanel();
+		const manager = new HistoryPanelManager(() => fakePanel.panel);
+		try {
+			process.env.CODEX_HOME = root;
+			const events = ['PreToolUse', 'PermissionRequest', 'PostToolUse', 'PreCompact', 'PostCompact', 'SessionStart', 'SessionEnd', 'UserPromptSubmit', 'SubagentStart', 'SubagentStop', 'Stop', 'Interrupt'];
+			const hooks = Object.fromEntries(events.map((event) => [event, [{ hooks: [
+				{ type: 'command', command: 'echo existing' },
+				{ type: 'mcp_tool', server_name: 'local', tool_name: 'check' },
+				{ type: 'prompt', prompt: '<script>unsafe()</script>' },
+				{ type: 'agent', prompt: 'Review changes' },
+			] }]]));
+			hooks['Future<Event>'] = [{ hooks: [{ type: 'future_handler', prompt: '<future>' }] }];
+			fs.writeFileSync(path.join(root, 'hooks.json'), JSON.stringify({ hooks }));
+			manager.show();
+			fakePanel.sendMessage({ type: 'refreshTab', tab: 'hooks' });
+			const content = fakePanel.getPostedMessages().find((message) =>
+				(message as { tab?: string }).tab === 'hooks',
+			) as { html: string } | undefined;
+			assert.ok(content);
+			const html = content.html;
+			for (const event of events) {
+				assert.ok(html.includes(`<h3 class="setting-card-title">${event}</h3>`));
+			}
+			for (const type of ['command', 'mcp_tool', 'prompt', 'agent', 'future_handler']) {
+				assert.ok(html.includes(`Type: ${type}</span>`));
+			}
+			assert.ok(html.includes('Unknown (read-only)'));
+			assert.ok(html.includes('Future&lt;Event&gt;'));
+			assert.ok(html.includes('&lt;script&gt;unsafe()&lt;/script&gt;'));
+			assert.ok(!html.includes('<script>unsafe()</script>'));
+			assert.ok(html.includes('echo existing'));
+			assert.ok(html.includes(`data-open-path="${path.join(root, 'hooks.json')}"`));
+			assert.ok(!html.includes('Only command hook handlers'));
+		} finally {
+			manager.dispose();
+			if (originalHome === undefined) {
+				delete process.env.CODEX_HOME;
+			} else {
+				process.env.CODEX_HOME = originalHome;
+			}
+			fs.rmSync(root, { recursive: true, force: true });
+		}
+	});
 	test('feature flag toggles preserve layout and scrolling while awaiting CLI state', () => {
 		const sourcePath = path.resolve(
 			__dirname,

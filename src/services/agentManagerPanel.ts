@@ -32,7 +32,7 @@ type InboundMessage =
 	| { type: 'ready' }
 	| { type: 'refresh' }
 	| { type: 'openAgent'; agentPath: string }
-	| { type: 'toggleAgent'; name: string; enabled: boolean }
+	| { type: 'toggleAgent'; id: string; enabled: boolean }
 	| { type: 'createWorkflow' }
 	| { type: 'openWorkflowFolder' }
 	| { type: 'saveWorkflow'; workflow: OrchestrationWorkflow }
@@ -1258,7 +1258,7 @@ function buildHtml(
 				'<div class="agent-actions">' +
 					'<span class="location">' + escapeHtmlClient(agent.locationLabel) + '</span>' +
 					'<label class="switch">' +
-						'<input type="checkbox" data-agent-name="' + escapeHtmlClient(agent.name) + '" ' + (agent.enabled ? 'checked' : '') + ' />' +
+						'<input type="checkbox" data-agent-id="' + escapeHtmlClient(agent.id) + '" ' + (agent.enabled ? 'checked' : '') + ' />' +
 						'<span></span>' +
 					'</label>' +
 					'<button class="icon-button" type="button" data-open-path="' + escapeHtmlClient(agent.agentPath) + '" title="${escapeHtml(messages.agentManagerOpen)}" aria-label="${escapeHtml(messages.agentManagerOpen)}"><span class="codicon codicon-file-text" aria-hidden="true"></span></button>' +
@@ -2195,10 +2195,10 @@ function buildHtml(
 
 		agentsList.addEventListener('change', (event) => {
 			const target = event.target;
-			if (target && target.dataset && target.dataset.agentName) {
+			if (target && target.dataset && target.dataset.agentId) {
 				vscode.postMessage({
 					type: 'toggleAgent',
-					name: target.dataset.agentName,
+					id: target.dataset.agentId,
 					enabled: Boolean(target.checked),
 				});
 			}
@@ -2487,16 +2487,19 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 			return;
 		}
 		if (message.type === 'toggleAgent') {
-			const { codexDir, configPath } = resolveAgentManagerPaths();
+			const record = this.readRecords().find((item) => item.id === message.id);
+			if (!record) { return; }
+			const configPath = record.configPath;
+			const { codexDir } = resolveAgentManagerPaths();
 			if (message.enabled) {
-				const result = enableAgentByName(codexDir, configPath, message.name);
+				const result = enableAgentByName(codexDir, configPath, record.name);
 				if (result.overwritten) {
 					vscode.window.showInformationMessage(
-						messages.agentManagerOverwritten(message.name),
+						messages.agentManagerOverwritten(record.name),
 					);
 				}
 			} else {
-				disableAgentByName(codexDir, configPath, message.name);
+				disableAgentByName(codexDir, configPath, record.name);
 			}
 			vscode.window.showInformationMessage(messages.agent.toggleUpdated);
 			this.onDidChangeAgents();
