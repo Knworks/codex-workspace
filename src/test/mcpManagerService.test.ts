@@ -27,6 +27,51 @@ type ParsedMcpConfig = {
 };
 
 suite('MCP manager service', () => {
+	test('keeps commented server boundaries when listing, saving and deleting', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			const source = [
+				'[mcp_servers.first]',
+				'command = "first-command"',
+				'notes = """',
+				'[mcp_servers.fake] # text only',
+				'command = "not-a-command"',
+				'"""',
+				'[mcp_servers.second] # valid header comment',
+				'command = "second-command"',
+				'enabled = false',
+				'[mcp_servers."second.name".env] # companion',
+				'TOKEN = "value#tag"',
+				'[mcp_servers."second.name"] # quoted key',
+				'command = "quoted-command"',
+				'[notes]',
+				'text = """',
+				'[mcp_servers.fake] # text only',
+				'command = "not-a-server"',
+				'"""',
+			].join('\n');
+			fs.writeFileSync(configPath, source, 'utf8');
+			const before = toml.parse(source) as { mcp_servers: Record<string, unknown>; notes: unknown };
+			const models = listMcpFormModels(configPath);
+			assert.deepStrictEqual(models.map((model) => [model.id, model.command, model.enabled]), [
+				['first', 'first-command', true],
+				['second', 'second-command', false],
+				['second.name', 'quoted-command', true],
+			]);
+			assert.strictEqual(saveMcpServer(configPath, models[0], 'first').ok, true);
+			const afterSave = toml.parse(fs.readFileSync(configPath, 'utf8')) as typeof before;
+			assert.deepStrictEqual(afterSave.mcp_servers.first, before.mcp_servers.first);
+			assert.deepStrictEqual(afterSave.mcp_servers.second, before.mcp_servers.second);
+			assert.deepStrictEqual(afterSave.mcp_servers['second.name'], before.mcp_servers['second.name']);
+			assert.deepStrictEqual(afterSave.notes, before.notes);
+			assert.strictEqual(deleteMcpServer(configPath, 'first'), true);
+			const afterDelete = toml.parse(fs.readFileSync(configPath, 'utf8')) as typeof before;
+			assert.deepStrictEqual(afterDelete.mcp_servers.second, before.mcp_servers.second);
+			assert.deepStrictEqual(afterDelete.mcp_servers['second.name'], before.mcp_servers['second.name']);
+			assert.deepStrictEqual(afterDelete.notes, before.notes);
+		});
+	});
+
 	test('listMcpFormModels reads stdio and http servers', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, 'config.toml');

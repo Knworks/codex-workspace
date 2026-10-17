@@ -1,6 +1,7 @@
 import fs from 'fs';
 import * as toml from 'toml';
 import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
+import { scanTomlTableLines } from './tomlTableHeaders';
 
 export type McpTransport = 'stdio' | 'http';
 
@@ -55,7 +56,7 @@ type McpHeaderInfo = {
 };
 
 const MCP_HEADER_PATTERN =
-	/^\s*\[mcp_servers\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.-]+))\]\s*$/;
+	/^\s*\[mcp_servers\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.-]+))\]\s*(?:#.*)?$/;
 const MCP_ENV_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const MCP_TOOL_APPROVAL_MODES = new Set(['auto', 'prompt', 'approve', 'writes']);
 
@@ -310,28 +311,29 @@ export function deleteMcpServer(configPath: string, serverId: string): boolean {
 
 function parseMcpBlocks(contents: string): McpBlock[] {
 	const lines = contents.split(/\r?\n/);
+	const { headers } = scanTomlTableLines(lines);
 	const blocks: McpBlock[] = [];
 	let current: McpBlock | undefined;
 	for (let index = 0; index < lines.length; index += 1) {
-		const header = lines[index].match(/^\s*\[[^\]]+\]\s*$/);
-		if (header) {
-			if (current) {
-				current.endLine = index - 1;
-				current.lines = lines.slice(current.startLine, current.endLine + 1);
-				current = undefined;
-			}
-			const headerInfo = parseMcpHeader(lines[index]);
-			if (headerInfo) {
-				current = {
-					id: headerInfo.id,
-					startLine: index,
-					endLine: lines.length - 1,
-					lines: [],
-					parentId: headerInfo.parentId,
-					settingName: headerInfo.settingName,
-				};
-				blocks.push(current);
-			}
+		if (!headers.has(index)) {
+			continue;
+		}
+		if (current) {
+			current.endLine = index - 1;
+			current.lines = lines.slice(current.startLine, current.endLine + 1);
+			current = undefined;
+		}
+		const headerInfo = parseMcpHeader(lines[index]);
+		if (headerInfo) {
+			current = {
+				id: headerInfo.id,
+				startLine: index,
+				endLine: lines.length - 1,
+				lines: [],
+				parentId: headerInfo.parentId,
+				settingName: headerInfo.settingName,
+			};
+			blocks.push(current);
 		}
 	}
 	if (current) {
@@ -405,12 +407,15 @@ function toToolEntry(block: McpBlock): McpToolEntry | undefined {
 
 function readBlockValues(lines: string[]): Record<string, unknown> {
 	const values: Record<string, unknown> = {};
-	for (const line of lines.slice(1)) {
-		const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*(?:#.*)?$/);
-		if (!match) {
+	const { valueLines } = scanTomlTableLines(lines);
+	for (let index = 1; index < lines.length; index += 1) {
+		if (!valueLines.has(index)) {
 			continue;
 		}
-		values[match[1]] = parseTomlScalarOrArray(match[2]);
+		const match = lines[index].match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*(?:#.*)?$/);
+		if (match) {
+			values[match[1]] = parseTomlScalarOrArray(match[2]);
+		}
 	}
 	return values;
 }
@@ -475,11 +480,17 @@ function readEnvBlockEntries(lines: string[]): McpEnvEntry[] {
 function buildMcpBlock(model: McpFormModel, previous?: McpBlock): string {
 	const preserved = new Map<string, string>();
 	if (previous) {
-		for (const line of previous.lines.slice(1)) {
-			const key = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/)?.[1];
-			if (key) {
-				preserved.set(key, line);
+		const { valueLines } = scanTomlTableLines(previous.lines);
+		for (let index = 1; index < previous.lines.length; index += 1) {
+			const key = previous.lines[index].match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/)?.[1];
+			if (!key || !valueLines.has(index)) {
+				continue;
 			}
+			const value = [previous.lines[index]];
+			while (index + 1 < previous.lines.length && !valueLines.has(index + 1)) {
+				value.push(previous.lines[++index]);
+			}
+			preserved.set(key, value.join('\n'));
 		}
 	}
 	const controlled = new Set([
