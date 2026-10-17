@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import * as toml from 'toml';
 
-const AGENT_CONFIG_HEADER_PATTERN = /^\s*\[agents\.(?:"([^"]+)"|([A-Za-z0-9_-]+))\]\s*$/;
 const AGENT_DESCRIPTION_PATTERN =
 	/^(\s*description\s*=\s*")((?:[^"\\]|\\.)*)(")(\s*#.*)?$/;
 const AGENT_NAME_PATTERN =
@@ -369,16 +369,20 @@ function parseAgentBlocks(contents: string): AgentBlock[] {
 	let current: AgentBlock | null = null;
 
 	for (let i = 0; i < lines.length; i += 1) {
-		const headerMatch = lines[i].match(/^\s*\[[^\]]+\]\s*$/);
+		const headerMatch = lines[i].match(/^\s*\[.*\]\s*(?:#.*)?$/);
+		if (headerMatch) {
+			try { toml.parse(lines.slice(0, i).join('\n')); } catch { continue; }
+		}
 		if (headerMatch) {
 			if (current) {
 				current.endLine = i - 1;
 				current = null;
 			}
-			const agentMatch = lines[i].match(AGENT_CONFIG_HEADER_PATTERN);
-			if (agentMatch) {
+			const header = toml.parse(lines[i]) as { agents?: Record<string, unknown> };
+			const id = header.agents && Object.keys(header.agents)[0];
+			if (id !== undefined && Object.keys(header.agents?.[id] as object).length === 0) {
 				current = {
-					id: agentMatch[1] ?? agentMatch[2] ?? '',
+					id,
 					startLine: i,
 					endLine: lines.length - 1,
 				};

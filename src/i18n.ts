@@ -835,6 +835,16 @@ export const messages = {
 		'message.featureFlagEffectiveLabel',
 		'Effective',
 	),
+	featureCleanupAction: localize('message.featureCleanupAction', 'Remove obsolete settings'),
+	featureCleanupSummary: (count: number) => localize('message.featureCleanupSummary', 'Obsolete settings: {0}', String(count)),
+	featureCleanupConfirm: localize('message.featureCleanupConfirm', 'Remove these obsolete feature settings from config.toml?'),
+	featureCleanupNone: localize('message.featureCleanupNone', 'No obsolete feature settings were found.'),
+	featureCleanupReasonRemoved: localize('message.featureCleanupReasonRemoved', 'Removed by CLI'),
+	featureCleanupReasonUnlisted: localize('message.featureCleanupReasonUnlisted', 'Not listed by installed CLI'),
+	featureCleanupChanged: localize('message.featureCleanupChanged', 'The configuration or CLI feature list changed. Refresh and review again.'),
+	featureCleanupUnsupported: localize('message.featureCleanupUnsupported', 'This configuration format cannot be edited safely. Edit config.toml manually.'),
+	featureCleanupDirty: localize('message.featureCleanupDirty', 'Save changes to config.toml before removing obsolete settings.'),
+	featureCleanupSuccess: (count: number) => localize('message.featureCleanupSuccess', 'Removed {0} obsolete feature settings.', String(count)),
 	featureFlagDescriptionApps: localize(
 		'message.featureFlagDescriptionApps',
 		'Enable ChatGPT Apps and connectors support.',
@@ -966,8 +976,13 @@ export const messages = {
 	),
 	hooksWarningUnsupportedHandler: localize(
 		'message.hooksWarningUnsupportedHandler',
-		'Only command hook handlers are currently executed by Codex.',
+		'Unknown handler type. This definition is preserved and shown read-only.',
 	),
+	hooksWarningUnknownEvent: localize(
+		'message.hooksWarningUnknownEvent',
+		'Unknown hook event. This definition is preserved and shown read-only.',
+	),
+	hooksUnknown: localize('message.hooksUnknown', 'Unknown (read-only)'),
 	trustedDirectoryDeleteConfirm: (targetPath: string) =>
 		localize(
 			'message.trustedDirectoryDeleteConfirm',

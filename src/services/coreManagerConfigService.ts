@@ -1,29 +1,19 @@
+import { execFile } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { isDeepStrictEqual } from 'util';
 import * as vscode from 'vscode';
+import { parse } from 'toml';
 import { messages } from '../i18n';
 import { listTrustedDirectories } from './coreDiagnosticsService';
-import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
 import { resolveCodexPaths } from './workspaceStatus';
 
 export type FeatureFlagRecord = {
 	key: string;
 	enabled: boolean;
-	configuredValue?: boolean;
-	defaultEnabled: boolean;
-	maturity:
-		| 'Stable'
-		| 'Experimental'
-		| 'Deprecated'
-		| 'Under development'
-		| 'Removed';
-	maturityClass:
-		| 'stable'
-		| 'experimental'
-		| 'deprecated'
-		| 'under-development'
-		| 'removed';
+	maturity: string;
+	maturityClass: string;
 	description: string;
 };
 
@@ -32,6 +22,12 @@ export type HookEventName =
 	| 'PreToolUse'
 	| 'PermissionRequest'
 	| 'PostToolUse'
+	| 'PreCompact'
+	| 'PostCompact'
+	| 'SessionEnd'
+	| 'SubagentStart'
+	| 'SubagentStop'
+	| 'Interrupt'
 	| 'UserPromptSubmit'
 	| 'Stop';
 
@@ -50,9 +46,10 @@ export type HookEntryRecord = {
 	id: string;
 	layer: 'user' | 'project';
 	format: 'hooks.json' | 'inline';
-	event: HookEventName;
+	event: string;
 	matcher?: string;
 	handlerType: string;
+	handler: Record<string, unknown>;
 	command?: string;
 	timeout?: number;
 	statusMessage?: string;
@@ -71,18 +68,12 @@ export type HookDiagnosticsSnapshot = {
 	warnings: string[];
 };
 
-type FeatureFlagDefinition = {
-	key: string;
-	defaultEnabled: boolean;
-	maturity: FeatureFlagRecord['maturity'];
-	getDescription: () => string;
-};
-
 type ParsedHookGroup = {
-	event: HookEventName;
+	event: string;
 	matcher?: string;
 	handlers: Array<{
 		type: string;
+		definition: Record<string, unknown>;
 		command?: string;
 		timeout?: number;
 		statusMessage?: string;
@@ -124,105 +115,22 @@ function getFeatureFlagDescription(key: string): string {
 	}
 }
 
-function defineFeature(
-	key: string,
-	defaultEnabled: boolean,
-	maturity: FeatureFlagRecord['maturity'],
-): FeatureFlagDefinition {
-	return {
-		key,
-		defaultEnabled,
-		maturity,
-		getDescription: () => getFeatureFlagDescription(key),
-	};
-}
-
-const FEATURE_DEFINITIONS: FeatureFlagDefinition[] = [
-	defineFeature('apply_patch_freeform', false, 'Under development'),
-	defineFeature('apply_patch_streaming_events', false, 'Under development'),
-	defineFeature('apps', true, 'Stable'),
-	defineFeature('apps_mcp_path_override', false, 'Under development'),
-	defineFeature('artifact', false, 'Under development'),
-	defineFeature('auth_elicitation', false, 'Under development'),
-	defineFeature('browser_use', true, 'Stable'),
-	defineFeature('browser_use_external', true, 'Stable'),
-	defineFeature('builtin_mcp', false, 'Under development'),
-	defineFeature('child_agents_md', false, 'Under development'),
-	defineFeature('chronicle', false, 'Under development'),
-	defineFeature('code_mode', false, 'Under development'),
-	defineFeature('code_mode_only', false, 'Under development'),
-	defineFeature('codex_hooks', true, 'Stable'),
-	defineFeature('codex_git_commit', false, 'Under development'),
-	defineFeature('collaboration_modes', true, 'Removed'),
-	defineFeature('computer_use', true, 'Stable'),
-	defineFeature('default_mode_request_user_input', false, 'Under development'),
-	defineFeature('elevated_windows_sandbox', false, 'Removed'),
-	defineFeature('enable_fanout', false, 'Under development'),
-	defineFeature('enable_mcp_apps', false, 'Under development'),
-	defineFeature('enable_request_compression', true, 'Stable'),
-	defineFeature('exec_permission_approvals', false, 'Under development'),
-	defineFeature('experimental_windows_sandbox', false, 'Removed'),
-	defineFeature('external_migration', false, 'Experimental'),
-	defineFeature('fast_mode', true, 'Stable'),
-	defineFeature('goals', false, 'Experimental'),
-	defineFeature('guardian_approval', true, 'Stable'),
-	defineFeature('hooks', true, 'Stable'),
-	defineFeature('image_detail_original', false, 'Removed'),
-	defineFeature('image_generation', true, 'Stable'),
-	defineFeature('in_app_browser', true, 'Stable'),
-	defineFeature('js_repl', false, 'Removed'),
-	defineFeature('js_repl_tools_only', false, 'Removed'),
-	defineFeature('memories', false, 'Experimental'),
-	defineFeature('multi_agent', true, 'Stable'),
-	defineFeature('multi_agent_v2', false, 'Under development'),
-	defineFeature('personality', true, 'Stable'),
-	defineFeature('plugin_hooks', false, 'Under development'),
-	defineFeature('plugins', true, 'Stable'),
-	defineFeature('prevent_idle_sleep', false, 'Experimental'),
-	defineFeature('realtime_conversation', false, 'Under development'),
-	defineFeature('remote_compaction_v2', false, 'Under development'),
-	defineFeature('remote_control', false, 'Under development'),
-	defineFeature('remote_models', false, 'Removed'),
-	defineFeature('remote_plugin', false, 'Under development'),
-	defineFeature('request_permissions_tool', false, 'Under development'),
-	defineFeature('request_rule', false, 'Removed'),
-	defineFeature('responses_websocket_response_processed', false, 'Under development'),
-	defineFeature('responses_websockets', false, 'Removed'),
-	defineFeature('responses_websockets_v2', false, 'Removed'),
-	defineFeature('runtime_metrics', false, 'Under development'),
-	defineFeature('search_tool', false, 'Removed'),
-	defineFeature('shell_snapshot', true, 'Stable'),
-	defineFeature('shell_tool', true, 'Stable'),
-	defineFeature('shell_zsh_fork', false, 'Under development'),
-	defineFeature('skill_env_var_dependency_prompt', false, 'Under development'),
-	defineFeature('skill_mcp_dependency_install', true, 'Stable'),
-	defineFeature('sqlite', true, 'Removed'),
-	defineFeature('steer', true, 'Removed'),
-	defineFeature('terminal_resize_reflow', true, 'Experimental'),
-	defineFeature('tool_call_mcp_elicitation', true, 'Stable'),
-	defineFeature('tool_search', true, 'Stable'),
-	defineFeature('tool_search_always_defer_mcp_tools', false, 'Under development'),
-	defineFeature('tool_suggest', true, 'Stable'),
-	defineFeature('tui_app_server', true, 'Removed'),
-	defineFeature('unavailable_dummy_tools', true, 'Stable'),
-	defineFeature('undo', false, 'Removed'),
-	defineFeature('unified_exec', false, 'Stable'),
-	defineFeature('use_legacy_landlock', false, 'Deprecated'),
-	defineFeature('use_linux_sandbox_bwrap', false, 'Removed'),
-	defineFeature('web_search_cached', false, 'Deprecated'),
-	defineFeature('web_search_request', false, 'Deprecated'),
-	defineFeature('workspace_dependencies', true, 'Stable'),
-	defineFeature('workspace_owner_usage_nudge', false, 'Under development'),
-];
-
 const HOOK_EVENTS: HookEventName[] = [
 	'SessionStart',
 	'PreToolUse',
 	'PermissionRequest',
 	'PostToolUse',
+	'PreCompact',
+	'PostCompact',
+	'SessionEnd',
+	'SubagentStart',
+	'SubagentStop',
+	'Interrupt',
 	'UserPromptSubmit',
 	'Stop',
 ];
+
+const HOOK_HANDLER_TYPES = new Set(['command', 'mcp_tool', 'prompt', 'agent']);
 
 const FEATURES_HEADER_PATTERN = /^\s*\[features\]\s*$/;
 const BOOLEAN_FEATURE_PATTERN = /^\s*([A-Za-z0-9_]+)\s*=\s*(true|false)(\s*#.*)?$/i;
@@ -231,85 +139,203 @@ function getWorkspaceRoot(): string | undefined {
 	return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
-export function listFeatureFlagRecords(
-	configPath: string = resolveCodexPaths().configPath,
-): FeatureFlagRecord[] {
-	const configured = readConfiguredFeatureFlags(configPath);
-	return FEATURE_DEFINITIONS.map((definition) => {
-		const configuredValue = configured.get(definition.key);
-		return {
-			key: definition.key,
-			enabled: configuredValue ?? definition.defaultEnabled,
-			configuredValue,
-			defaultEnabled: definition.defaultEnabled,
-			maturity: definition.maturity,
-			maturityClass: definition.maturity.toLocaleLowerCase().replace(/\s+/g, '-') as FeatureFlagRecord['maturityClass'],
-			description: definition.getDescription(),
-		};
-	});
+/** Parses the installed CLI's key, stage and effective enabled columns. */
+export function parseFeatureFlagOutput(output: string): FeatureFlagRecord[] {
+	const keys = new Set<string>();
+	const records: FeatureFlagRecord[] = [];
+	for (const line of output.split(/\r?\n/)) {
+		if (!line.trim()) {
+			continue;
+		}
+		const match = line.match(/^\s*([A-Za-z0-9_.-]+)\s+([A-Za-z][A-Za-z ]*?)\s+(true|false)\s*$/);
+		if (!match || keys.has(match[1])) {
+			throw new Error('Invalid codex features list output');
+		}
+		const [, key, stage, enabled] = match;
+		keys.add(key);
+		records.push({
+			key,
+			enabled: enabled === 'true',
+			maturity: stage.charAt(0).toUpperCase() + stage.slice(1),
+			maturityClass: stage.toLowerCase().replace(/\s+/g, '-'),
+			description: getFeatureFlagDescription(key),
+		});
+	}
+	if (records.length === 0) {
+		throw new Error('Empty codex features list output');
+	}
+	return records;
 }
 
-export function setFeatureFlag(
+export async function listFeatureFlagRecords(
+	configPath: string = resolveCodexPaths().configPath,
+	runCommand: FeatureCommandRunner = runFeatureCommand,
+): Promise<FeatureFlagRecord[]> {
+	return parseFeatureFlagOutput(await runCommand(['features', 'list'], path.resolve(path.dirname(configPath))));
+}
+
+export async function setFeatureFlag(
 	configPath: string,
 	featureKey: string,
 	enabled: boolean,
-): void {
-	const contents = fs.existsSync(configPath)
-		? fs.readFileSync(configPath, 'utf8')
-		: '';
-	const lines = contents.split(/\r?\n/);
-	let featuresHeaderIndex: number | undefined;
-	let insertIndex = lines.length;
+	runCommand: FeatureCommandRunner = runFeatureCommand,
+): Promise<FeatureFlagRecord[]> {
+	if (!/^[A-Za-z0-9_][A-Za-z0-9_.-]*$/.test(featureKey)) {
+		throw new Error('Invalid feature key');
+	}
+	const records = await listFeatureFlagRecords(configPath, runCommand);
+	const record = records.find((candidate) => candidate.key === featureKey);
+	if (!record) {
+		throw new Error('Unknown feature key: ' + featureKey);
+	}
+	if (record.maturity.toLowerCase() === 'removed') {
+		throw new Error(`${messages.featureCleanupReasonRemoved}: ${featureKey}`);
+	}
+	await runCommand(['features', enabled ? 'enable' : 'disable', featureKey], path.resolve(path.dirname(configPath)));
+	return listFeatureFlagRecords(configPath, runCommand);
+}
 
-	for (let index = 0; index < lines.length; index += 1) {
-		const line = lines[index];
-		if (FEATURES_HEADER_PATTERN.test(line)) {
-			featuresHeaderIndex = index;
-			insertIndex = lines.length;
-			let lastFeatureLineIndex = index;
-			for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
-				if (/^\s*\[/.test(lines[cursor])) {
-					insertIndex =
-						lastFeatureLineIndex > index ? lastFeatureLineIndex + 1 : cursor;
-					break;
-				}
-				const match = lines[cursor].match(BOOLEAN_FEATURE_PATTERN);
-				if (match) {
-					lastFeatureLineIndex = cursor;
-				}
-				if (match?.[1] === featureKey) {
-					lines[cursor] = `${featureKey} = ${enabled ? 'true' : 'false'}${match[3] ?? ''}`;
-					fs.writeFileSync(
-						configPath,
-						stabilizeManagedConfigToml(lines.join('\n')),
-						'utf8',
-					);
+export type FeatureCommandRunner = (args: string[], codexHome: string) => Promise<string>;
+
+export type ObsoleteFeatureSetting = {
+	key: string;
+	value: boolean;
+	reason: 'removed' | 'unlisted';
+};
+
+export type FeatureCleanupPlan = {
+	configPath: string;
+	contents: string;
+	settings: ObsoleteFeatureSetting[];
+};
+
+export function ensureFeatureConfigSaved(configPath: string): void {
+	const normalize = (filePath: string) => {
+		const resolved = path.resolve(filePath);
+		return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+	};
+	if (vscode.workspace.textDocuments.some((document) =>
+		document.isDirty && normalize(document.uri.fsPath) === normalize(configPath))) {
+		throw new Error(messages.featureCleanupDirty);
+	}
+}
+
+/** Captures the exact file and settings that the user will review before deletion. */
+export function planFeatureFlagCleanup(configPath: string, records: FeatureFlagRecord[]): FeatureCleanupPlan {
+	if (!records.length) {
+		throw new Error(messages.featureCleanupChanged);
+	}
+	const contents = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
+	let parsed: Record<string, unknown>;
+	try {
+		parsed = parse(contents) as Record<string, unknown>;
+	} catch {
+		throw new Error(messages.featureCleanupUnsupported);
+	}
+	const features = parsed.features;
+	if (features !== undefined && (!features || typeof features !== 'object' || Array.isArray(features))) {
+		throw new Error(messages.featureCleanupUnsupported);
+	}
+	const registry = new Map(records.map((record) => [record.key, record]));
+	const settings: ObsoleteFeatureSetting[] = [];
+	for (const [key, value] of Object.entries(features ?? {})) {
+		const record = registry.get(key);
+		if (record && record.maturity.toLowerCase() !== 'removed') {
+			continue;
+		}
+		if (typeof value !== 'boolean') {
+			throw new Error(messages.featureCleanupUnsupported);
+		}
+		settings.push({ key, value, reason: record ? 'removed' : 'unlisted' });
+	}
+	return { configPath: path.resolve(configPath), contents, settings };
+}
+
+/** Deletes only reviewed, still-obsolete boolean assignments; preserves all other bytes. */
+export async function removeObsoleteFeatureFlags(
+	plan: FeatureCleanupPlan,
+	runCommand: FeatureCommandRunner = runFeatureCommand,
+): Promise<number> {
+	if (plan.settings.length === 0) {
+		return 0;
+	}
+	const records = await listFeatureFlagRecords(plan.configPath, runCommand);
+	const current = planFeatureFlagCleanup(plan.configPath, records);
+	const keys = new Set(plan.settings.map((setting) => setting.key));
+	const currentKeys = new Set(current.settings.map((setting) => setting.key));
+	if (current.contents !== plan.contents || keys.size !== plan.settings.length
+		|| [...keys].some((key) => !currentKeys.has(key))) {
+		throw new Error(messages.featureCleanupChanged);
+	}
+
+	const deleted = new Set<string>();
+	let inFeatures = false;
+	const lines = current.contents.match(/[^\n]*(?:\n|$)/g) ?? [];
+	const remaining = lines.filter((line) => {
+		if (/^\s*\[/.test(line)) {
+			inFeatures = /^\s*\[(?:features|"features"|'features')\]\s*(?:#.*)?$/.test(line.trimEnd());
+			return true;
+		}
+		if (!inFeatures || !/^\s*.+?\s*=\s*(true|false)\s*(?:#.*)?$/.test(line.trimEnd())) {
+			return true;
+		}
+		const assignment = Object.entries(parse(line) as Record<string, unknown>);
+		if (assignment.length !== 1 || typeof assignment[0][1] !== 'boolean' || !keys.has(assignment[0][0])) {
+			return true;
+		}
+		const key = assignment[0][0];
+		if (deleted.has(key)) {
+			throw new Error(messages.featureCleanupUnsupported);
+		}
+		deleted.add(key);
+		return false;
+	}).join('');
+
+	const expected = parse(current.contents) as { features: Record<string, unknown> };
+	for (const key of keys) {
+		delete expected.features[key];
+	}
+	// Reject inline tables, dotted assignments and matches inside multiline strings
+	// unless parsing proves that only the reviewed feature values were removed.
+	if (deleted.size !== keys.size || !isDeepStrictEqual(parse(remaining), expected)) {
+		throw new Error(messages.featureCleanupUnsupported);
+	}
+	ensureFeatureConfigSaved(plan.configPath);
+	fs.writeFileSync(plan.configPath, remaining, 'utf8');
+	return deleted.size;
+}
+
+/** Runs outside the workspace so project configuration and profiles are not applied. */
+async function runFeatureCommand(args: string[], codexHome: string): Promise<string> {
+	const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-features-'));
+	try {
+		const execute = (command: string): Promise<string> => new Promise<string>((resolve, reject) => {
+			execFile(command, args, {
+				cwd,
+				env: { ...process.env, CODEX_HOME: codexHome },
+				windowsHide: true,
+				shell: process.platform === 'win32' && command.endsWith('.cmd'),
+				timeout: 15000,
+				maxBuffer: 1024 * 1024,
+			}, (error, stdout, stderr) => {
+				if (error) {
+					reject(Object.assign(new Error('Codex CLI feature command failed: ' + (stderr.trim() || error.message)), { code: error.code }));
 					return;
 				}
+				resolve(stdout);
+			});
+		});
+		try {
+			return await execute(process.platform === 'win32' ? 'codex.exe' : 'codex');
+		} catch (error) {
+			if (process.platform === 'win32' && (error as NodeJS.ErrnoException).code === 'ENOENT') {
+				return await execute('codex.cmd');
 			}
-			if (insertIndex === lines.length && lastFeatureLineIndex > index) {
-				insertIndex = lastFeatureLineIndex + 1;
-			}
-			break;
+			throw error;
 		}
+	} finally {
+		fs.rmSync(cwd, { recursive: true, force: true });
 	}
-
-	if (featuresHeaderIndex === undefined) {
-		const nextContents = `${contents.trimEnd()}${contents.trim().length > 0 ? '\n\n' : ''}[features]\n${featureKey} = ${enabled ? 'true' : 'false'}\n`;
-		fs.writeFileSync(
-			configPath,
-			stabilizeManagedConfigToml(nextContents),
-			'utf8',
-		);
-		return;
-	}
-
-	lines.splice(insertIndex, 0, `${featureKey} = ${enabled ? 'true' : 'false'}`);
-	fs.writeFileSync(
-		configPath,
-		stabilizeManagedConfigToml(lines.join('\n')),
-		'utf8',
-	);
 }
 
 export function listHookDiagnostics(
@@ -317,8 +343,7 @@ export function listHookDiagnostics(
 	homeDir: string = os.homedir(),
 	workspaceRoot: string | undefined = getWorkspaceRoot(),
 ): HookDiagnosticsSnapshot {
-	const featureFlags = listFeatureFlagRecords(configPath);
-	const hooksEnabled = featureFlags.find((record) => record.key === 'hooks')?.enabled ?? true;
+	const hooksEnabled = readConfiguredFeatureFlags(configPath).get('hooks') ?? true;
 	const trustedDirectories = listTrustedDirectories(configPath);
 	const projectTrusted = workspaceRoot
 		? trustedDirectories.some(
@@ -463,14 +488,17 @@ function toHookEntries(
 			event: group.event,
 			matcher: group.matcher,
 			handlerType: handler.type,
+			handler: handler.definition,
 			command: handler.command,
 			timeout: handler.timeout,
 			statusMessage: handler.statusMessage,
 			active,
-			supported: handler.type === 'command',
+			supported: HOOK_EVENTS.includes(group.event as HookEventName) && HOOK_HANDLER_TYPES.has(handler.type),
 			sourcePath,
 			warning:
-				handler.type !== 'command'
+				!HOOK_EVENTS.includes(group.event as HookEventName)
+					? messages.hooksWarningUnknownEvent
+					: !HOOK_HANDLER_TYPES.has(handler.type)
 					? messages.hooksWarningUnsupportedHandler
 					: undefined,
 		})),
@@ -485,33 +513,7 @@ function parseHooksJson(filePath: string): {
 		return { groups: [] };
 	}
 	try {
-		const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as {
-			hooks?: Partial<Record<HookEventName, Array<{ matcher?: string; hooks?: Array<Record<string, unknown>> }>>>;
-		};
-		const groups: ParsedHookGroup[] = [];
-		for (const event of HOOK_EVENTS) {
-			for (const group of parsed.hooks?.[event] ?? []) {
-				groups.push({
-					event,
-					matcher: typeof group.matcher === 'string' ? group.matcher : undefined,
-					handlers: (group.hooks ?? []).map((handler) => ({
-						type: typeof handler.type === 'string' ? handler.type : 'unknown',
-						command: typeof handler.command === 'string' ? handler.command : undefined,
-						timeout:
-							typeof handler.timeout === 'number'
-								? handler.timeout
-								: typeof handler.timeout === 'string'
-									? Number(handler.timeout)
-									: undefined,
-						statusMessage:
-							typeof handler.statusMessage === 'string'
-								? handler.statusMessage
-								: undefined,
-					})),
-				});
-			}
-		}
-		return { groups };
+		return { groups: parseHookGroups(JSON.parse(fs.readFileSync(filePath, 'utf8'))) };
 	} catch (error) {
 		return {
 			groups: [],
@@ -527,87 +529,47 @@ function parseInlineHooks(filePath: string): {
 	if (!fs.existsSync(filePath)) {
 		return { groups: [] };
 	}
-	const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
-	const groups: ParsedHookGroup[] = [];
-	let currentGroup: ParsedHookGroup | undefined;
-	let currentHandler:
-		| {
-				type: string;
-				command?: string;
-				timeout?: number;
-				statusMessage?: string;
-		  }
-		| undefined;
-
-	for (const line of lines) {
-		const groupMatch = line.match(/^\s*\[\[hooks\.(SessionStart|PreToolUse|PermissionRequest|PostToolUse|UserPromptSubmit|Stop)\]\]\s*$/);
-		if (groupMatch) {
-			currentGroup = {
-				event: groupMatch[1] as HookEventName,
-				handlers: [],
-			};
-			groups.push(currentGroup);
-			currentHandler = undefined;
-			continue;
-		}
-
-		const handlerMatch = line.match(/^\s*\[\[hooks\.(SessionStart|PreToolUse|PermissionRequest|PostToolUse|UserPromptSubmit|Stop)\.hooks\]\]\s*$/);
-		if (handlerMatch) {
-			if (!currentGroup || currentGroup.event !== handlerMatch[1]) {
-				currentGroup = {
-					event: handlerMatch[1] as HookEventName,
-					handlers: [],
-				};
-				groups.push(currentGroup);
-			}
-			currentHandler = { type: 'unknown' };
-			currentGroup.handlers.push(currentHandler);
-			continue;
-		}
-
-		const keyValueMatch = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*(?:#.*)?$/);
-		if (!keyValueMatch) {
-			continue;
-		}
-		const key = keyValueMatch[1];
-		const value = parseTomlScalar(keyValueMatch[2]);
-		if (currentHandler) {
-			if (key === 'type' && typeof value === 'string') {
-				currentHandler.type = value;
-			}
-			if (key === 'command' && typeof value === 'string') {
-				currentHandler.command = value;
-			}
-			if (key === 'timeout' && typeof value === 'number') {
-				currentHandler.timeout = value;
-			}
-			if (key === 'statusMessage' && typeof value === 'string') {
-				currentHandler.statusMessage = value;
-			}
-			continue;
-		}
-		if (currentGroup && key === 'matcher' && typeof value === 'string') {
-			currentGroup.matcher = value;
-		}
+	try {
+		return { groups: parseHookGroups(parse(fs.readFileSync(filePath, 'utf8'))) };
+	} catch (error) {
+		return {
+			groups: [],
+			error: error instanceof Error ? error.message : String(error),
+		};
 	}
-
-	return { groups };
 }
 
-function parseTomlScalar(rawValue: string): string | number | boolean | undefined {
-	const value = rawValue.trim();
-	if (
-		(value.startsWith('"') && value.endsWith('"')) ||
-		(value.startsWith("'") && value.endsWith("'"))
-	) {
-		return value.slice(1, -1).replace(/''/g, "'");
+function isHookObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseHookGroups(parsed: unknown): ParsedHookGroup[] {
+	if (!isHookObject(parsed) || !isHookObject(parsed.hooks)) {
+		return [];
 	}
-	if (value === 'true' || value === 'false') {
-		return value === 'true';
+	const groups: ParsedHookGroup[] = [];
+	for (const [event, eventGroups] of Object.entries(parsed.hooks)) {
+		if (!Array.isArray(eventGroups)) {
+			continue;
+		}
+		for (const group of eventGroups) {
+			if (!isHookObject(group) || !Array.isArray(group.hooks)) {
+				continue;
+			}
+			groups.push({
+				event,
+				matcher: typeof group.matcher === 'string' ? group.matcher : undefined,
+				handlers: group.hooks.filter(isHookObject).map((handler) => ({
+					type: typeof handler.type === 'string' ? handler.type : 'unknown',
+					definition: handler,
+					command: typeof handler.command === 'string' ? handler.command : undefined,
+					timeout: typeof handler.timeout === 'number'
+						? handler.timeout
+						: typeof handler.timeout === 'string' ? Number(handler.timeout) : undefined,
+					statusMessage: typeof handler.statusMessage === 'string' ? handler.statusMessage : undefined,
+				})),
+			});
+		}
 	}
-	const numeric = Number(value);
-	if (!Number.isNaN(numeric)) {
-		return numeric;
-	}
-	return undefined;
+	return groups;
 }
