@@ -3,7 +3,8 @@ import path from 'path';
 import * as vscode from 'vscode';
 import { messages } from '../i18n';
 import { getConfiguredMaxHistoryCount, getIncludeReasoningMessage } from './settings';
-import { buildHistoryIndex, HistoryDayNode, HistoryIndex, HistoryTurnRecord } from './historyService';
+import { HistoryDayNode, HistoryIndex, HistoryTurnRecord } from './historyService';
+import { buildThreadHistoryIndex, ThreadHistoryCache } from './threadHistoryService';
 import {
 	AgentsChainNode,
 	addTrustedDirectory,
@@ -818,6 +819,9 @@ function buildHistoryWebviewHtml(
 		clear: messages.historyClear,
 		noResult: messages.historyNoResult,
 		noPreview: messages.historyNoPreview,
+		loadingHistory: messages.historyLoading,
+		loadedHistory: messages.historyLoaded,
+		failedHistory: messages.historyLoadFailed,
 		copy: messages.historyCopy,
 		user: messages.historyUserLabel,
 		assistant: messages.historyAssistantLabel,
@@ -862,6 +866,9 @@ function buildHistoryWebviewHtml(
 		:root {
 			color-scheme: light dark;
 		}
+		*, *::before, *::after {
+			box-sizing: border-box;
+		}
 		html {
 			height: 100%;
 			overflow: hidden;
@@ -882,6 +889,7 @@ function buildHistoryWebviewHtml(
 		}
 		.root {
 			display: grid;
+			grid-template-columns: minmax(0, 1fr);
 			grid-template-rows: auto minmax(0, 1fr);
 			height: 100%;
 			min-height: 0;
@@ -889,9 +897,14 @@ function buildHistoryWebviewHtml(
 		}
 		.tab-panels {
 			display: grid;
+			grid-template-columns: minmax(0, 1fr);
 			grid-template-rows: minmax(0, 1fr);
 			min-height: 0;
 			overflow: hidden;
+		}
+		.root, .tabs, .tab-panels, .diag-tab, .top-pane, .search-box,
+		.bottom-pane, .left-pane, .right-pane {
+			min-width: 0;
 		}
 		.top-pane {
 			padding: 10px 12px;
@@ -899,13 +912,15 @@ function buildHistoryWebviewHtml(
 		}
 		.tabs {
 			display: flex;
-			overflow-x: auto;
 			gap: 4px;
 			padding: 8px 12px 0;
 			border-bottom: 1px solid var(--vscode-panel-border);
+			overflow-x: auto;
+			overflow-y: hidden;
 		}
 		.tab {
-			flex-shrink: 0;
+			flex: 0 0 auto;
+			white-space: nowrap;
 			border: 1px solid var(--vscode-panel-border);
 			border-bottom: 0;
 			background: var(--vscode-tab-inactiveBackground);
@@ -927,11 +942,20 @@ function buildHistoryWebviewHtml(
 		}
 		.search-box input {
 			flex: 1;
+			min-width: 0;
 			background: var(--vscode-input-background);
 			color: var(--vscode-input-foreground);
 			border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
 			border-radius: 8px;
 			padding: 6px 8px;
+		}
+		.search-box button {
+			flex: 0 0 auto;
+		}
+		#historyProgress {
+			margin-top: 6px;
+			line-height: 1.4;
+			overflow-wrap: anywhere;
 		}
 		.search-box input:focus {
 			outline: none;
@@ -940,7 +964,7 @@ function buildHistoryWebviewHtml(
 		}
 		.bottom-pane {
 			display: grid;
-			grid-template-columns: 30% 70%;
+			grid-template-columns: minmax(0, 3fr) minmax(0, 7fr);
 			height: 100%;
 			min-height: 0;
 		}
@@ -1128,7 +1152,7 @@ function buildHistoryWebviewHtml(
 		#historyTab.active,
 		#chainTab.active {
 			display: grid;
-			grid-template-rows: auto 1fr;
+			grid-template-rows: auto minmax(0, 1fr);
 			height: 100%;
 			min-height: 0;
 			overflow: hidden;
@@ -1726,6 +1750,7 @@ function buildHistoryWebviewHtml(
 					<button id="clearButton" class="copy-button" type="button"></button>
 					${buildRefreshButtonHtml('history')}
 				</div>
+				<div id="historyProgress" class="muted" role="status" aria-live="polite"></div>
 			</section>
 			<section class="bottom-pane">
 				<aside id="treeArea" class="left-pane"></aside>
@@ -2129,6 +2154,11 @@ function buildHistoryWebviewHtml(
 
 		const renderTree = () => {
 			const previousScrollTop = treeArea.scrollTop;
+			const treeTop = treeArea.getBoundingClientRect?.().top;
+			const anchor = treeTop === undefined ? undefined : Array.from(treeArea.querySelectorAll('[data-turn-id]'))
+				.find((card) => card.getBoundingClientRect().bottom > treeTop);
+			const anchorId = anchor?.dataset.turnId;
+			const anchorOffset = anchor?.getBoundingClientRect().top;
 			const openDayKeys = new Set(
 				Array.from(treeArea.querySelectorAll('details[data-day-key]'))
 					.filter((element) => element.open)
@@ -2153,6 +2183,7 @@ function buildHistoryWebviewHtml(
 				for (const turn of day.turns) {
 					const card = document.createElement('button');
 					card.type = 'button';
+					card.dataset.turnId = turn.turnId;
 					card.className =
 						'turn-card' +
 						(state.selectedTurn?.turnId === turn.turnId ? ' active' : '');
@@ -2175,6 +2206,11 @@ function buildHistoryWebviewHtml(
 				treeArea.appendChild(dayDetails);
 			}
 			treeArea.scrollTop = previousScrollTop;
+			const restoredAnchor = anchorId ? Array.from(treeArea.querySelectorAll('[data-turn-id]'))
+				.find((card) => card.dataset.turnId === anchorId) : undefined;
+			if (restoredAnchor && anchorOffset !== undefined) {
+				treeArea.scrollTop += restoredAnchor.getBoundingClientRect().top - anchorOffset;
+			}
 		};
 
 		const renderPreview = () => {
@@ -2267,10 +2303,16 @@ function buildHistoryWebviewHtml(
 			}
 		};
 
-		const render = () => {
+		const render = (detailChanged = true) => {
+			const previousPreviewScrollTop = previewArea.scrollTop;
 			searchInput.value = state.appliedQuery;
 			renderTree();
-			renderPreview();
+			if (detailChanged) {
+				const openReasoning = Array.from(previewArea.querySelectorAll('.reasoning-frame')).map((item) => item.open);
+				renderPreview();
+				Array.from(previewArea.querySelectorAll('.reasoning-frame')).forEach((item, index) => { item.open = openReasoning[index] || false; });
+			}
+			previewArea.scrollTop = previousPreviewScrollTop;
 			renderChain();
 		};
 
@@ -2296,6 +2338,14 @@ function buildHistoryWebviewHtml(
 
 		window.addEventListener('message', (event) => {
 			const message = event.data;
+			if (message?.type === 'historyProgress') {
+				const progress = document.getElementById('historyProgress');
+				if (progress) {
+					progress.textContent = (message.failed ? labels.failedHistory : message.loading ? labels.loadingHistory : labels.loadedHistory)
+						.replace('{0}', String(message.count));
+				}
+				return;
+			}
 			if (message?.type === 'tabContent') {
 				if (message.tab === 'chain') {
 					loadedTabs.add('chain');
@@ -2345,8 +2395,12 @@ function buildHistoryWebviewHtml(
 				return;
 			}
 			loadedTabs.add('history');
+			const detailChanged = JSON.stringify(state.selectedTurn) !== JSON.stringify(message.payload.selectedTurn);
+			if (state.selectedTurn?.turnId !== message.payload.selectedTurn?.turnId) {
+				previewArea.scrollTop = 0;
+			}
 			state = message.payload;
-			render();
+			render(detailChanged);
 		});
 
 		vscode.postMessage({ type: 'ready' });
@@ -2375,10 +2429,14 @@ export function createHistoryWebviewPanel(): vscode.WebviewPanel {
 export class HistoryPanelManager implements vscode.Disposable {
 	private panel: vscode.WebviewPanel | undefined;
 	private state: HistoryPanelState | undefined;
+	private historyRequest = 0;
+	private historyAbort: AbortController | undefined;
+	private readonly historyCache = new ThreadHistoryCache();
 
 	constructor(
 		private readonly panelFactory: () => vscode.WebviewPanel = createHistoryWebviewPanel,
-		private readonly loadIndex: () => HistoryIndex = () => buildHistoryIndex(),
+		private readonly loadIndex: (signal?: AbortSignal, onProgress?: (index: HistoryIndex) => void) => HistoryIndex | Promise<HistoryIndex> = (signal, onProgress) =>
+			buildThreadHistoryIndex(undefined, undefined, undefined, signal, { onProgress, cache: this.historyCache }),
 		private readonly copyToClipboard: (text: string) => Thenable<void> = (text) =>
 			vscode.env.clipboard.writeText(text),
 		private readonly notifyCopied: () => Thenable<string | undefined> = () =>
@@ -2392,6 +2450,9 @@ export class HistoryPanelManager implements vscode.Disposable {
 			listener: () => void,
 		) => vscode.Disposable | void = (panel, listener) => panel.onDidDispose(listener),
 		private readonly onDidChangePlugins: () => void = () => {},
+		private readonly notifyHistoryError: (text: string) => void = (text) => {
+			void vscode.window.showErrorMessage(`${messages.historyLoadFailed} ${text}`);
+		},
 	) {}
 
 	show(): vscode.WebviewPanel {
@@ -2418,6 +2479,8 @@ export class HistoryPanelManager implements vscode.Disposable {
 		);
 		this.registerPanelDispose(panel, () => {
 			if (this.panel === panel) {
+				this.historyAbort?.abort();
+				this.historyRequest += 1;
 				this.panel = undefined;
 				this.state = undefined;
 			}
@@ -2634,9 +2697,75 @@ export class HistoryPanelManager implements vscode.Disposable {
 			});
 			return;
 		}
-		this.state.index = limitHistoryIndex(this.loadIndex(), this.getMaxHistoryCount());
-		this.state.includeReasoningMessage = this.includeReasoningMessage();
-		this.postState();
+		this.refreshHistory();
+	}
+
+	private refreshHistory(): void {
+		this.historyAbort?.abort();
+		const controller = new AbortController();
+		this.historyAbort = controller;
+		const request = ++this.historyRequest;
+		const state = this.state;
+		let lastProgressAt = 0;
+		let pendingIndex: HistoryIndex | undefined;
+		let progressTimer: ReturnType<typeof setTimeout> | undefined;
+		const clearPending = (): HistoryIndex | undefined => {
+			clearTimeout(progressTimer);
+			progressTimer = undefined;
+			const index = pendingIndex;
+			pendingIndex = undefined;
+			return index;
+		};
+		controller.signal.addEventListener('abort', () => { clearPending(); }, { once: true });
+		const current = (): boolean => Boolean(state && this.state === state && request === this.historyRequest && !controller.signal.aborted);
+		const progress = (loading: boolean, failed = false): void => {
+			if (current()) {
+				void this.panel?.webview.postMessage({ type: 'historyProgress', loading, failed, count: state?.index.turns.length ?? 0 });
+			}
+		};
+		const apply = (index: HistoryIndex): void => {
+			if (state && current()) {
+				state.index = limitHistoryIndex(index, this.getMaxHistoryCount());
+				state.includeReasoningMessage = this.includeReasoningMessage();
+				this.postState();
+				progress(true);
+			}
+		};
+		const fail = (error: unknown): void => {
+			const pending = clearPending();
+			if (this.state === state && request === this.historyRequest && !controller.signal.aborted) {
+				if (pending) { apply(pending); }
+				progress(false, true);
+				this.notifyHistoryError(error instanceof Error ? error.message : String(error));
+			}
+		};
+		try {
+			progress(true);
+			const done = (index: HistoryIndex): void => { clearPending(); apply(index); progress(false); };
+			const incremental = (index: HistoryIndex): void => {
+				// Avoid rebuilding and transferring the entire webview state on every API page.
+				const now = Date.now();
+				if (now - lastProgressAt >= 100) {
+					clearPending(); lastProgressAt = now; apply(index);
+				} else {
+					pendingIndex = index;
+					if (!progressTimer) {
+						progressTimer = setTimeout(() => {
+							const pending = clearPending(); lastProgressAt = Date.now();
+							if (pending) { apply(pending); }
+						}, 100 - (now - lastProgressAt));
+					}
+				}
+			};
+			const result = this.loadIndex(controller.signal, incremental);
+			if (result instanceof Promise) {
+				void result.then(done).catch(fail);
+			} else {
+				done(result);
+			}
+		} catch (error) {
+			fail(error);
+		}
 	}
 
 	private postState(): void {
@@ -2649,6 +2778,8 @@ export class HistoryPanelManager implements vscode.Disposable {
 	}
 
 	dispose(): void {
+		this.historyAbort?.abort();
+		this.historyRequest += 1;
 		this.panel?.dispose();
 		this.panel = undefined;
 		this.state = undefined;

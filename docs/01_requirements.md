@@ -217,11 +217,20 @@
   - Hooks
   - Plugins
 - History タブ
-  - `CODEX_HOME/sessions` または `~/.codex/sessions` 配下の `rollout-*.jsonl` を走査する
-  - `task_started` / `task_complete` と `turn_id` を使ってタスク単位に集約する
+  - App Server の Thread API を履歴の正本とし、共通 resolver が選択した `CODEX_HOME` で取得する
+  - Windows では履歴取得に伴うコマンドウィンドウを表示しない
+  - `thread/list` で active / archived をそれぞれ取得し、`nextCursor` に従って全ページを読み込む
+  - `thread/turns/list` / `thread/items/list` で turn / item の全ページを取得し、本文と時刻を既存の表示モデルへ変換する
+  - item ページングが未対応の場合は turn の全文を利用し、turn ページングが未対応の場合は `thread/read(includeTurns: true)` を利用する
+  - CLI が見つからない、または Thread API が未対応の場合に限り、`sessions` / `archived_sessions` の Legacy rollout 直接解析へ切り替える
+  - 通常の API エラーやタイムアウトはエラー通知で表示し、更新前の履歴を維持する。空の正常応答を Legacy 解析で置き換えない
   - 左ペインに `yyyy/mm/dd` ごとのカード一覧、右ペインにユーザー本文と assistant / reasoning タイムラインを表示する
   - `maxHistoryCount` が明示設定されている場合のみ件数制限する
   - `incrudeReasoningMessage` が false の場合 reasoning は非表示とする
+  - 検索、Markdown プレビュー、コピー操作を維持する。画面を閉じた場合や新しい更新を開始した場合は、古い非同期取得結果を反映しない
+  - 更新日時が新しい会話を優先し、turn のページを取得するたびに日時順の一覧へ追加する。取得中も検索・選択・コピーを操作でき、検索条件・選択・スクロール位置を維持する
+  - 取得中・完了・失敗を表示し、取得中の検索は取得済みの履歴を対象とする。途中で失敗しても取得済みの内容を残す
+  - 拡張機能の実行中は取得済みの本文を Codex Home ごとにメモリに保持し、再表示時にすぐ表示する。更新時は一覧を再取得し、更新日時等が同じ会話の本文を再利用する。実行中・更新直後・更新日時不明の会話は再取得し、削除の反映は取得完了時に行う
 - AGENTS Loading Chain タブ
   - workspace root を基準に Global / Project tier の `AGENTS.override.md`、`AGENTS.md`、fallback 候補を診断する
   - 表示は VS Code workspace root と Base `config.toml` による推定であり、Codex 本体の実行結果ではない。Profile / Project layer、実 thread cwd、trust、読み込み上限を含む完全な実効状態は再現しない

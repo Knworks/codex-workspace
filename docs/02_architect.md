@@ -52,6 +52,8 @@ codex-workspace/
 │   │   ├── fileTreeService.ts
 │   │   ├── historyPanel.ts
 │   │   ├── historyService.ts
+│   │   ├── historyAppServerClient.ts
+│   │   ├── threadHistoryService.ts
 │   │   ├── mcpManagerPanel.ts
 │   │   ├── mcpManagerService.ts
 │   │   ├── orchestrationService.ts
@@ -162,7 +164,13 @@ codex-workspace/
 
 - **Codex Manager**
   - `historyPanel.ts` がタブ付き Core WebviewPanel を提供する
-  - History タブは `historyService.ts` から `HistoryIndex` を構築する
+  - History タブは `threadHistoryService.ts` で Thread API のページを読み込み、`HistoryIndex` を非同期に構築する。`thread/list` は active / archived を個別に取得し、turn / item のページも `nextCursor` がなくなるまで取得する
+  - `historyAppServerClient.ts` が `codex app-server` の stdio JSON-RPC 接続を管理する。共通 resolver のホームを `CODEX_HOME` に渡し、experimental API を有効にして初期化する。要求 ID ごとの応答照合・タイムアウト・終了時の解放を行う
+  - Windows は PATH 上または npm パッケージ同梱の `codex.exe` を `windowsHide: true` で直接起動する。npm の JavaScript ランチャーによる非表示設定なしの子プロセス起動を避ける
+  - item ページング未対応時は turn の全文、turn ページング未対応時は `thread/read` を利用する。Legacy 解析は `historyService.ts` の `buildLegacyHistoryIndex()` に分離し、CLI 不在または Thread API 未対応時に限って利用する。通常エラーは画面に通知する
+  - 取得中も検索・選択操作を維持し、更新の世代とキャンセル通知により古い取得結果や閉じた画面への反映を防ぐ。検索対象の全文を維持するため、表示件数の制限は取得した index に適用する
+  - `thread/list(sortKey: updated_at)` の active / archived 結果を更新日時順に統合し、`thread/turns/list(sortDirection: desc)` のページ取得時に途中結果を通知する。画面への反映は100ms間隔にまとめ、完了・失敗時は保留分を反映する。表示済みカードを基準に一覧のスクロールを補正し、変更のない選択本文を再描画しない
+  - `ThreadHistoryCache` は Manager が保持するメモリ内キャッシュで、Codex Home と thread ID ごとに完全取得した本文と更新日時・作成日時・path を保持する。初期表示で再利用した後、一覧の再取得で変更を検証する。active・直近2秒以内の更新・更新日時不明は本文を再取得し、成功した取得の終端で削除済み thread をキャッシュから除去する。途中失敗・キャンセルでは完全取得済みの本文を残し、未完の本文を再利用対象にしない
   - AGENTS Loading Chain は `coreDiagnosticsService.ts` が Global / Project tier の `AGENTS.override.md`、`AGENTS.md`、`project_doc_fallback_filenames` を診断し、`Active` / `Skipped` / `Missing` / `Error` 状態を作る
   - 共通 `resolveCodexPaths()` の Base `config.toml` を一度読み、`project_root_markers` と fallback 名を解決する。root marker は指定配列が既定 `.git` を置き換え、最寄りの祖先を採用する。空配列・一致なしは workspace root のみ、設定ファイルの欠落・解析失敗は既定値を使用する
   - fallback は trim 後に空欄・標準候補との重複・重複名・OS のパス構文を除外し、設定順を維持する。通常ファイルの最初の候補を採用し、その読み取りエラーで後続候補へ切り替えない
@@ -359,7 +367,7 @@ flowchart TB
   - `agentConfigRepairService.test.ts` / `disabledAgentsStore.test.ts`: Agent metadata 修復と disabled store
   - `orchestrationService.test.ts` / `agentManagerPanel.test.ts`: workflow 保存・検証・prompt 生成と AGENTS Manager orchestration UI
   - `mcpService.test.ts` / `mcpManagerService.test.ts` / `mcpManagerPanel.test.ts`: MCP 読み書きとパネル挙動
-  - `historyService.test.ts` / `historyPanel.test.ts`: 履歴抽出と Core Webview state
+  - `historyService.test.ts` / `threadHistoryService.test.ts` / `historyAppServerClient.test.ts` / `historyPanel.test.ts`: Legacy 履歴抽出、Thread API のページングと fallback、JSON-RPC 通信、Core Webview state と非同期更新
   - `coreDiagnosticsService.test.ts` / `coreManagerConfigService.test.ts`: Core 診断と設定更新
   - `pluginService.test.ts`: Plugin manifest / marketplace 読み取り
   - `petService.test.ts` / `settings.test.ts`: Pet 定義と設定値の正規化

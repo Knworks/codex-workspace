@@ -1,4 +1,7 @@
 {
+	"message.historyLoadFailed": "Failed to load conversation history.",
+	"message.historyLoading": "Loading history: {0} entries. Search covers loaded entries.",
+	"message.historyLoaded": "History loaded: {0} entries.",
   "displayName": "Codex Workspace",
   "description": "Explore and edit your .codex workspace (config.toml, AGENTS.md, prompts, skill, mcp) in VS Code.",
   "viewContainer.codexWorkspace.title": "Codex Workspace",
