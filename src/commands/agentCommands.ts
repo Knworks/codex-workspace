@@ -19,7 +19,10 @@ import {
 } from '../services/agentConfigService';
 import { stabilizeManagedConfigToml } from '../services/configTomlOrganizerService';
 import { AgentExplorerProvider } from '../views/agentExplorerProvider';
-import { AgentManagerRecord, deleteAgentFile, disableAgentByName, editAgentFile, enableAgentByName, parseAgentRoleDeclarations } from '../services/agentManagerService';
+import { AgentManagerRecord, parseAgentRoleDeclarations } from '../services/agentManagerService';
+import { deleteManagedAgent, editManagedAgent, resolveManagedAgent, setManagedAgentEnabled } from '../services/managedAgentService';
+import { registerAgentCandidate } from '../services/managedAgentActions';
+import { readAgentDefinition } from '../services/cliAgentService';
 
 type AgentCommandContext = {
 	getSelection: () => CodexTreeItem | undefined;
@@ -76,7 +79,7 @@ export function registerAgentCommands(
 					if (!ensureSelection(selection) || !selection.fsPath) {
 						return;
 					}
-					await deleteAgent(selection.fsPath, agentProvider);
+					await deleteAgent(selection.fsPath, agentProvider, selection.agentRecord);
 					config.onDidChangeAgents?.();
 				}),
 		),
@@ -123,11 +126,11 @@ export function registerAgentCommands(
 }
 
 async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
-	const { codexDir, configPath } = resolveCodexPaths();
 	const agentsDir = await pickAgentLocationRoot(agentProvider);
 	if (!agentsDir) {
 		return;
 	}
+	const configPath = path.join(path.dirname(agentsDir), 'config.toml');
 	const agentName = await promptAgentName();
 	if (!agentName) {
 		return;
@@ -151,12 +154,13 @@ async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
 
 	fs.writeFileSync(agentFilePath, initialAgentContents, 'utf8');
 
-	const configContents = fs.readFileSync(configPath, 'utf8');
+	const configContents = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
 	if (parseAgentRoleDeclarations(configContents).some((role) => role.name === agentName)) {
 		vscode.window.showWarningMessage(messages.agent.configExists(agentName));
 		agentProvider.refresh();
 		return;
 	}
+	if (!readAgentDefinition(agentFilePath, true).reason) { agentProvider.refresh(); return; }
 
 	fs.writeFileSync(
 		configPath,
@@ -178,21 +182,19 @@ async function editAgent(
 	agentProvider: AgentExplorerProvider,
 	record?: AgentManagerRecord,
 ): Promise<void> {
-	const configPath = record?.configPath ?? resolveCodexPaths().configPath;
-	const currentName = path.basename(agentFilePath, path.extname(agentFilePath));
-	const currentRole = record?.name ?? currentName;
-	const configContents = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
-	const currentDescription = record?.description ?? parseAgentRoleDeclarations(configContents).find((role) => role.name === currentRole)?.description ?? '';
+	const configPath = resolveCodexPaths().configPath;
+	const target = resolveManagedAgent(configPath, record ? { id: record.id } : { agentPath: agentFilePath });
+	const currentName = path.basename(target.agentPath).replace(/\.toml(?:\.disabled)?$/, '');
 
 	const nextName = await promptAgentName(currentName);
 	if (!nextName) {
 		return;
 	}
-	const nextDescription = await promptAgentDescription(currentDescription);
+	const nextDescription = await promptAgentDescription(target.description);
 	if (nextDescription === undefined) {
 		return;
 	}
-	const nextFilePath = path.join(path.dirname(agentFilePath), `${nextName}.toml`);
+	const nextFilePath = path.join(path.dirname(target.agentPath), `${nextName}.toml${target.agentPath.endsWith('.disabled') ? '.disabled' : ''}`);
 	if (
 		!isSamePath(agentFilePath, nextFilePath) &&
 		fs.existsSync(nextFilePath)
@@ -200,23 +202,17 @@ async function editAgent(
 		vscode.window.showWarningMessage(messages.agent.fileExists(nextName));
 		return;
 	}
-	if (
-		currentName !== nextName &&
-		parseAgentRoleDeclarations(configContents).some((role) => role.name === nextName)
-	) {
-		vscode.window.showWarningMessage(messages.agent.configExists(nextName));
-		return;
-	}
-
-	editAgentFile(agentFilePath, nextFilePath, { configPath, name: currentRole }, nextDescription, resolveCodexPaths().configPath);
+	editManagedAgent(configPath, target.id, nextFilePath, nextDescription);
 	agentProvider.refresh();
 }
 
 async function deleteAgent(
 	agentFilePath: string,
 	agentProvider: AgentExplorerProvider,
+	record?: AgentManagerRecord,
 ): Promise<void> {
 	const { configPath } = resolveCodexPaths();
+	const target = resolveManagedAgent(configPath, record ? { id: record.id } : { agentPath: agentFilePath });
 	const location = agentProvider.getLocationForPath(agentFilePath);
 	const warning =
 		location?.kind === 'user'
@@ -230,7 +226,7 @@ async function deleteAgent(
 	if (choice !== messages.dialogOk) {
 		return;
 	}
-	deleteAgentFile(agentFilePath, configPath);
+	deleteManagedAgent(configPath, target.id);
 	agentProvider.refresh();
 }
 
@@ -260,16 +256,11 @@ async function enableAgent(
 	agentProvider: AgentExplorerProvider,
 	record?: AgentManagerRecord,
 ): Promise<void> {
-	const { codexDir, configPath } = resolveCodexPaths();
-	const source = record?.configPath ?? configPath;
-	const agentId = record?.name ?? path.basename(agentFilePath, path.extname(agentFilePath));
-	if (!record && parseAgentRoleDeclarations(fs.readFileSync(source, 'utf8')).some((role) => role.name === agentId)) {
-		vscode.window.showWarningMessage(messages.agent.configExists(agentId));
-		return;
-	}
-	const result = enableAgentByName(codexDir, source, agentId, record?.configFile ?? toAgentConfigFilePath(source, agentFilePath));
-	if (!result.changed) {
-		vscode.window.showWarningMessage(messages.agent.configExists(agentId));
+	const { configPath } = resolveCodexPaths();
+	const target = resolveManagedAgent(configPath, record ? { id: record.id } : { agentPath: agentFilePath });
+	const changed = target.definitionFormat === 'candidate'
+		? await registerAgentCandidate(configPath, target) : setManagedAgentEnabled(configPath, target.id, true);
+	if (!changed) {
 		return;
 	}
 	vscode.window.showInformationMessage(messages.agent.toggleUpdated);
@@ -281,16 +272,10 @@ async function disableAgent(
 	agentProvider: AgentExplorerProvider,
 	record?: AgentManagerRecord,
 ): Promise<void> {
-	const { codexDir, configPath } = resolveCodexPaths();
-	const source = record?.configPath ?? configPath;
-	const agentId = record?.name ?? path.basename(agentFilePath, path.extname(agentFilePath));
-	if (!parseAgentRoleDeclarations(fs.readFileSync(source, 'utf8')).some((role) => role.name === agentId)) {
-		vscode.window.showWarningMessage(messages.agent.notEnabled(agentId));
-		return;
-	}
-	const result = disableAgentByName(codexDir, source, agentId);
-	if (!result.changed) {
-		vscode.window.showWarningMessage(messages.agent.notEnabled(agentId));
+	const { configPath } = resolveCodexPaths();
+	const target = resolveManagedAgent(configPath, record ? { id: record.id } : { agentPath: agentFilePath });
+	if (!setManagedAgentEnabled(configPath, target.id, false)) {
+		vscode.window.showWarningMessage(messages.agent.notEnabled(target.name));
 		return;
 	}
 	vscode.window.showInformationMessage(messages.agent.toggleUpdated);

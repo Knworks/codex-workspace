@@ -55,11 +55,11 @@ node scripts/verify-agent-cli.cjs C:/absolute/path/to/codex.exe
 
 単独ファイルの検証範囲は必須3項目と `model`、`model_reasoning_effort`、`sandbox_mode`。宣言側は `description` と `config_file` を検証する。その他の合法な CLI 設定も検出されるが、状態は未検証となる。未知項目、本文、コメントは消去・変換しない。model の利用権限や実際にモデルへ適用した結果は検証していない。
 
-設定レイヤー全体の合成、trust 自動判定、選択 Profile の解決、同名定義の勝者判定は対象外。同名の別有効定義があれば、変更後の CLI 名の利用可否を保証できないため変更を拒否する。既存 Base / Profile / Project の宣言と disabled store を自動移行しない。既存 Manager / Explorer の UI と登録フローはこの新 API に切り替えていない。
+設定レイヤー全体の合成、trust 自動判定、選択 Profile の解決、同名定義の勝者判定は対象外。同名の別有効定義があれば、変更後の CLI 名の利用可否を保証できないため変更を拒否する。既存 Base / Profile / Project の宣言と disabled store を自動移行しない。Manager / Explorer は `managedAgentService.ts` を通じてこの API を使用し、旧形式の未登録候補、参照切れ、詳細情報を補う。一覧更新は読み取り専用で、候補は登録先を選択して明示登録する。
 
 ## 🛡️ 回帰確認
 
-`src/test/cliAgentService.test.ts` は、必須項目不足・空白・不正型・不正 TOML、同名別スコープ、ファイル名と名前の相違、ON/OFF の本文バイト保持と安定 ID、既存 store、未知設定保持、退避先衝突、未対応版、消えた行 ID、危険な宣言 OFF の拒否を確認する。UI の未登録ファイル補完・欠落ファイル除外が CLI の単独探索・宣言診断に混入しないことも確認し、既存 Agent Manager / locations のテストを継続する。
+`src/test/cliAgentService.test.ts` は、必須項目不足・空白・不正型・不正 TOML、同名別スコープ、ファイル名と名前の相違、ON/OFF の本文バイト保持と安定 ID、既存 store、未知設定保持、退避先衝突、未対応版、消えた行 ID、危険な宣言 OFF の拒否を確認する。`managedAgentService.test.ts` は外部変更、候補の選択先登録、読み取り専用更新、設定元ごとの診断、別スコープ・共有実体の保護を確認する。Explorer / Manager / commands のテストに加え、実 Webview で登録、Open、単独定義の ON/OFF を検証する。
 
 ```powershell
 npm run pretest

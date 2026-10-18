@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import * as toml from 'toml';
 import { AgentLocation, getAgentLocations, getCliAgentLocations } from './agentLocations';
-import { disableAgentByName, enableAgentByName, getAgentManagerStorePath, listAgentDeclarationRecords } from './agentManagerService';
+import { disableAgentByName, enableAgentByName, getAgentManagerStorePath, listAgentConfigSources, listAgentDeclarationRecords } from './agentManagerService';
 import { getDisabledAgentBlock } from './disabledAgentsStore';
 
 export const SUPPORTED_AGENT_CLI_VERSION = '0.163.0';
@@ -27,7 +27,7 @@ export type CliAgentRecord = {
 type AgentDetails = { name?: string; description?: string; developer_instructions?: string };
 
 /** Validate the supported standalone contract without changing user content. */
-function readDefinition(file: string, standalone: boolean): { details: AgentDetails; reason?: string; unverified?: boolean } {
+export function readAgentDefinition(file: string, standalone: boolean): { details: AgentDetails; reason?: string; unverified?: boolean } {
 	try {
 		const parsed = toml.parse(fs.readFileSync(file, 'utf8')) as Record<string, unknown>;
 		const details: AgentDetails = {};
@@ -90,9 +90,19 @@ function getDeclarationValidationReason(configPath: string, roleKey: string, ena
 /** Per-definition availability in recognized layers; does not resolve trust, active profiles or precedence. */
 export function listCliAgentRecords(configPath: string, locations: AgentLocation[] = getAgentLocations()): CliAgentRecord[] {
 	const roots = getCliAgentLocations(configPath, locations);
-	const declarations = listAgentDeclarationRecords(configPath, locations, false);
+	const diagnostics: CliAgentRecord[] = [];
+	const declarations = listAgentConfigSources(configPath, locations).flatMap((source) => {
+		try { return listAgentDeclarationRecords(configPath, locations, false, [source]); }
+		catch (error) {
+			diagnostics.push({ id: JSON.stringify(['diagnostic', source.configPath]), definitionFormat: 'declaration',
+				configPath: source.configPath, agentPath: source.configPath, configFile: '', name: path.basename(source.configPath),
+				description: '', location: source.location, enabled: false, availability: 'invalid',
+				reason: `Cannot read Agent declarations: ${error instanceof Error ? error.message : String(error)}` });
+			return [];
+		}
+	});
 	const records: CliAgentRecord[] = declarations.map((record) => {
-		const parsed = record.configFile ? readDefinition(record.agentPath, false) : { details: {} as AgentDetails };
+		const parsed = record.configFile ? readAgentDefinition(record.agentPath, false) : { details: {} as AgentDetails };
 		const name = parsed.details.name || record.name;
 		const description = parsed.details.description || record.description;
 		const declarationReason = getDeclarationValidationReason(record.configPath, record.name, record.enabled);
@@ -101,7 +111,7 @@ export function listCliAgentRecords(configPath: string, locations: AgentLocation
 			id: JSON.stringify(['declaration', record.configPath, record.name, record.agentPath]),
 			definitionFormat: 'declaration', configPath: record.configPath, agentPath: record.agentPath,
 			configFile: record.configFile, roleKey: record.name, name, description, location: record.location,
-			enabled: record.enabled && !reason, availability: !record.enabled ? 'disabled' : reason ? parsed.unverified || declarationReason ? 'unverified' : 'invalid' : 'available', reason,
+			enabled: record.enabled && !reason, availability: reason ? parsed.unverified || declarationReason ? 'unverified' : 'invalid' : record.enabled ? 'available' : 'disabled', reason,
 		};
 	});
 	for (const location of roots) {
@@ -111,7 +121,7 @@ export function listCliAgentRecords(configPath: string, locations: AgentLocation
 			if (declarations.some((item) => item.enabled && path.resolve(item.configPath) === path.resolve(source) && path.resolve(item.agentPath) === file)) { continue; }
 			const disabled = file.endsWith(DISABLED_SUFFIX);
 			const activePath = disabled ? file.slice(0, -DISABLED_SUFFIX.length) : file;
-			const parsed = readDefinition(file, true);
+			const parsed = readAgentDefinition(file, true);
 			const valid = !parsed.reason;
 			records.push({
 				id: JSON.stringify(['standalone', source, activePath]), definitionFormat: 'standalone',
@@ -130,7 +140,7 @@ export function listCliAgentRecords(configPath: string, locations: AgentLocation
 			existing.reason = 'Both active and disabled paths exist; resolve the file collision before changing state.';
 		} else { unique.set(record.id, record); }
 	}
-	return [...unique.values()];
+	return [...unique.values(), ...diagnostics];
 }
 
 export type CliAgentOperationResult = { supported: true; changed: boolean } | { supported: false; reason: string };
@@ -156,7 +166,7 @@ export function setCliAgentEnabled(
 		if (!enabled && getCliAgentLocations(configPath, locations).some((root) => {
 			const relative = path.relative(root.rootPath, record.agentPath);
 			return relative !== '' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)
-				&& record.agentPath.endsWith('.toml') && !readDefinition(record.agentPath, true).reason;
+				&& record.agentPath.endsWith('.toml') && !readAgentDefinition(record.agentPath, true).reason;
 		})) {
 			return { supported: false, reason: 'Removing this declaration would rediscover its standalone file.' };
 		}

@@ -5,8 +5,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as toml from 'toml';
 import { listCliAgentRecords } from '../services/cliAgentService';
+import { listManagedAgentRecords } from '../services/managedAgentService';
 import { CodexTreeItem } from '../models/treeItems';
-import { listAgentManagerRecords } from '../services/agentManagerService';
 
 type EnvSnapshot = {
 	HOME?: string;
@@ -187,18 +187,57 @@ function mockQuickPickTextInputs(
 }
 
 suite('Agent commands', () => {
+	test('addAgent writes only the selected Project source and leaves standalone templates unregistered', async () => {
+		await withTempHome(async (homeDir) => {
+			const { configPath, codexDir } = createWorkspace(homeDir);
+			const projectAgents = path.join(homeDir, 'project', '.codex', 'agents');
+			const projectConfig = path.join(path.dirname(projectAgents), 'config.toml');
+			const templateRoot = path.join(codexDir, 'codex-templates');
+			fs.mkdirSync(templateRoot, { recursive: true });
+			const template = path.join(templateRoot, 'standalone.toml');
+			const contents = 'name = "cli-name"\ndescription = "Standalone"\ndeveloper_instructions = "Review."\n';
+			fs.writeFileSync(template, contents);
+			const baseBefore = fs.readFileSync(configPath);
+			await activateExtension();
+			const originalInput = vscode.window.showInputBox;
+			const originalPick = vscode.window.showQuickPick;
+			const restoreInput = mockQuickPickTextInputs(['external', 'legacy']);
+			vscode.window.showInputBox = async () => 'Project description';
+			vscode.window.showQuickPick = (async (items: any) => {
+				if (items[0]?.location) {
+					return { ...items[0], location: { ...items[0].location, rootPath: projectAgents, createPath: projectAgents } };
+				}
+				return items.find((item: { fsPath?: string }) => item.fsPath === template) ?? items[1];
+			}) as typeof originalPick;
+			try {
+				await vscode.commands.executeCommand('codex-workspace.addAgent');
+				assert.strictEqual(fs.readFileSync(path.join(projectAgents, 'external.toml'), 'utf8'), contents);
+				assert.strictEqual(fs.existsSync(projectConfig), false);
+				fs.writeFileSync(template, 'model = "legacy"\n');
+				await vscode.commands.executeCommand('codex-workspace.addAgent');
+				assert.ok(fs.readFileSync(projectConfig, 'utf8').includes('[agents.legacy]'));
+				assert.deepStrictEqual(fs.readFileSync(configPath), baseBefore);
+			} finally {
+				restoreInput();
+				vscode.window.showInputBox = originalInput;
+				vscode.window.showQuickPick = originalPick;
+			}
+		});
+	});
+
 	test('Explorer toggles a Profile alias using its declaration identity instead of its file name', async () => {
 		await withTempHome(async (homeDir) => {
 			const { agentsDir, configPath, codexDir } = createWorkspace(homeDir);
 			const target = path.join(agentsDir, 'physical.toml');
 			fs.writeFileSync(target, '');
-			const declaration = '[agents.role_alias]\nconfig_file = "agents/physical.toml"\n';
-			fs.writeFileSync(configPath, declaration);
+			const declaration = '[agents.role_alias]\ndescription = "Profile alias"\nconfig_file = "agents/physical.toml"\n';
+			const baseDeclaration = declaration.replace('role_alias', 'base_role');
+			fs.writeFileSync(configPath, baseDeclaration);
 			const profilePath = path.join(codexDir, 'review.config.toml');
 			fs.writeFileSync(profilePath, declaration);
 			await activateExtension();
 			const item = createAgentItem(target);
-			item.agentRecord = listAgentManagerRecords(configPath).find((record) => record.configPath === profilePath);
+			item.agentRecord = listManagedAgentRecords(configPath).find((record) => record.configPath === profilePath);
 			assert.ok(item.agentRecord);
 			const originalInfo = vscode.window.showInformationMessage;
 			let unchangedInfos = 0;
@@ -209,10 +248,10 @@ suite('Agent commands', () => {
 				assert.strictEqual(fs.readFileSync(profilePath, 'utf8'), declaration);
 			} finally { vscode.window.showInformationMessage = originalInfo; }
 			await vscode.commands.executeCommand('codex-workspace.disableAgent', item);
-			assert.strictEqual(fs.readFileSync(configPath, 'utf8'), declaration);
+			assert.strictEqual(fs.readFileSync(configPath, 'utf8'), baseDeclaration);
 			assert.ok(!fs.readFileSync(profilePath, 'utf8').includes('role_alias'));
 			await vscode.commands.executeCommand('codex-workspace.enableAgent', item);
-			assert.strictEqual(fs.readFileSync(configPath, 'utf8'), declaration);
+			assert.strictEqual(fs.readFileSync(configPath, 'utf8'), baseDeclaration);
 			assert.ok(fs.readFileSync(profilePath, 'utf8').includes('agents/physical.toml'));
 			assert.strictEqual(fs.existsSync(path.join(codexDir, '.codex-workspace', 'review.config.toml.agents-disabled.json')), false);
 		});
@@ -270,9 +309,7 @@ suite('Agent commands', () => {
 				developer_instructions: 'Security reviewer',
 			});
 			const config = fs.readFileSync(configPath, 'utf8');
-			assert.ok(config.includes('[agents.reviewer]'));
-			assert.ok(config.includes('description = "Security reviewer"'));
-			assert.ok(config.includes('config_file = "agents/reviewer.toml"'));
+			assert.strictEqual(config, 'title = "ok"\n');
 			const cliRecord = listCliAgentRecords(configPath).find((record) => record.agentPath === createdPath);
 			assert.ok(cliRecord);
 			assert.strictEqual(cliRecord.name, 'reviewer');
@@ -659,7 +696,7 @@ suite('Agent commands', () => {
 		await withTempHome(async (homeDir) => {
 			const { codexDir, agentsDir, configPath } = createWorkspace(homeDir);
 			const targetPath = path.join(agentsDir, 'reviewer.toml');
-			fs.writeFileSync(targetPath, 'mode = "review"', 'utf8');
+			fs.writeFileSync(targetPath, 'model = "review"', 'utf8');
 			fs.writeFileSync(
 				configPath,
 				[
@@ -711,7 +748,7 @@ suite('Agent commands', () => {
 		await withTempHome(async (homeDir) => {
 			const { codexDir, agentsDir, configPath } = createWorkspace(homeDir);
 			const targetPath = path.join(agentsDir, 'restorable.toml');
-			fs.writeFileSync(targetPath, 'mode = "x"', 'utf8');
+			fs.writeFileSync(targetPath, 'model = "x"', 'utf8');
 			const storePath = path.join(codexDir, '.codex-workspace', 'agents-disabled.json');
 			fs.mkdirSync(path.dirname(storePath), { recursive: true });
 			fs.writeFileSync(
@@ -754,7 +791,7 @@ suite('Agent commands', () => {
 			const { codexDir, agentsDir, configPath } = createWorkspace(homeDir);
 			const targetPath = path.join(agentsDir, 'reviewer.toml');
 			fs.writeFileSync(targetPath, 'model = "keep"\n');
-			const declaration = '[agents.reviewer]\ndescription = "keep"\nconfig_file = "agents/reviewer.toml"\n[agents.reviewer.features]\nshell_tool = false\n';
+			const declaration = '[agents.reviewer]\ndescription = "keep"\nconfig_file = "agents/reviewer.toml"\n# Keep declaration comment\n';
 			fs.writeFileSync(configPath, declaration);
 			await activateExtension();
 			const originalRename = fs.renameSync;
@@ -787,7 +824,7 @@ suite('Agent commands', () => {
 				assert.strictEqual(fs.readFileSync(storePath, 'utf8'), backup);
 				fs.renameSync = originalRename;
 				await vscode.commands.executeCommand('codex-workspace.enableAgent', createAgentItem(targetPath));
-				assert.ok(fs.readFileSync(configPath, 'utf8').includes('shell_tool = false'));
+				assert.ok(fs.readFileSync(configPath, 'utf8').includes('# Keep declaration comment'));
 				assert.strictEqual(infos, 1);
 			} finally {
 				fs.renameSync = originalRename;
@@ -797,21 +834,22 @@ suite('Agent commands', () => {
 		});
 	});
 
-	test('enableAgent falls back to minimal block when stash is missing', async () => {
+	test('enableAgent registers a candidate only after choosing its source', async () => {
 		await withTempHome(async (homeDir) => {
 			const { agentsDir, configPath } = createWorkspace(homeDir);
 			const targetPath = path.join(agentsDir, 'fallback.toml');
-			fs.writeFileSync(targetPath, 'mode = "x"', 'utf8');
+			fs.writeFileSync(targetPath, 'model = "x"\ndescription = "Candidate description"\n', 'utf8');
 			await activateExtension();
-
-			await vscode.commands.executeCommand(
+			const originalPick = vscode.window.showQuickPick;
+			vscode.window.showQuickPick = (async (items: any) => items.find((item: { configPath?: string }) => item.configPath === configPath)) as typeof originalPick;
+			try { await vscode.commands.executeCommand(
 				'codex-workspace.enableAgent',
 				createAgentItem(targetPath),
-			);
+			); } finally { vscode.window.showQuickPick = originalPick; }
 
 			const nextConfig = fs.readFileSync(configPath, 'utf8');
 			assert.ok(nextConfig.includes('[agents.fallback]'));
-			assert.ok(nextConfig.includes('description = ""'));
+			assert.ok(nextConfig.includes('description = "Candidate description"'));
 			assert.ok(nextConfig.includes('config_file = "agents/fallback.toml"'));
 			const nextAgentContents = fs.readFileSync(targetPath, 'utf8');
 			assert.ok(!nextAgentContents.includes('name = "fallback"'));
