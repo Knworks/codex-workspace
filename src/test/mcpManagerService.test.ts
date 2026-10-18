@@ -2,6 +2,8 @@ import * as assert from 'assert';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { parse } from 'toml';
+import { parse as parseToml } from '@iarna/toml';
 import {
 	deleteMcpServer,
 	listMcpFormModels,
@@ -18,7 +20,117 @@ function withTempDir(run: (root: string) => void): void {
 	}
 }
 
+function parseTestConfig(source: string): {
+	model?: unknown;
+	mcp_servers: Record<string, { args?: string[]; custom?: string }>;
+} {
+	return parse(source) as ReturnType<typeof parseTestConfig>;
+}
+
 suite('MCP manager service', () => {
+	const argumentFixtures = [
+		{ name: 'multiline', source: '[\n  "server.js",\n  "--local"\n]', args: ['server.js', '--local'] },
+		{ name: 'single line', source: '["server.js", "--local"]', args: ['server.js', '--local'] },
+		{ name: 'empty', source: '[]', args: [] },
+		{
+			name: 'comments and trailing comma',
+			source: '[ # opening comment\n  "server.js", # argument\n  # separate comment\n  \'--local\',\n]',
+			args: ['server.js', '--local'],
+		},
+		{
+			name: 'TOML strings and escapes',
+			source: String.raw`["quote\"#value", 'C:\tools\server.js', "日本語", "\u65E5\U0001F680", "line\nnext\t\b\f\r\\end", "\u0000\u001F\u007F", "", "  spaced  "]`,
+			args: ['quote"#value', 'C:\\tools\\server.js', '日本語', '日🚀', 'line\nnext\t\b\f\r\\end', '\u0000\u001F\u007F', '', '  spaced  '],
+		},
+		{
+			name: 'multiline strings',
+			source: '["""\nfirst\nsecond""", \'\'\'literal\ntext\'\'\']',
+			args: ['first\nsecond', 'literal\ntext'],
+		},
+		{
+			name: 'assignment-like text inside multiline strings',
+			source: '[\'\'\'\ncommand = "argument text"\ncustom = "argument text"\nextra = "argument text"\nargs = []\'\'\']',
+			args: ['command = "argument text"\ncustom = "argument text"\nextra = "argument text"\nargs = []'],
+		},
+	];
+	for (const fixture of argumentFixtures) {
+		test(`args read-save-read preserves ${fixture.name}`, () => {
+			withTempDir((root) => {
+				const configPath = path.join(root, 'config.toml');
+				const source = `model = "keep"\n[mcp_servers.example]\ncommand = "node"\nargs = ${fixture.source}\ncustom = "keep"\n[mcp_servers.other]\ncommand = "other"\nargs = ["untouched"]\n`;
+				const before = parseTestConfig(source);
+				assert.deepStrictEqual(before.mcp_servers.example.args, fixture.args);
+				fs.writeFileSync(configPath, source, 'utf8');
+				const model = listMcpFormModels(configPath)[0];
+				assert.strictEqual(model.command, 'node');
+				assert.deepStrictEqual(model.args, fixture.args);
+				assert.strictEqual(saveMcpServer(configPath, model, model.id).ok, true);
+				const after = parseTestConfig(fs.readFileSync(configPath, 'utf8'));
+				assert.deepStrictEqual(
+					{ ...after.mcp_servers.example, args: after.mcp_servers.example.args ?? [] },
+					{ ...before.mcp_servers.example, args: before.mcp_servers.example.args ?? [] },
+				);
+				assert.deepStrictEqual(after.mcp_servers.example.args ?? [], fixture.args);
+				assert.deepStrictEqual(after.mcp_servers.other, before.mcp_servers.other);
+				assert.strictEqual(after.model, before.model);
+				assert.strictEqual(after.mcp_servers.example.custom, 'keep');
+				assert.deepStrictEqual(listMcpFormModels(configPath)[0].args, fixture.args);
+			});
+		});
+	}
+
+	test('args save preserves unknown multiline settings and dotted assignments', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			const source = [
+				'[mcp_servers.example]',
+				'command = "node"',
+				'args = ["server.js"]',
+				'custom = [',
+				'  "keep", # comment',
+				'  "also keep",',
+				']',
+				'extra.a = "one"',
+				'extra.b = "two"',
+			].join('\n');
+			fs.writeFileSync(configPath, source);
+			const model = listMcpFormModels(configPath)[0];
+			assert.strictEqual(saveMcpServer(configPath, model, model.id).ok, true);
+			assert.deepStrictEqual(parseToml(fs.readFileSync(configPath, 'utf8')), parseToml(source));
+		});
+	});
+
+	test('args edits, additions, deletions and explicit empty arrays are saved', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			fs.writeFileSync(configPath, '[mcp_servers.example]\ncommand = "node"\nargs = [\n"server.js",\n"--local",\n]\n');
+			for (const args of [['changed.js', '--local', '--added'], ['changed.js'], [], ['restored.js']]) {
+				const model = listMcpFormModels(configPath)[0];
+				model.args = args;
+				assert.strictEqual(saveMcpServer(configPath, model, model.id).ok, true);
+				assert.deepStrictEqual(parseTestConfig(fs.readFileSync(configPath, 'utf8')).mcp_servers.example.args ?? [], args);
+				assert.deepStrictEqual(listMcpFormModels(configPath)[0].args, args);
+			}
+		});
+	});
+
+	for (const source of ['["unterminated"', '["bad\\q"]', '"not an array"', '[1, 2]', '["valid", false]']) {
+		test(`invalid args are rejected without changing the config: ${source}`, () => {
+			withTempDir((root) => {
+				const configPath = path.join(root, 'config.toml');
+				fs.writeFileSync(configPath, '[mcp_servers.example]\ncommand = "node"\nargs = []\n');
+				const model = listMcpFormModels(configPath)[0];
+				const invalid = `[mcp_servers.example]\ncommand = "node"\nargs = ${source}\n`;
+				fs.writeFileSync(configPath, invalid);
+				assert.throws(() => listMcpFormModels(configPath), /args/);
+				const result = saveMcpServer(configPath, model, model.id);
+				assert.strictEqual(result.ok, false);
+				assert.match(result.errors.join(' '), /args/);
+				assert.strictEqual(fs.readFileSync(configPath, 'utf8'), invalid);
+			});
+		});
+	}
+
 	test('listMcpFormModels reads stdio and http servers', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, 'config.toml');
