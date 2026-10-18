@@ -28,6 +28,7 @@ import { getPetSettings, getSyncSettings } from './services/settings';
 import { HistoryPanelManager } from './services/historyPanel';
 import { SkillManagerPanelManager } from './services/skillManagerPanel';
 import { AgentManagerPanelManager } from './services/agentManagerPanel';
+import { getManagedAgentOpenPath, resolveManagedAgent } from './services/managedAgentService';
 import { McpManagerPanelManager } from './services/mcpManagerPanel';
 import {
 	syncCoreFilesBidirectional,
@@ -195,7 +196,11 @@ export function activate(context: vscode.ExtensionContext) {
 				if (!ensureSelection(item) || !item.fsPath) {
 					return;
 				}
-				const target = vscode.Uri.file(item.fsPath);
+				const openPath = item.kind === 'agents'
+					? getManagedAgentOpenPath(resolveManagedAgent(resolveCodexPaths().configPath,
+						item.agentRecord ? { id: item.agentRecord.id } : { agentPath: item.fsPath }))
+					: item.fsPath;
+				const target = vscode.Uri.file(openPath);
 				await vscode.commands.executeCommand('vscode.open', target);
 			}),
 	);

@@ -30,7 +30,7 @@
 | `Commands` | `~/.codex/prompts` 配下のファイルを表示するビュー | View ID は `codex-workspace.prompts` |
 | `Skills` | Skill ルート配下の `SKILL.md` を表示するビュー | Project / Workspace / User / System を列挙 |
 | `Templates` | テンプレート保存場所 | `~/.codex/codex-templates` 固定 |
-| `Sub Agents` | Agent 定義 `*.toml` を表示するビュー | `getAgentLocations()` の結果を列挙 |
+| `Sub Agents` | Agent 定義と登録候補・診断を表示するビュー | `listManagedAgentRecords()` から取得 |
 | `MCP Server` | `config.toml` の `[mcp_servers.<id>]` 設定 | `env` / `http_headers` / `env_http_headers` / `tools.*` companion block は一覧表示しない |
 | `Codex Manager` | Core 画面から開く WebviewPanel | History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks / Plugins タブを持つ |
 | `Skill Manager` | Skills 一覧と有効/無効切替を行う WebviewPanel | `SKILL.md` frontmatter と `[[skills.config]]` を参照 |
@@ -89,10 +89,7 @@
   - User Skills: `~/.agents/skills`
   - System Skills: `$CODEX_HOME/skills/.system`（未設定時は `~/.codex/skills/.system`）
   - 同じ root パスは重複列挙せず、異なる root の同名 Skill はファイルパスで区別する。新規 Project Skill の作成先は各階層の `.agents/skills` とする
-- Sub Agents ビューは以下の順で Agent ルートを表示する。
-  - Project Agents: `workspace/.codex/agents` を優先し、存在しない場合は `workspace/.agents/agents`
-  - Workspace Agents: `~/.codex/agents`
-  - User Agents: `~/.codex/agents` と異なるパスが返る場合のみ追加
+- Sub Agents ビューは Base / Profile / 認識済み Project の宣言と、CLI の設定レイヤーに隣接する `agents` 配下の TOML を表示する。旧 `.agents/agents` は単独探索せず、明示された宣言参照は扱う。
 - Templates の実体パスは `~/.codex/codex-templates` 固定とする。
 
 ### 5.2 利用可否判定（共通）
@@ -145,7 +142,7 @@
 
 ### 5.5 Sub Agents の管理
 
-- Sub Agents ビューと Agents タブは共通の一覧処理を使い、実在する Agent TOML ファイルを表示する。認識済みルートの `*.toml` に加え、設定が参照する実在ファイルも含める。
+- Sub Agents ビューと Agents タブは `listManagedAgentRecords()` を使い、単独定義、宣言参照型、未登録候補、診断対象を同じ識別子・設定元・参照先・状態で表示する。外部の追加・編集・削除は更新後に再取得する。
 - 有効/無効の判定はファイル名ではなく、宣言元設定と role key、および `config_file` の参照先に基づく。
 - タイトルバー操作は新規作成、編集、削除、更新、フォルダを開く、同期、AGENTS Manager 起動とする。
 - enable / disable command は実装されているが、`package.json` のメニュー寄与には含めない。
@@ -154,28 +151,28 @@
 - 指示文の初期値には入力した説明を使う。説明が空または空白だけなら、必須の説明・指示文に編集を促す `TODO` を入れ、ヘッダーには入力値を保持する。モデル・権限は固定しない。
 - 名前は既存のファイル名正規化後の値を使う。引用符・改行・バックスラッシュ・制御文字を文字列とコメントでエスケープし、日本語を保持する。
 - テンプレート選択時（空のテンプレートを含む）・編集・有効化・設定整理では Agent TOML を自動補完せず、テンプレートまたは既存ファイルの内容を保持する。既存ファイルの一括修復・再生成は行わない。
-- Agent 作成後、`config.toml` に description と `config_file` を含む `[agents.<name>]` block を自動追記または更新する。
-- 編集時は選択した宣言の description を更新し、ファイル名変更時はそのファイルを参照するすべての宣言と退避の `config_file` を追従させる。無効化中の宣言は無効のまま保持する。
-- 削除時は実ファイルのパスで照合し、Base / Profile / Project の対応宣言と退避を削除してからファイルを削除する。同名の別ファイルの宣言は維持する。同期先への削除伝播に必要な sync state は維持する。
-- 無効化時は対応 block を `agents-disabled.json` に退避し、`config.toml` から削除する。
-- Explorer と Manager の有効化は共通処理を使い、対象ファイルに対応する退避 block があれば保存後に退避を除去する。退避がなければ実際のファイルパスを登録する。Agent TOML 自体は変更しない。
+- 選択済みテンプレートはそのまま保存する。単独形式として有効なら登録せず、それ以外は選択した保存先の設定へ宣言を追加する。Project 作成時に Base を変更しない。
+- 編集・削除は形式・設定元・role key・参照先を含む ID で対象を再取得する。同名の別ファイル・別設定元を保持する。別定義と同じ実ファイルを共有している場合は巻き込みを防ぐため拒否し、Open から参照の個別編集を案内する。
+- 宣言参照型の編集は選択した宣言の description と参照パスを更新し、本文に優先される description があれば併せて更新する。単独定義の編集はファイル名と本文 description を変更し、CLI の本文 name、指示、コメントを保持する。退避中の単独定義は `.disabled` を保持する。
+- 宣言参照型の無効化時は対応 block を `agents-disabled.json` に退避し、`config.toml` から削除する。単独定義はファイルを `.toml.disabled` に変更する。
+- Explorer と Manager の状態変更は `setCliAgentEnabled()` へ委譲する。登録が必要な候補は ON/OFF と区別し、Base / Profile / Project の登録先を選択して実際のパスと空でない説明を登録する。同じ role の既存宣言・退避があれば上書きしない。単独定義には登録を要求しない。
 - 退避・復元は子テーブル（未知の設定を含む）、引用付き role key、インライン宣言にも対応し、他の role の設定値を保持する。
 - 無効化は退避保存後に宣言元を更新し、再有効化は宣言元の保存成功後に退避を削除する。保存失敗時は元の宣言または復元可能な退避を残し、再試行できる。失敗・未変更では更新成功を通知しない。
 - AGENTS Manager は `Agents` タブで一覧詳細レイアウトを表示する。
-- 一覧の正本は実ファイルとする。Base `config.toml`、Profile V2 `<name>.config.toml`、認識済み Project `.codex/config.toml` の `[agents.<role>]` 宣言を実ファイルへ対応付ける。Profile 列挙は共通処理を再利用する。
+- 一覧の正本は CLI 0.163.0 対応の探索・状態サービスとする。Base `config.toml`、Profile V2 `<name>.config.toml`、認識済み Project `.codex/config.toml` の宣言と、CLI が認識するルートの単独ファイルを列挙する。Profile 列挙は共通処理を再利用する。
 - `config_file` の相対パスは宣言元設定のディレクトリを基準に解決し、絶対パスも扱う。role key はファイル名から独立して扱う。
-- 同名 role は宣言元設定ごとに別行として表示し、ON/OFF は選択した宣言元設定だけを更新する。Base の既存 disabled store を維持し、Profile ごと・Project ごとの退避を分離する。
-- 無効化した role は実ファイルが残る間は OFF として表示し、元の `config_file` を保持して再有効化できる。未登録の実ファイルも OFF として表示し、有効化時に対応する Base または Project 設定へ実際のパスを登録する。
-- 未登録ファイルの一覧説明と新規有効化時の `description` は Agent TOML から読み取る。再有効化時も、退避した説明が空で実ファイルに説明がある場合は補完する。空でない宣言の説明を維持し、Agent TOML 本体は書き換えない。
-- `config_file` がない role、参照先ファイルがない宣言、退避データだけの項目は両画面に表示しない。既存の有効宣言は表示時に自動削除しない。
-- 一覧更新・同期後に、実ファイルがない退避や宣言元 Profile が削除された退避を整理する。最後の項目がなくなった退避ファイルは削除する。実ファイルが残る無効化中の退避は保持する。
+- 同名 role は宣言元設定ごとに別行として表示し、安全に確定できる ON/OFF は選択した設定元だけを更新する。CLI 名が別の有効定義と衝突し、実効状態を保証できない場合は #24 の契約どおり理由付きで拒否する。Base / Profile / Project の退避は分離する。
+- 正常な宣言退避または `.toml.disabled` は無効、構文や必須項目の不備は不正定義、欠落参照は参照切れ、対応契約外は未検証として区別する。本文 name のない有効な旧形式 TOML は未登録候補とする。本文 name のある不完全な単独定義を候補登録で修復した扱いにしない。
+- 一覧の説明は CLI 契約に従い本文を優先し、なければ宣言・退避の説明を用いる。再有効化時は、退避した説明が空で実ファイルに説明がある場合に補完する。状態切替では Agent TOML 本体を書き換えない。
+- `config_file` のない role は宣言元を Open する。参照切れも原因と宣言元を表示し、Open は存在しないファイルの代わりに設定元を開く。不正な設定元は診断行として残し、他の正常な設定元の列挙を継続する。
+- 一覧表示・更新は読み取り専用とし、設定、Agent 本文、退避を自動登録・整理・削除しない。同期時の整理は既存の同期処理の責務とする。
 - Agent 操作と同期・全体更新後は Explorer と開いている Agents タブの両方を更新する。
 - 設定レイヤーを合成した effective Agent の完全再現は対象外とする。
-- CLI 互換管理の対応版は `codex-cli 0.163.0` とする。共通 API `listCliAgentRecords()` / `setCliAgentEnabled()` は、既存 Manager / Explorer の表示・登録 UI とは独立して提供する。既存一覧への単独定義の表示統合、登録 UI、テンプレート生成は本対応に含めない。
+- CLI 互換管理の対応版は `codex-cli 0.163.0` とする。Explorer / Manager は共通 API `listCliAgentRecords()` / `setCliAgentEnabled()` に接続し、UI 用に候補・参照切れ・詳細表示を補う。探索契約の再設計とテンプレート生成は対象外とする。
 - 共通 API は既存の宣言参照型と、読み込まれる設定レイヤーの `agents/**/*.toml` にある単独定義を区別する。Base は `$CODEX_HOME/agents`（未指定時 `~/.codex/agents`）、認識済みの信頼された Project は `.codex/agents` を扱い、Explorer の `.agents/agents` fallback は CLI 探索対象に含めない。Profile V2 は既存の宣言列挙を維持し、選択中 Profile や trust の判定は呼び出し側の責務とする。
 - 識別子に定義形式、設定元、実体パスを保持する。宣言キー `roleKey`、本文の CLI 識別名 `name`、ファイル名は分ける。本文の `name` / `description` がある参照定義では本文を優先する。同一レイヤーで宣言が参照する実体を単独定義として重複列挙しない。
 - 単独定義には空白でない文字列の `name`、`description`、`developer_instructions` を要求する。共通 API の検証範囲はこれらと `model`、`model_reasoning_effort`、`sandbox_mode` とし、その他の項目は本文を保持したまま `unverified` と理由を返す。必須項目不足、不正 TOML、未知の対応版などを有効化成功として扱わない。
-- `enabled` は当該定義が対応契約で利用可能かを表し、`availability` は `available` / `disabled` / `invalid` / `unverified` と理由を返す。全レイヤー合成後の実効名や、モデル・権限の適用結果は保証しない。既存 Manager の宣言有無による状態と混同しない。
+- `enabled` は当該定義が対応契約で利用可能かを表す。UI の `availability` は `available` / `disabled` / `candidate` / `invalid` / `missing` / `unverified` と原因を返し、異常行のスイッチを無効にする。全レイヤー合成後の実効名や、モデル・権限の適用結果は保証しない。
 - 共通 API の単独定義 OFF は `*.toml` を同じ場所の `*.toml.disabled` へ変更し、ON で戻す。本文はバイト単位で保持し、設定宣言・既存 disabled store を作成・移行しない。退避先が存在する場合やシンボリックリンクを経由する操作は拒否する。
 - 別定義が同じ CLI 名を公開する場合、参照中の単独実体を変更する場合、宣言削除後に単独ファイルが再発見される場合は理由付きで拒否する。既存 `disableAgentByName()` も同じ設定ディレクトリ内の単独実体を再発見する OFF を例外で拒否し、成功通知に進めない。
 - 対応契約と実 CLI の検証手順・結果は [CLI Agent 互換性検証](agent-cli-compatibility.md) に記録する。

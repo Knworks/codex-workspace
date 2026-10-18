@@ -6,7 +6,8 @@ import * as vscode from 'vscode';
 import { getUnavailableLabel } from '../services/workspaceStatus';
 import { AgentExplorerProvider } from '../views/agentExplorerProvider';
 import { AgentLocation } from '../services/agentLocations';
-import { disableAgentByName, listAgentManagerRecords, refreshAgentManagerRecords } from '../services/agentManagerService';
+import { disableAgentByName } from '../services/agentManagerService';
+import { listManagedAgentRecords } from '../services/managedAgentService';
 import { CodexTreeItem } from '../models/treeItems';
 
 suite('Agent explorer provider', () => {
@@ -22,21 +23,21 @@ suite('Agent explorer provider', () => {
 			fs.mkdirSync(path.join(agentsDir, 'directory.toml'));
 			const configPath = path.join(root, 'config.toml');
 			const profilePath = path.join(root, 'review.config.toml');
-			const block = `[agents.'review role'] # alias\nconfig_file = 'agents/alpha.toml'\n`;
+			const block = `[agents.'review role'] # alias\ndescription = 'Review'\nconfig_file = 'agents/alpha.toml'\n`;
 			fs.writeFileSync(configPath, block + '[agents.ghost]\nconfig_file = "missing.toml"\n[agents.inline]\ndescription = "No file"\n');
 			fs.writeFileSync(profilePath, block);
 			const locations: AgentLocation[] = [{ kind: 'workspace', label: 'Workspace Agents', rootPath: agentsDir, priority: 2 }];
 			disableAgentByName(root, profilePath, 'review role');
 			const provider = new AgentExplorerProvider({} as vscode.ExtensionContext, () => ({ isAvailable: true }),
-				() => refreshAgentManagerRecords(configPath, locations), () => locations);
+				() => listManagedAgentRecords(configPath, locations), () => locations);
 			const items = provider.getChildren() as CodexTreeItem[];
-			const records = listAgentManagerRecords(configPath, locations);
-			assert.strictEqual(items.length, 3);
+			const records = listManagedAgentRecords(configPath, locations);
+			assert.strictEqual(items.length, 5);
 			assert.deepStrictEqual(items.map((item) => item.id), records.map((record) => record.id));
-			assert.deepStrictEqual(items.map((item) => item.agentRecord?.enabled), [true, false, false]);
-			assert.deepStrictEqual(items.map((item) => item.label), ['review role (alpha.toml)', 'review role (alpha.toml)', 'beta.toml']);
-			assert.deepStrictEqual(items.map((item) => (item.iconPath as vscode.ThemeIcon).id), ['hubot', 'circle-slash', 'circle-slash']);
-			assert.strictEqual(items[1].description, 'Profile: review');
+			assert.deepStrictEqual(items.map((item) => item.agentRecord?.enabled), [true, false, true, false, false]);
+			assert.deepStrictEqual(items.map((item) => (item.iconPath as vscode.ThemeIcon).id), ['hubot', 'warning', 'hubot', 'circle-slash', 'question']);
+			assert.ok(String(items[3].description).includes('Profile: review'));
+			assert.strictEqual(items[1].fsPath, configPath);
 			assert.strictEqual(items[0].command?.command, 'codex-workspace.openFile');
 			assert.strictEqual(items[0].contextValue, 'codex-agent-file');
 		} finally { fs.rmSync(root, { recursive: true, force: true }); }

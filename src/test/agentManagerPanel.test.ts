@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import { AgentManagerPanelManager } from '../services/agentManagerPanel';
 import { createEmptyWorkflow } from '../services/orchestrationService';
 import { getAgentLocations } from '../services/agentLocations';
-import { listAgentManagerRecords } from '../services/agentManagerService';
+import { listManagedAgentRecords } from '../services/managedAgentService';
 
 type EnvSnapshot = {
 	HOME?: string;
@@ -106,7 +106,7 @@ suite('Agent manager panel', () => {
 			const manager = new AgentManagerPanelManager(() => undefined);
 			try {
 				manager.show();
-				const id = listAgentManagerRecords(configPath, getAgentLocations(homeDir))[0].id;
+				const id = listManagedAgentRecords(configPath, getAgentLocations(homeDir))[0].id;
 				fake.dispatchMessage({ type: 'toggleAgent', id, enabled: true });
 				assert.strictEqual(warnings, 1);
 				assert.strictEqual(infos, 0);
@@ -118,7 +118,7 @@ suite('Agent manager panel', () => {
 				assert.strictEqual(errors, 1);
 				assert.strictEqual(infos, 0);
 				assert.strictEqual(fs.readFileSync(configPath, 'utf8'), declaration);
-				assert.strictEqual(listAgentManagerRecords(configPath, getAgentLocations(homeDir))[0].enabled, true);
+				assert.strictEqual(listManagedAgentRecords(configPath, getAgentLocations(homeDir))[0].enabled, true);
 			} finally {
 				manager.dispose();
 				fs.renameSync = originalRename;
@@ -140,7 +140,7 @@ suite('Agent manager panel', () => {
 			const roleContents = 'model = "test-model"\n';
 			fs.writeFileSync(rolePath, roleContents);
 			const declaration = '[agents.reviewer]\ndescription = "Reviewer"\nconfig_file = "../custom-role.toml"\n';
-			fs.writeFileSync(basePath, declaration);
+			fs.writeFileSync(basePath, declaration.replace('[agents.reviewer]', '[agents.base_reviewer]'));
 			fs.writeFileSync(profilePath, declaration);
 			const fakePanel = createFakePanel();
 			const originalCreate = vscode.window.createWebviewPanel;
@@ -155,17 +155,17 @@ suite('Agent manager panel', () => {
 			const manager = new AgentManagerPanelManager(() => { changes += 1; });
 			try {
 				manager.show();
-				const records = listAgentManagerRecords(basePath, getAgentLocations(homeDir));
+				const records = listManagedAgentRecords(basePath, getAgentLocations(homeDir));
 				const profile = records.find((record) => record.configPath === profilePath)!;
 				assert.ok(profile);
 				assert.ok(fakePanel.panel.webview.html.includes('Profile: review'));
 				assert.ok(fakePanel.panel.webview.html.includes('test-model'));
-				fakePanel.dispatchMessage({ type: 'openAgent', agentPath: profile.agentPath });
+				fakePanel.dispatchMessage({ type: 'openAgent', id: profile.id });
 				assert.strictEqual(opened[0].fsPath, vscode.Uri.file(rolePath).fsPath);
 				fakePanel.dispatchMessage({ type: 'toggleAgent', id: profile.id, enabled: false });
-				assert.strictEqual(fs.readFileSync(basePath, 'utf8'), declaration);
+				assert.strictEqual(fs.readFileSync(basePath, 'utf8'), declaration.replace('[agents.reviewer]', '[agents.base_reviewer]'));
 				assert.ok(!fs.readFileSync(profilePath, 'utf8').includes('[agents.reviewer]'));
-				assert.strictEqual(listAgentManagerRecords(basePath, getAgentLocations(homeDir)).find((record) => record.id === profile.id)?.enabled, false);
+				assert.strictEqual(listManagedAgentRecords(basePath, getAgentLocations(homeDir)).find((record) => record.id === profile.id)?.enabled, false);
 				fakePanel.dispatchMessage({ type: 'toggleAgent', id: profile.id, enabled: true });
 				assert.ok(fs.readFileSync(profilePath, 'utf8').includes('custom-role.toml'));
 				assert.strictEqual(fs.readFileSync(rolePath, 'utf8'), roleContents);

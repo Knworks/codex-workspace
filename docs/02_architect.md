@@ -107,7 +107,7 @@ codex-workspace/
   - Skills の `SKILL.md` と Skill root folder には有効/無効状態アイコンを付与する
 
 - **Sub Agents Explorer**
-  - `agentExplorerProvider.ts` と Agents タブは `refreshAgentManagerRecords()` の共通一覧を利用する
+  - `agentExplorerProvider.ts` と Agents タブは `managedAgentService.ts` の `listManagedAgentRecords()` を利用する。CLI 定義を正本とし、宣言参照・単独定義・未登録候補・参照切れ・不正定義・未検証を区別する
   - 実在する Agent TOML を宣言元と role key に対応付けてアイコン状態を決める。TreeItem に宣言情報を保持し、別名 role や Profile の操作先を識別する
   - tooltip と description に location label を付与する
 
@@ -144,22 +144,24 @@ codex-workspace/
   - 新規かつテンプレートなしの場合だけ `agentScaffold.ts` でコメントヘッダーと必須の `name` / `description` / `developer_instructions` を生成する。#24 の Codex CLI `0.163.0` 単独 Agent 契約に合わせ、説明を指示文の初期値へ使う。空白だけの説明では説明・指示文を編集案内にし、モデル・権限は設定しない
   - 名前はファイル名正規化後の値、ヘッダーの説明は入力値を使う。TOML basic string のエスケープで引用符・改行・バックスラッシュ・制御文字を表現し、コメントも1行に閉じ込めて設定行の混入を防ぐ
   - 選択済みテンプレートは空でもそのまま保存し、編集・有効化・設定整理では Agent TOML の内容を保持する。これらの経路と既存ファイルへの必須項目の自動補完は行わない
-  - 作成・編集では `upsertAgentConfigMetadata()` でメタデータを更新する。有効化は Manager と共通処理で対象ファイルの退避を復元し、退避がなければ実際のパスを登録する
-  - 無効化時は block を `agents-disabled.json` に退避する
+  - 作成時はテンプレートをそのまま保存し、必須項目は自動補完しない。単独形式なら登録不要とし、宣言参照型は保存先に対応する設定へメタデータを登録する
+  - 編集・削除・Open は形式・設定元・role key・実体の ID で再取得する。宣言参照型の編集は選択した宣言のメタデータ、単独形式の編集は本文 description とファイル名を対象とし、本文 name と指示を保持する。実ファイルを共有する別定義があればファイル編集・削除を拒否する
+  - 宣言参照型の無効化時は block を `agents-disabled.json` に退避し、単独定義は `.toml.disabled` へ変更する
   - `agentDeclarationService.ts` は既存 `toml` パッケージの構文ノードと位置情報を使い、role の親・子テーブルをまとめて抽出する。インライン宣言は復元可能な role テーブルへ変換し、他の設定値を保持する
   - `agentFileStore.ts` は同一ディレクトリの一時ファイルへ書き込んでから置き換える。無効化は退避保存、設定保存の順、有効化は設定保存、退避削除の順に処理し、失敗時も復旧データを保持する。Manager と Explorer は失敗・未変更を成功通知しない
   - 同期や整理の前後では `agentConfigRepairService.ts` と `agentSyncCleanupService.ts` が `config.toml` を補正する
-  - `agentManagerService.ts` は Base、`profileConfigService.ts` が列挙する Profile V2、認識済み Project の設定を解析し、実在ファイルへ対応付けた共通一覧を作る。ルート内の未登録 TOML は OFF として補う
-  - 行 ID は宣言元設定パスと role key の組とし、`config_file` は宣言元設定のディレクトリを基準に解決する。ファイル名から role key を推定しない
+  - `agentManagerService.ts` の `listAgentDeclarationRecords()` は宣言列挙、既存の保存処理は退避・復元・参照更新を担当する。旧 `listAgentManagerRecords()` は互換用途で保持し、UI は呼び出さない
+  - UI の行 ID は CLI の形式・設定元・role key・実体の組を引き継ぐ。`config_file` は宣言元のディレクトリ基準で解決し、ファイル名から既存 role を推定しない
   - Manager の ON/OFF は行 ID から宣言元設定を特定して更新する。Base と Project は各設定ディレクトリの `.codex-workspace/agents-disabled.json`、Profile は `.codex-workspace/<name>.config.toml.agents-disabled.json` に退避する
   - CLI 互換管理は `cliAgentService.ts` に分離する。対応契約は `0.163.0`。`agentLocations.ts` の `getCliAgentLocations()` で Base / 認識済み Project の設定レイヤーに対応した探索ルートを返し、Explorer 向けの legacy fallback と区別する。`listCliAgentRecords()` は `listAgentDeclarationRecords()` から詳細ファイル解析を省略して宣言・退避を取得し、単独ファイルを再帰列挙して共通モデルを作る。UI 向けの欠落ファイル除外・未登録ファイル補完は適用しない
   - `CliAgentRecord` は `definitionFormat`、`configPath`、`agentPath`、`configFile`、`roleKey`、CLI の本文優先 `name`、`description`、`location`、`enabled`、`availability`、`reason` を保持する。ID は形式・設定元・実体の組で、単独定義の ON/OFF で変わらない。全レイヤーの優先度・trust・選択 Profile の合成は行わない
   - 単独定義の検証対象は必須3項目と `model` / `model_reasoning_effort` / `sandbox_mode`。残りの設定は未検証として理由付きで扱い、未知項目を削除・補完しない。参照先ファイルが壊れていても、共通モデルでは当該行の状態に理由を付ける
   - `setCliAgentEnabled()` は再列挙した ID を使う。対応版外・同名の別有効定義・既存退避先・リンク経由の変更・宣言参照を壊す改名・宣言削除による再発見を拒否し、`{ supported: false, reason }` を返す。単独定義は `.toml` / `.toml.disabled` を相互改名し、本文も既存の宣言・disabled store も変更しない。安全な宣言参照型の操作は既存サービスへ委譲する
-  - 既存 Manager / Explorer の表示統合・登録 UI はこの共通 API の対象外。既存 `disableAgentByName()` には同じ設定元での単独再発見防止を加え、OFF と誤報しない。[CLI Agent 互換性検証](agent-cli-compatibility.md) に公式資料、版固定ソース、オフライン実 CLI 検証を記録する
-  - Agent TOML の表示項目と `developer_instructions` は TOML parser で読み取る。ファイル欠落、参照なし、退避データだけの行は表示しない。設定レイヤーの完全合成は行わない
-  - `pruneMissingAgentBackups()` は更新・同期後に不要な退避を除去し、空の退避ファイルも削除する。有効宣言と復元可能な無効宣言は自動削除しない
-  - 削除・名前変更は実ファイルのパスで全設定元と退避を照合する。保存に失敗した場合は変更済みの設定を戻し、実ファイルを維持する
+  - `managedAgentService.ts` は CLI API の上に読み取り専用の UI モデルを作る。本文 name のない有効な旧形式ファイルを candidate、欠落参照を missing として補い、別の宣言に対応済みの candidate は重複させない。設定元ごとの解析失敗は CLI サービスで診断行に分離する
+  - `managedAgentActions.ts` は候補の登録先と必要な説明を入力する。`registerManagedAgent()` は ID を再取得して Base / Profile / Project の選択先だけへ実パスを登録し、既存 role と退避の衝突を拒否する
+  - `setManagedAgentEnabled()` は `setCliAgentEnabled()` の拒否理由を両画面へ伝える。診断行には状態・原因を表示し、スイッチを無効にする。参照切れの Open は宣言元を開く。設定レイヤーの完全合成は行わない
+  - 一覧更新は退避を含め読み取り専用。`pruneMissingAgentBackups()` は既存の同期整理で使用し、UI の列挙・更新からは呼ばない
+  - 削除・名前変更は共有実体でないことを確認してから既存の保存処理を使用する。保存失敗時は変更済み設定を戻し、実ファイルを維持する。[CLI Agent 互換性検証](agent-cli-compatibility.md) の探索契約と拒否条件を維持する
   - `agentDeclarationService.ts` は TOML parser の構文位置を使い、子テーブルを含む宣言の抽出と、コメント・他の値を保持したメタデータ更新を担当する
   - `agentManagerPanel.ts` は `Agents` / `Orchestration` の 2 タブを持つ Webview を提供する
   - Agents タブは左の一覧と右の詳細からなる list-detail レイアウトで、詳細ペインに `developer_instructions` の Markdown preview を HTML 描画する
@@ -216,7 +218,7 @@ codex-workspace/
 | `SkillLocation` | `kind` / `label` / `rootPath` / `createPath` / `priority` | object | Skills 保存場所 |
 | `SkillRecord` | `id` / `name` / `description` / `skillPath` / `enabled` | object | Skill Manager 行 |
 | `AgentLocation` | `kind` / `label` / `rootPath` / `createPath` / `priority` | object | Sub Agents 保存場所 |
-| `AgentManagerRecord` | `id` / `name` / `description` / `model` / `reasoningEffort` / `sandboxMode` / `agentPath` / `configFile` / `location` / `enabled` / `previewContent` | object | AGENTS Manager 行 |
+| `ManagedAgentRecord` | `id` / `definitionFormat` / `configPath` / `roleKey` / `name` / `description` / `model` / `reasoningEffort` / `sandboxMode` / `agentPath` / `configFile` / `location` / `enabled` / `availability` / `reason` / `previewContent` | object | Explorer / AGENTS Manager 共通行 |
 | `OrchestrationWorkflow` | `version` / `workflowId` / `name` / `description` / `finalOutputFormat` / `nodes` / `edges` / `createdAt` / `updatedAt` | object | Orchestration 保存モデル |
 | `OrchestrationNode` | `nodeId` / `cardType` / `x` / `y` + card 種別ごとの属性 | object | canvas 上の card |
 | `OrchestrationEdge` | `edgeId` / `sourceNodeId` / `targetNodeId` | object | card 間の接続 |

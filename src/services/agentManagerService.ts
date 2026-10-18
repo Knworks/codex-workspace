@@ -49,8 +49,8 @@ export function listAgentDeclarationRecords(
 	configPath: string,
 	locations: AgentLocation[] = getAgentLocations(),
 	includeDetails: boolean = true,
+	sources = listAgentConfigSources(configPath, locations),
 ): AgentManagerRecord[] {
-	const sources = listAgentConfigSources(configPath, locations);
 	const records = sources.flatMap((source) => {
 		const contents = fs.existsSync(source.configPath) ? fs.readFileSync(source.configPath, 'utf8') : '';
 		const roles = parseAgentRoleDeclarations(contents);

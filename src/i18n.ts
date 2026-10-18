@@ -52,6 +52,20 @@ function localize(
 }
 
 export const messages = {
+	agentRegister: localize('message.agentRegister', 'Register'),
+	agentConfigSourceLabel: localize('message.agentConfigSourceLabel', 'Configuration source'),
+	agentDefinitionFormatLabel: localize('message.agentDefinitionFormatLabel', 'Definition format'),
+	agentRoleKeyLabel: localize('message.agentRoleKeyLabel', 'Declaration role'),
+	agentRegistrationSource: localize('message.agentRegistrationSource', 'Select the configuration source for this Agent'),
+	agentDescriptionRequired: localize('message.agentDescriptionRequired', 'A non-empty description is required.'),
+	agentStatuses: {
+		available: localize('message.agentStatusAvailable', 'Available'),
+		disabled: localize('message.agentStatusDisabled', 'Disabled'),
+		candidate: localize('message.agentStatusCandidate', 'Registration candidate'),
+		invalid: localize('message.agentStatusInvalid', 'Invalid definition'),
+		missing: localize('message.agentStatusMissing', 'Missing reference'),
+		unverified: localize('message.agentStatusUnverified', 'Unverified'),
+	},
 	selectionRequired: localize(
 		'message.selectionRequired',
 		'Please select a target.',
