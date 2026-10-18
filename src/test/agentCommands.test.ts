@@ -3,6 +3,8 @@ import fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import * as toml from 'toml';
+import { listCliAgentRecords } from '../services/cliAgentService';
 import { CodexTreeItem } from '../models/treeItems';
 import { listAgentManagerRecords } from '../services/agentManagerService';
 
@@ -215,7 +217,7 @@ suite('Agent commands', () => {
 			assert.strictEqual(fs.existsSync(path.join(codexDir, '.codex-workspace', 'review.config.toml.agents-disabled.json')), false);
 		});
 	});
-	test('addAgent executes name -> description -> template and creates empty file', async () => {
+	test('addAgent executes name -> description -> template and scaffolds without template', async () => {
 		await withTempHome(async (homeDir) => {
 			const { codexDir, agentsDir, configPath } = createWorkspace(homeDir);
 			const templateRoot = path.join(codexDir, 'codex-templates');
@@ -261,14 +263,86 @@ suite('Agent commands', () => {
 			const createdPath = path.join(agentsDir, 'reviewer.toml');
 			assert.ok(fs.existsSync(createdPath));
 			const createdContents = fs.readFileSync(createdPath, 'utf8');
-			assert.ok(!createdContents.includes('name = "reviewer"'));
-			assert.ok(!createdContents.includes('description = "Security reviewer"'));
+			assert.ok(createdContents.includes('# name: reviewer\n# description: Security reviewer'));
+			assert.deepStrictEqual({ ...toml.parse(createdContents) }, {
+				name: 'reviewer',
+				description: 'Security reviewer',
+				developer_instructions: 'Security reviewer',
+			});
 			const config = fs.readFileSync(configPath, 'utf8');
 			assert.ok(config.includes('[agents.reviewer]'));
 			assert.ok(config.includes('description = "Security reviewer"'));
 			assert.ok(config.includes('config_file = "agents/reviewer.toml"'));
+			const cliRecord = listCliAgentRecords(configPath).find((record) => record.agentPath === createdPath);
+			assert.ok(cliRecord);
+			assert.strictEqual(cliRecord.name, 'reviewer');
+			assert.strictEqual(cliRecord.availability, 'available');
+			assert.strictEqual(cliRecord.enabled, true);
 		});
 	});
+
+	for (const scenario of [
+		{ label: 'no templates and no description', description: '', template: undefined },
+		{ label: 'no templates and whitespace description', description: ' \t ', template: undefined },
+		{ label: 'special description', description: '日本語 "引用"\\\nmodel = "injected"\r\n次行\u007f', template: undefined },
+		{ label: 'empty selected template', description: 'Keep empty', template: '' },
+		{ label: 'cancelled template selection', description: 'Cancelled', template: 'mode = "keep"\n', cancel: true },
+	]) {
+		test(`addAgent handles ${scenario.label}`, async () => {
+			await withTempHome(async (homeDir) => {
+				const { codexDir, agentsDir, configPath } = createWorkspace(homeDir);
+				if (scenario.template !== undefined) {
+					const templateRoot = path.join(codexDir, 'codex-templates');
+					fs.mkdirSync(templateRoot, { recursive: true });
+					fs.writeFileSync(path.join(templateRoot, 'selected.toml'), scenario.template, 'utf8');
+				}
+				await activateExtension();
+				const originalInput = vscode.window.showInputBox;
+				const originalPick = vscode.window.showQuickPick;
+				const restoreInput = mockQuickPickTextInputs(['作成_agent']);
+				(vscode.window as unknown as { showInputBox: typeof originalInput }).showInputBox =
+					async () => scenario.description;
+				(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick =
+					async (items: any) => items.find((item: { label?: string }) => item.label === 'Workspace Agents')
+						?? (scenario.cancel ? undefined : items[1]);
+				try {
+					await vscode.commands.executeCommand('codex-workspace.addAgent');
+				} finally {
+					restoreInput();
+					(vscode.window as unknown as { showInputBox: typeof originalInput }).showInputBox = originalInput;
+					(vscode.window as unknown as { showQuickPick: typeof originalPick }).showQuickPick = originalPick;
+				}
+				const createdPath = path.join(agentsDir, '作成_agent.toml');
+				if (scenario.cancel) {
+					assert.ok(!fs.existsSync(createdPath));
+					assert.strictEqual(fs.readFileSync(configPath, 'utf8'), 'title = "ok"\n');
+					return;
+				}
+				const contents = fs.readFileSync(createdPath, 'utf8');
+				if (scenario.template !== undefined) {
+					assert.strictEqual(contents, scenario.template);
+				} else {
+					const parsed = toml.parse(contents);
+					const cliRecord = listCliAgentRecords(configPath).find((record) => record.agentPath === createdPath);
+					assert.ok(cliRecord);
+					assert.strictEqual(cliRecord.name, '作成_agent');
+					assert.strictEqual(cliRecord.availability, 'available');
+					assert.strictEqual(cliRecord.enabled, true);
+					assert.strictEqual(parsed.name, '作成_agent');
+					assert.deepStrictEqual(Object.keys(parsed).sort(), ['description', 'developer_instructions', 'name']);
+					if (scenario.description.trim()) {
+						assert.strictEqual(parsed.description, scenario.description);
+						assert.strictEqual(parsed.developer_instructions, scenario.description);
+					} else {
+						assert.strictEqual(typeof parsed.description, 'string');
+						assert.strictEqual(typeof parsed.developer_instructions, 'string');
+						assert.match(String(parsed.description), /TODO:/);
+						assert.match(String(parsed.developer_instructions), /TODO:/);
+					}
+				}
+			});
+		});
+	}
 
 	test('addAgent applies selected template contents', async () => {
 		await withTempHome(async (homeDir) => {
@@ -311,6 +385,7 @@ suite('Agent commands', () => {
 			assert.ok(!createdContents.includes('description = "Template agent"'));
 			assert.ok(createdContents.includes('mode = "from-template"'));
 			assert.ok(createdContents.includes('developer_instructions = """'));
+			assert.strictEqual(createdContents, fs.readFileSync(templatePath, 'utf8'));
 		});
 	});
 
@@ -387,6 +462,7 @@ suite('Agent commands', () => {
 			}
 
 			assert.ok(warnings.length > 0);
+			assert.strictEqual(fs.readFileSync(path.join(agentsDir, 'exists.toml'), 'utf8'), 'old');
 			const config = fs.readFileSync(configPath, 'utf8');
 			assert.ok(!config.includes('[agents.exists]'));
 		});
