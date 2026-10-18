@@ -2,6 +2,25 @@
 
 All notable changes to the "codex-workspace" extension will be documented in this file.
 
+## 1.1.11
+
+Changes
+
+- Updated conversation history to load active and archived conversations through the Codex Thread API, with progressive loading and caching.
+- Added support for Profile V2 configuration files and updated Hooks and Feature Flags for the supported Codex CLI.
+- Updated Agent Explorer and Agent Manager to share external agent discovery, registration, diagnostics, and CLI-compatible enable controls.
+- Added initial agent content with a name, description, and instructions when no template is selected.
+
+Fixes
+
+- Fixed Codex Home handling across workspace services and AGENTS loading estimates that ignored base configuration.
+- Fixed Skill discovery across project and user roots and configuration saving for paths containing apostrophes.
+- Fixed agent switches that did not save changes and preserved declarations when disabling, restoring, or handling save failures.
+- Fixed MCP configuration saving to preserve valid tool settings, unknown tool fields, and multiline arguments.
+- Fixed MCP and Plugin updates that could modify unrelated TOML tables with trailing header comments.
+- Fixed synchronization history so changing the source or destination does not incorrectly delete files.
+- Fixed conversation history layout overflow and visible command windows when loading history on Windows.
+
 ## 1.1.10
 
 Changes
