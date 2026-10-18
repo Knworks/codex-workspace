@@ -62,3 +62,21 @@ export function findAgentLocationForPath(
 		);
 	});
 }
+
+/** CLI 0.163.0 scans agents beside each loaded config layer, never the legacy .agents root. */
+export function getCliAgentLocations(
+	configPath: string,
+	locations: AgentLocation[] = getAgentLocations(),
+): AgentLocation[] {
+	const roots = new Map<string, AgentLocation>();
+	const workspace = locations.find((location) => location.kind === 'workspace');
+	const rootPath = path.resolve(path.dirname(configPath), 'agents');
+	roots.set(rootPath, { kind: 'workspace', label: workspace?.label ?? 'Workspace Agents', rootPath, priority: 2 });
+	for (const location of locations.filter((item) => item.kind === 'project')) {
+		const projectPath = path.resolve(location.createPath ?? location.rootPath);
+		// Legacy fallback remains available to Explorer, but is not a CLI discovery root.
+		if (path.basename(path.dirname(projectPath)) !== '.codex') { continue; }
+		roots.set(projectPath, { ...location, rootPath: projectPath });
+	}
+	return [...roots.values()];
+}

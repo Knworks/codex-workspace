@@ -40,6 +40,7 @@ const INHERITED = '継承';
 export function listAgentManagerRecords(
 	configPath: string,
 	locations: AgentLocation[] = getAgentLocations(),
+	includeDetails: boolean = true,
 ): AgentManagerRecord[] {
 	const baseDir = path.dirname(configPath);
 	const workspaceLocation = locations.find((location) => location.kind === 'workspace') ?? {
@@ -64,12 +65,12 @@ export function listAgentManagerRecords(
 		const roles = parseAgentRoleDeclarations(contents);
 		const storePath = getAgentManagerStorePath(sourcePath);
 		const disabled = listDisabledAgentIds(storePath);
-		const records = roles.map((role) => createRecord(role, sourcePath, source.location, true));
+		const records = roles.map((role) => createRecord(role, sourcePath, source.location, true, includeDetails));
 		for (const key of disabled) {
 			if (roles.some((role) => role.name === key)) { continue; }
 			const block = getDisabledAgentBlock(storePath, key);
 			for (const role of parseAgentRoleDeclarations(block ?? '')) {
-				records.push(createRecord(role, sourcePath, source.location, false));
+				records.push(createRecord(role, sourcePath, source.location, false, includeDetails));
 			}
 		}
 		return records;
@@ -89,9 +90,9 @@ export function parseAgentRoleDeclarations(contents: string): AgentRoleDeclarati
 	});
 }
 
-function createRecord(role: AgentRoleDeclaration, configPath: string, location: AgentLocation, enabled: boolean): AgentManagerRecord {
+function createRecord(role: AgentRoleDeclaration, configPath: string, location: AgentLocation, enabled: boolean, includeDetails: boolean): AgentManagerRecord {
 	const agentPath = role.configFile ? resolveAgentConfigFile(configPath, role.configFile) : configPath;
-	const detail = role.configFile ? readAgentTomlDetails(agentPath) : {};
+	const detail = role.configFile && includeDetails ? readAgentTomlDetails(agentPath) : {};
 	return {
 		id: JSON.stringify([configPath, role.name]), name: role.name, description: role.description,
 		model: detail.model ?? INHERITED, reasoningEffort: detail.model_reasoning_effort ?? INHERITED,
@@ -101,7 +102,7 @@ function createRecord(role: AgentRoleDeclaration, configPath: string, location: 
 }
 
 /** Keep the legacy Base store; isolate Profile stores even when sharing a directory. */
-function getAgentManagerStorePath(configPath: string): string {
+export function getAgentManagerStorePath(configPath: string): string {
 	const storePath = getDisabledAgentsStorePath(path.dirname(configPath));
 	return path.basename(configPath) === 'config.toml' ? storePath
 		: path.join(path.dirname(storePath), `${path.basename(configPath)}.agents-disabled.json`);
@@ -109,6 +110,17 @@ function getAgentManagerStorePath(configPath: string): string {
 
 export function disableAgentByName(_codexDir: string, configPath: string, agentName: string): void {
 	const contents = fs.readFileSync(configPath, 'utf8');
+	const role = parseAgentRoleDeclarations(contents).find((item) => item.name === agentName);
+	if (role?.configFile) {
+		const agentPath = resolveAgentConfigFile(configPath, role.configFile);
+		const relative = path.relative(path.join(path.dirname(configPath), 'agents'), agentPath);
+		if (relative !== '' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative) && agentPath.endsWith('.toml') && fs.existsSync(agentPath)) {
+			const definition = toml.parse(fs.readFileSync(agentPath, 'utf8')) as Record<string, unknown>;
+			if (['name', 'description', 'developer_instructions'].every((key) => typeof definition[key] === 'string' && definition[key].trim())) {
+				throw new Error('Cannot disable this declaration: CLI 0.163.0 would rediscover its standalone Agent file.');
+			}
+		}
+	}
 	const extracted = extractAgentConfigBlock(contents, agentName);
 	if (!extracted.removed || !extracted.block) {
 		return;

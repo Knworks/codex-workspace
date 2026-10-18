@@ -143,6 +143,11 @@ codex-workspace/
   - 行 ID は宣言元設定パスと role key の組とし、`config_file` は宣言元設定のディレクトリを基準に解決する。ファイル名から role key を推定しない
   - Manager の ON/OFF は行 ID から宣言元設定を特定して更新する。Base と Project は各設定ディレクトリの `.codex-workspace/agents-disabled.json`、Profile は `.codex-workspace/<name>.config.toml.agents-disabled.json` に退避する
   - Agent TOML の表示項目と `developer_instructions` は TOML parser で読み取る。参照ファイルなしは継承表示、`config_file` なしの Open は宣言元設定を開く。未登録ファイル列挙と設定レイヤーの完全合成は行わない
+  - CLI 互換管理は `cliAgentService.ts` に分離する。対応契約は `0.163.0`。`agentLocations.ts` の `getCliAgentLocations()` で Base / 認識済み Project の設定レイヤーに対応した探索ルートを返し、Explorer 向けの legacy fallback と区別する。`listCliAgentRecords()` は既存サービスから詳細ファイル解析を省略して宣言・退避を取得し、単独ファイルを再帰列挙して共通モデルを作る
+  - `CliAgentRecord` は `definitionFormat`、`configPath`、`agentPath`、`configFile`、`roleKey`、CLI の本文優先 `name`、`description`、`location`、`enabled`、`availability`、`reason` を保持する。ID は形式・設定元・実体の組で、単独定義の ON/OFF で変わらない。全レイヤーの優先度・trust・選択 Profile の合成は行わない
+  - 単独定義の検証対象は必須3項目と `model` / `model_reasoning_effort` / `sandbox_mode`。残りの設定は未検証として理由付きで扱い、未知項目を削除・補完しない。参照先ファイルが壊れていても、共通モデルでは当該行の状態に理由を付ける
+  - `setCliAgentEnabled()` は再列挙した ID を使う。対応版外・同名の別有効定義・既存退避先・リンク経由の変更・宣言参照を壊す改名・宣言削除による再発見を拒否し、`{ supported: false, reason }` を返す。単独定義は `.toml` / `.toml.disabled` を相互改名し、本文も既存の宣言・disabled store も変更しない。安全な宣言参照型の操作は既存サービスへ委譲する
+  - 既存 Manager / Explorer の表示統合・登録 UI はこの共通 API の対象外。既存 `disableAgentByName()` には同じ設定元での単独再発見防止を加え、OFF と誤報しない。[CLI Agent 互換性検証](agent-cli-compatibility.md) に公式資料、版固定ソース、オフライン実 CLI 検証を記録する
   - `agentManagerPanel.ts` は `Agents` / `Orchestration` の 2 タブを持つ Webview を提供する
   - Agents タブは左の一覧と右の詳細からなる list-detail レイアウトで、詳細ペインに `developer_instructions` の Markdown preview を HTML 描画する
   - `orchestrationService.ts` が workflow JSON の保存、読込、削除、一覧化、バリデーション、prompt 生成を担当する

@@ -162,6 +162,14 @@
 - 無効化した role は退避宣言から引き続き表示し、元の `config_file` を保持して再有効化できる。未登録 TOML は Manager の一覧に含めない。
 - `config_file` がない role は継承設定として表示し、Open で宣言元設定を開く。参照先ファイルが存在しない宣言も一覧に含める。
 - 設定レイヤーを合成した effective Agent の完全再現は対象外とする。
+- CLI 互換管理の対応版は `codex-cli 0.163.0` とする。共通 API `listCliAgentRecords()` / `setCliAgentEnabled()` は、既存 Manager / Explorer の表示・登録 UI とは独立して提供する。既存一覧への単独定義の表示統合、登録 UI、テンプレート生成は本対応に含めない。
+- 共通 API は既存の宣言参照型と、読み込まれる設定レイヤーの `agents/**/*.toml` にある単独定義を区別する。Base は `$CODEX_HOME/agents`（未指定時 `~/.codex/agents`）、認識済みの信頼された Project は `.codex/agents` を扱い、Explorer の `.agents/agents` fallback は CLI 探索対象に含めない。Profile V2 は既存の宣言列挙を維持し、選択中 Profile や trust の判定は呼び出し側の責務とする。
+- 識別子に定義形式、設定元、実体パスを保持する。宣言キー `roleKey`、本文の CLI 識別名 `name`、ファイル名は分ける。本文の `name` / `description` がある参照定義では本文を優先する。同一レイヤーで宣言が参照する実体を単独定義として重複列挙しない。
+- 単独定義には空白でない文字列の `name`、`description`、`developer_instructions` を要求する。共通 API の検証範囲はこれらと `model`、`model_reasoning_effort`、`sandbox_mode` とし、その他の項目は本文を保持したまま `unverified` と理由を返す。必須項目不足、不正 TOML、未知の対応版などを有効化成功として扱わない。
+- `enabled` は当該定義が対応契約で利用可能かを表し、`availability` は `available` / `disabled` / `invalid` / `unverified` と理由を返す。全レイヤー合成後の実効名や、モデル・権限の適用結果は保証しない。既存 Manager の宣言有無による状態と混同しない。
+- 共通 API の単独定義 OFF は `*.toml` を同じ場所の `*.toml.disabled` へ変更し、ON で戻す。本文はバイト単位で保持し、設定宣言・既存 disabled store を作成・移行しない。退避先が存在する場合やシンボリックリンクを経由する操作は拒否する。
+- 別定義が同じ CLI 名を公開する場合、参照中の単独実体を変更する場合、宣言削除後に単独ファイルが再発見される場合は理由付きで拒否する。既存 `disableAgentByName()` も同じ設定ディレクトリ内の単独実体を再発見する OFF を例外で拒否し、成功通知に進めない。
+- 対応契約と実 CLI の検証手順・結果は [CLI Agent 互換性検証](agent-cli-compatibility.md) に記録する。
 - 一覧は name / description / model / reasoningEffort / sandboxMode / path / location / toggle / open button を表示する。
 - 詳細ペインは model / reasoningEffort / sandboxMode / location / path と `developer_instructions` のプレビューを表示する。
 - `developer_instructions` のプレビューは Markdown を HTML 描画し、空の場合は空状態メッセージを表示する。
