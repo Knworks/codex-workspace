@@ -82,6 +82,53 @@ async function withTempHome(run: (homeDir: string) => Promise<void>): Promise<vo
 }
 
 suite('Agent manager panel', () => {
+	test('toggle failure and unchanged enable do not announce success and show actual state', async () => {
+		await withTempHome(async (homeDir) => {
+			const codexDir = path.join(homeDir, '.codex');
+			fs.mkdirSync(codexDir);
+			const configPath = path.join(codexDir, 'config.toml');
+			const declaration = '[agents.reviewer]\ndescription = "keep"\n';
+			fs.writeFileSync(configPath, declaration);
+			const fake = createFakePanel();
+			const originalCreate = vscode.window.createWebviewPanel;
+			const originalInfo = vscode.window.showInformationMessage;
+			const originalWarning = vscode.window.showWarningMessage;
+			const originalError = vscode.window.showErrorMessage;
+			const originalRename = fs.renameSync;
+			let infos = 0;
+			let warnings = 0;
+			let errors = 0;
+			vscode.window.createWebviewPanel = () => fake.panel;
+			vscode.window.showInformationMessage = (async () => { infos += 1; }) as typeof originalInfo;
+			vscode.window.showWarningMessage = (async () => { warnings += 1; }) as typeof originalWarning;
+			vscode.window.showErrorMessage = (async () => { errors += 1; }) as typeof originalError;
+			const manager = new AgentManagerPanelManager(() => undefined);
+			try {
+				manager.show();
+				const id = listAgentManagerRecords(configPath, getAgentLocations(homeDir))[0].id;
+				fake.dispatchMessage({ type: 'toggleAgent', id, enabled: true });
+				assert.strictEqual(warnings, 1);
+				assert.strictEqual(infos, 0);
+				fs.renameSync = (source, destination) => {
+					if (String(destination) === configPath) { throw new Error('EACCES injected'); }
+					originalRename(source, destination);
+				};
+				fake.dispatchMessage({ type: 'toggleAgent', id, enabled: false });
+				assert.strictEqual(errors, 1);
+				assert.strictEqual(infos, 0);
+				assert.strictEqual(fs.readFileSync(configPath, 'utf8'), declaration);
+				assert.strictEqual(listAgentManagerRecords(configPath, getAgentLocations(homeDir))[0].enabled, true);
+			} finally {
+				manager.dispose();
+				fs.renameSync = originalRename;
+				vscode.window.createWebviewPanel = originalCreate;
+				vscode.window.showInformationMessage = originalInfo;
+				vscode.window.showWarningMessage = originalWarning;
+				vscode.window.showErrorMessage = originalError;
+			}
+		});
+	});
+
 	test('renders Profile roles and routes Open and ON/OFF to the selected declaration', async () => {
 		await withTempHome(async (homeDir) => {
 			const codexDir = path.join(homeDir, '.codex');

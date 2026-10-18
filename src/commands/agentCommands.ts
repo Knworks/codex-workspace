@@ -24,9 +24,11 @@ import {
 } from '../services/agentConfigService';
 import {
 	getDisabledAgentsStorePath,
-	saveDisabledAgentBlock,
+	getDisabledAgentBlock,
 	takeDisabledAgentBlock,
 } from '../services/disabledAgentsStore';
+import { disableAgentByName } from '../services/agentManagerService';
+import { writeAgentFile } from '../services/agentFileStore';
 import { stabilizeManagedConfigToml } from '../services/configTomlOrganizerService';
 import { AgentExplorerProvider } from '../views/agentExplorerProvider';
 
@@ -308,7 +310,7 @@ async function enableAgent(
 		return;
 	}
 
-	const stashedBlock = takeDisabledAgentBlock(storePath, agentId);
+	const stashedBlock = getDisabledAgentBlock(storePath, agentId);
 	const restoredContents = stashedBlock
 		? appendAgentConfigRawBlock(configContents, stashedBlock)
 		: configContents;
@@ -318,11 +320,11 @@ async function enableAgent(
 		readAgentTomlDescription(agentFilePath),
 		toAgentConfigFilePath(configPath, agentFilePath),
 	);
-	fs.writeFileSync(
+	writeAgentFile(
 		configPath,
 		stabilizeManagedConfigToml(nextContents),
-		'utf8',
 	);
+	if (stashedBlock) { takeDisabledAgentBlock(storePath, agentId); }
 	vscode.window.showInformationMessage(messages.agent.toggleUpdated);
 	agentProvider.refresh();
 }
@@ -332,21 +334,13 @@ async function disableAgent(
 	agentProvider: AgentExplorerProvider,
 ): Promise<void> {
 	const { codexDir, configPath } = resolveCodexPaths();
-	const storePath = getDisabledAgentsStorePath(codexDir);
 	const agentId = path.basename(agentFilePath, path.extname(agentFilePath));
-	const configContents = fs.readFileSync(configPath, 'utf8');
-	const extracted = extractAgentConfigBlock(configContents, agentId);
-	if (!extracted.removed || !extracted.block) {
+	const result = disableAgentByName(codexDir, configPath, agentId);
+	if (!result.changed) {
 		vscode.window.showWarningMessage(messages.agent.notEnabled(agentId));
 		return;
 	}
 
-	fs.writeFileSync(
-		configPath,
-		stabilizeManagedConfigToml(extracted.contents),
-		'utf8',
-	);
-	saveDisabledAgentBlock(storePath, agentId, extracted.block);
 	vscode.window.showInformationMessage(messages.agent.toggleUpdated);
 	agentProvider.refresh();
 }
