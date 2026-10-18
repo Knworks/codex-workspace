@@ -59,7 +59,7 @@ node scripts/verify-agent-cli.cjs C:/absolute/path/to/codex.exe
 
 ## 🛡️ 回帰確認
 
-`src/test/cliAgentService.test.ts` は、必須項目不足・空白・不正型・不正 TOML、同名別スコープ、ファイル名と名前の相違、ON/OFF の本文バイト保持と安定 ID、既存 store、未知設定保持、退避先衝突、未対応版、消えた行 ID、危険な宣言 OFF の拒否を確認する。既存 Agent Manager / locations のテストも継続する。
+`src/test/cliAgentService.test.ts` は、必須項目不足・空白・不正型・不正 TOML、同名別スコープ、ファイル名と名前の相違、ON/OFF の本文バイト保持と安定 ID、既存 store、未知設定保持、退避先衝突、未対応版、消えた行 ID、危険な宣言 OFF の拒否を確認する。UI の未登録ファイル補完・欠落ファイル除外が CLI の単独探索・宣言診断に混入しないことも確認し、既存 Agent Manager / locations のテストを継続する。
 
 ```powershell
 npm run pretest

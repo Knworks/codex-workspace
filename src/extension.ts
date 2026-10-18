@@ -565,6 +565,7 @@ export function activate(context: vscode.ExtensionContext) {
 					existingAgentIdsBeforeSync,
 				);
 				agentsProvider.refresh();
+				agentManagerPanelManager.refresh();
 			}),
 	);
 
@@ -581,6 +582,7 @@ export function activate(context: vscode.ExtensionContext) {
 				templatesProvider.refresh();
 				mcpProvider.refresh();
 				agentsProvider.refresh();
+				agentManagerPanelManager.refresh();
 				petProvider.refresh();
 			}),
 	);
@@ -650,6 +652,7 @@ export function activate(context: vscode.ExtensionContext) {
 	registerAgentCommands(context, {
 		getSelection: () => selectionContext.getSelection(),
 		agentProvider: agentsProvider,
+		onDidChangeAgents: () => agentManagerPanelManager.refresh(),
 	});
 }
 

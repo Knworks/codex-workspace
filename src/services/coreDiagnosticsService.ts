@@ -31,13 +31,13 @@ export function buildAgentsLoadingChain(
 	homeDir: string = os.homedir(),
 ): AgentsChainNode[] {
 	const { codexDir, configPath } = resolveCodexPaths(homeDir);
-	const fallbackNames = readFallbackNames(configPath);
+	const { fallbackNames, rootMarkers } = readProjectDocSettings(configPath);
 	const nodes: AgentsChainNode[] = [];
 	nodes.push(
 		...buildTierNodes(codexDir, 'Global', ['AGENTS.override.md', 'AGENTS.md']),
 	);
 	if (workspaceRoot) {
-		for (const directory of getProjectDirectoryChain(workspaceRoot)) {
+		for (const directory of getProjectDirectoryChain(workspaceRoot, rootMarkers)) {
 			nodes.push(
 				...buildTierNodes(
 					directory,
@@ -121,19 +121,19 @@ function buildTierNodes(
 	const candidates = fileNames.map((fileName) =>
 		buildNode(root, kind, fileName, fallbackNames.includes(fileName)),
 	);
-	const firstReadable = candidates.find((node) => node.status === 'Active');
-	if (!firstReadable) {
+	const firstCandidate = candidates.find((node) => node.status === 'Active' || node.status === 'Error');
+	if (!firstCandidate) {
 		return candidates;
 	}
 	return candidates.map((node) => {
-		if (node.absolutePath === firstReadable.absolutePath) {
+		if (node.absolutePath === firstCandidate.absolutePath) {
 			return node;
 		}
-		if (node.status === 'Active') {
+		if (node.status === 'Active' || node.status === 'Error') {
 			return {
 				...node,
 				status: 'Skipped' as const,
-				reason: `${firstReadable.fileName} has higher priority.`,
+				reason: `${firstCandidate.fileName} has higher priority.`,
 			};
 		}
 		return node;
@@ -163,6 +163,16 @@ function buildNode(
 		};
 	}
 	try {
+		if (!fs.statSync(absolutePath).isFile()) {
+			return {
+				status: 'Skipped',
+				kind,
+				type,
+				fileName,
+				absolutePath,
+				reason: 'Candidate is not a regular file.',
+			};
+		}
 		const contents = fs.readFileSync(absolutePath, 'utf8');
 		return {
 			status: 'Active',
@@ -170,7 +180,7 @@ function buildNode(
 			type,
 			fileName,
 			absolutePath,
-			reason: 'First readable candidate in this directory.',
+			reason: 'First file candidate in this directory.',
 			contentPreview: contents.slice(0, 2000),
 		};
 	} catch (error) {
@@ -185,9 +195,9 @@ function buildNode(
 	}
 }
 
-function getProjectDirectoryChain(workspaceRoot: string): string[] {
+function getProjectDirectoryChain(workspaceRoot: string, rootMarkers: string[]): string[] {
 	const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
-	const repoRoot = findRepoRoot(resolvedWorkspaceRoot);
+	const repoRoot = findProjectRoot(resolvedWorkspaceRoot, rootMarkers);
 	const chain: string[] = [];
 	let current = resolvedWorkspaceRoot;
 
@@ -206,11 +216,13 @@ function getProjectDirectoryChain(workspaceRoot: string): string[] {
 	return chain.reverse();
 }
 
-function findRepoRoot(startPath: string): string {
+function findProjectRoot(startPath: string, rootMarkers: string[]): string {
+	if (rootMarkers.length === 0) {
+		return path.resolve(startPath);
+	}
 	let current = path.resolve(startPath);
 	while (true) {
-		const gitPath = path.join(current, '.git');
-		if (fs.existsSync(gitPath)) {
+		if (rootMarkers.some((marker) => fs.existsSync(path.join(current, marker)))) {
 			return current;
 		}
 		const parent = path.dirname(current);
@@ -221,20 +233,36 @@ function findRepoRoot(startPath: string): string {
 	}
 }
 
-function readFallbackNames(configPath: string): string[] {
+function readProjectDocSettings(configPath: string): { fallbackNames: string[]; rootMarkers: string[] } {
+	const defaults = { fallbackNames: [], rootMarkers: ['.git'] };
 	try {
 		if (!fs.existsSync(configPath)) {
-			return [];
+			return defaults;
 		}
 		const parsed = parse(fs.readFileSync(configPath, 'utf8')) as {
 			project_doc_fallback_filenames?: unknown;
+			project_root_markers?: unknown;
 		};
-		return Array.isArray(parsed.project_doc_fallback_filenames)
-			? parsed.project_doc_fallback_filenames.filter((item): item is string => typeof item === 'string')
+		const rawFallbacks = parsed.project_doc_fallback_filenames;
+		const fallbackNames = Array.isArray(rawFallbacks) && rawFallbacks.every((item) => typeof item === 'string')
+			? [...new Set(rawFallbacks.map((name: string) => name.trim()).filter(isFallbackFileName))]
 			: [];
+		const rawMarkers = parsed.project_root_markers;
+		const rootMarkers = Array.isArray(rawMarkers) && rawMarkers.every((item) => typeof item === 'string')
+			? rawMarkers as string[]
+			: defaults.rootMarkers;
+		return { fallbackNames, rootMarkers };
 	} catch {
-		return [];
+		return defaults;
 	}
+}
+
+function isFallbackFileName(name: string): boolean {
+	return name.length > 0
+		&& name !== '.' && name !== '..'
+		&& !name.includes('/') && !name.includes('\0')
+		&& (process.platform !== 'win32' || (!name.includes('\\') && !name.includes(':')))
+		&& name !== 'AGENTS.override.md' && name !== 'AGENTS.md';
 }
 
 function parseProjectBlocks(contents: string): Array<{

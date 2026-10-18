@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import * as toml from 'toml';
 import { AgentLocation, getAgentLocations, getCliAgentLocations } from './agentLocations';
-import { disableAgentByName, enableAgentByName, getAgentManagerStorePath, listAgentManagerRecords } from './agentManagerService';
+import { disableAgentByName, enableAgentByName, getAgentManagerStorePath, listAgentDeclarationRecords } from './agentManagerService';
 import { getDisabledAgentBlock } from './disabledAgentsStore';
 
 export const SUPPORTED_AGENT_CLI_VERSION = '0.163.0';
@@ -90,7 +90,7 @@ function getDeclarationValidationReason(configPath: string, roleKey: string, ena
 /** Per-definition availability in recognized layers; does not resolve trust, active profiles or precedence. */
 export function listCliAgentRecords(configPath: string, locations: AgentLocation[] = getAgentLocations()): CliAgentRecord[] {
 	const roots = getCliAgentLocations(configPath, locations);
-	const declarations = listAgentManagerRecords(configPath, locations, false);
+	const declarations = listAgentDeclarationRecords(configPath, locations, false);
 	const records: CliAgentRecord[] = declarations.map((record) => {
 		const parsed = record.configFile ? readDefinition(record.agentPath, false) : { details: {} as AgentDetails };
 		const name = parsed.details.name || record.name;

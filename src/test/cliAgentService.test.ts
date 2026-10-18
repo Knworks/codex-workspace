@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import { AgentLocation, getCliAgentLocations } from '../services/agentLocations';
 import { listCliAgentRecords, setCliAgentEnabled } from '../services/cliAgentService';
-import { disableAgentByName } from '../services/agentManagerService';
+import { disableAgentByName, listAgentManagerRecords } from '../services/agentManagerService';
 
 const definition = 'name = "reviewer"\ndescription = "Review code"\ndeveloper_instructions = "Check tests."\n';
 
@@ -24,6 +24,25 @@ function withFixture(run: (root: string, config: string, locations: AgentLocatio
 }
 
 suite('CLI Agent service (0.163.0 contract)', () => {
+	test('keeps UI inventory separate from CLI standalone discovery and declaration diagnostics', () => {
+		withFixture((_root, config, locations) => {
+			const file = path.join(locations[0].rootPath, 'different.toml');
+			fs.writeFileSync(file, definition);
+			fs.appendFileSync(config, '[agents.missing]\ndescription = "Missing"\nconfig_file = "agents/missing.toml"\n');
+			const before = fs.readFileSync(config);
+			const ui = listAgentManagerRecords(config, locations);
+			assert.strictEqual(ui.length, 1);
+			assert.strictEqual(ui[0].name, 'different');
+			assert.strictEqual(ui[0].enabled, false);
+			const cli = listCliAgentRecords(config, locations);
+			assert.strictEqual(cli.length, 2);
+			assert.strictEqual(cli.find((record) => record.roleKey === 'missing')?.availability, 'invalid');
+			assert.strictEqual(cli.find((record) => record.name === 'reviewer')?.definitionFormat, 'standalone');
+			assert.strictEqual(cli.find((record) => record.name === 'reviewer')?.enabled, true);
+			assert.deepStrictEqual(fs.readFileSync(config), before);
+		});
+	});
+
 	test('discovers recursive standalone files with body names and independent scope identities', () => {
 		withFixture((root, config, locations) => {
 			const nested = path.join(root, 'home', 'agents', 'nested');
