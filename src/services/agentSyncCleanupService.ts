@@ -16,6 +16,7 @@ import {
 } from './disabledAgentsStore';
 import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
 import { removeSyncStateEntry } from './syncService';
+import { parseAgentRoleDeclarations, pruneMissingAgentBackups, sameAgentPath } from './agentManagerService';
 
 export type AgentSyncReconcileResult = {
 	addedAgentIds: string[];
@@ -38,19 +39,27 @@ export function reconcileAgentConfigAfterSync(
 	let configContents = fs.readFileSync(configPath, 'utf8');
 	let configuredAgentIds = new Set(listConfiguredAgentIds(configContents));
 	const removedAgentIds: string[] = [];
+	const removedFileNames = new Map<string, string>();
 	const addedAgentIds: string[] = [];
 	const restoredAgentIds: string[] = [];
 
-	for (const agentId of configuredAgentIds) {
-		if (existingAgentIds.has(agentId)) {
+	const declaredRoles = parseAgentRoleDeclarations(configContents);
+	const referencedFiles = new Set(declaredRoles.filter((role) => role.configFile).map((role) => path.resolve(path.dirname(configPath), role.configFile)));
+	for (const role of declaredRoles) {
+		if (!role.configFile) { continue; }
+		const referencedPath = path.resolve(path.dirname(configPath), role.configFile);
+		// Sync owns this directory, not inline roles or files registered elsewhere.
+		if (!sameAgentPath(path.dirname(referencedPath), agentsDir) || fs.existsSync(referencedPath)) {
 			continue;
 		}
+		const agentId = role.name;
 		const extracted = extractAgentConfigBlock(configContents, agentId);
 		if (!extracted.removed) {
 			continue;
 		}
 		configContents = extracted.contents;
 		removedAgentIds.push(agentId);
+		removedFileNames.set(agentId, path.basename(referencedPath));
 		if (extracted.block) {
 			saveDisabledAgentBlock(
 				storePath,
@@ -64,7 +73,8 @@ export function reconcileAgentConfigAfterSync(
 
 	configuredAgentIds = new Set(listConfiguredAgentIds(configContents));
 	for (const agentId of existingAgentIds) {
-		if (existingAgentIdsBeforeSync.has(agentId) || configuredAgentIds.has(agentId)) {
+		if (existingAgentIdsBeforeSync.has(agentId) || configuredAgentIds.has(agentId)
+			|| [...referencedFiles].some((file) => sameAgentPath(file, path.join(agentsDir, `${agentId}.toml`)))) {
 			continue;
 		}
 		const stashedBlock = getDisabledAgentEntry(storePath, agentId);
@@ -101,21 +111,24 @@ export function reconcileAgentConfigAfterSync(
 		);
 	}
 
-	const staleDisabledIds = listDisabledAgentIds(storePath).filter(
-		(agentId) =>
-			!existingAgentIds.has(agentId) &&
-			getDisabledAgentEntry(storePath, agentId)?.source === 'config.toml',
-	);
 	for (const agentId of restoredAgentIds) { takeDisabledAgentBlock(storePath, agentId); }
+	const staleDisabled = listDisabledAgentIds(storePath).flatMap((agentId) => {
+		const entry = getDisabledAgentEntry(storePath, agentId);
+		const role = parseAgentRoleDeclarations(entry?.block ?? '').find((item) => item.name === agentId);
+		if (!role?.configFile) { return []; }
+		const file = path.resolve(path.dirname(configPath), role.configFile);
+		return fs.existsSync(file) ? [] : [{ agentId, file }];
+	});
 	for (const agentId of removedAgentIds) {
-		removeSyncStateEntry(codexDir, 'agents', `${agentId}.toml`);
+		removeSyncStateEntry(codexDir, 'agents', removedFileNames.get(agentId)!);
 	}
 
-	for (const agentId of staleDisabledIds) {
+	for (const { agentId, file } of staleDisabled) {
 		// Remove stale disabled stash and sync metadata for deleted agents.
 		takeDisabledAgentBlock(storePath, agentId);
-		removeSyncStateEntry(codexDir, 'agents', `${agentId}.toml`);
+		if (sameAgentPath(path.dirname(file), agentsDir)) { removeSyncStateEntry(codexDir, 'agents', path.basename(file)); }
 	}
+	pruneMissingAgentBackups(configPath);
 
 	return { addedAgentIds, removedAgentIds };
 }

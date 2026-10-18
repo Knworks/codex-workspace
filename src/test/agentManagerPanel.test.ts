@@ -87,8 +87,9 @@ suite('Agent manager panel', () => {
 			const codexDir = path.join(homeDir, '.codex');
 			fs.mkdirSync(codexDir);
 			const configPath = path.join(codexDir, 'config.toml');
-			const declaration = '[agents.reviewer]\ndescription = "keep"\n';
+			const declaration = '[agents.reviewer]\ndescription = "keep"\nconfig_file = "reviewer.toml"\n';
 			fs.writeFileSync(configPath, declaration);
+			fs.writeFileSync(path.join(codexDir, 'reviewer.toml'), '');
 			const fake = createFakePanel();
 			const originalCreate = vscode.window.createWebviewPanel;
 			const originalInfo = vscode.window.showInformationMessage;

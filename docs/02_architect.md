@@ -107,8 +107,8 @@ codex-workspace/
   - Skills の `SKILL.md` と Skill root folder には有効/無効状態アイコンを付与する
 
 - **Sub Agents Explorer**
-  - `agentExplorerProvider.ts` が `getAgentLocations()` の結果から `*.toml` を列挙する
-  - アイコン状態は `config.toml` に `[agents.<id>]` があるかどうかで決まる
+  - `agentExplorerProvider.ts` と Agents タブは `refreshAgentManagerRecords()` の共通一覧を利用する
+  - 実在する Agent TOML を宣言元と role key に対応付けてアイコン状態を決める。TreeItem に宣言情報を保持し、別名 role や Profile の操作先を識別する
   - tooltip と description に location label を付与する
 
 - **MCP Server Explorer**
@@ -141,15 +141,18 @@ codex-workspace/
 - **Sub Agents 操作**
   - `agentCommands.ts` が add / edit / delete / enable / disable を担当する
   - 作成時はテンプレートをそのまま保存し、編集・有効化・設定整理では Agent TOML の内容を保持する。`name`、`description`、`developer_instructions` は自動補完しない
-  - 作成、編集、有効化後は `upsertAgentConfigMetadata()` で `description` と `config_file` を実体へ同期する
+  - 作成・編集では `upsertAgentConfigMetadata()` でメタデータを更新する。有効化は Manager と共通処理で対象ファイルの退避を復元し、退避がなければ実際のパスを登録する
   - 無効化時は block を `agents-disabled.json` に退避する
   - `agentDeclarationService.ts` は既存 `toml` パッケージの構文ノードと位置情報を使い、role の親・子テーブルをまとめて抽出する。インライン宣言は復元可能な role テーブルへ変換し、他の設定値を保持する
   - `agentFileStore.ts` は同一ディレクトリの一時ファイルへ書き込んでから置き換える。無効化は退避保存、設定保存の順、有効化は設定保存、退避削除の順に処理し、失敗時も復旧データを保持する。Manager と Explorer は失敗・未変更を成功通知しない
   - 同期や整理の前後では `agentConfigRepairService.ts` と `agentSyncCleanupService.ts` が `config.toml` を補正する
-  - `agentManagerService.ts` は Base、`profileConfigService.ts` が列挙する Profile V2、認識済み Project の設定を TOML parser で直接解析し、`[agents.<role>]` と退避済み宣言から一覧モデルを作る
+  - `agentManagerService.ts` は Base、`profileConfigService.ts` が列挙する Profile V2、認識済み Project の設定を解析し、実在ファイルへ対応付けた共通一覧を作る。ルート内の未登録 TOML は OFF として補う
   - 行 ID は宣言元設定パスと role key の組とし、`config_file` は宣言元設定のディレクトリを基準に解決する。ファイル名から role key を推定しない
   - Manager の ON/OFF は行 ID から宣言元設定を特定して更新する。Base と Project は各設定ディレクトリの `.codex-workspace/agents-disabled.json`、Profile は `.codex-workspace/<name>.config.toml.agents-disabled.json` に退避する
-  - Agent TOML の表示項目と `developer_instructions` は TOML parser で読み取る。参照ファイルなしは継承表示、`config_file` なしの Open は宣言元設定を開く。未登録ファイル列挙と設定レイヤーの完全合成は行わない
+  - Agent TOML の表示項目と `developer_instructions` は TOML parser で読み取る。ファイル欠落、参照なし、退避データだけの行は表示しない。設定レイヤーの完全合成は行わない
+  - `pruneMissingAgentBackups()` は更新・同期後に不要な退避を除去し、空の退避ファイルも削除する。有効宣言と復元可能な無効宣言は自動削除しない
+  - 削除・名前変更は実ファイルのパスで全設定元と退避を照合する。保存に失敗した場合は変更済みの設定を戻し、実ファイルを維持する
+  - `agentDeclarationService.ts` は TOML parser の構文位置を使い、子テーブルを含む宣言の抽出と、コメント・他の値を保持したメタデータ更新を担当する
   - `agentManagerPanel.ts` は `Agents` / `Orchestration` の 2 タブを持つ Webview を提供する
   - Agents タブは左の一覧と右の詳細からなる list-detail レイアウトで、詳細ペインに `developer_instructions` の Markdown preview を HTML 描画する
   - `orchestrationService.ts` が workflow JSON の保存、読込、削除、一覧化、バリデーション、prompt 生成を担当する

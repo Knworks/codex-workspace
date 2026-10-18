@@ -119,6 +119,9 @@ function readDisabledAgentsStore(storePath: string): DisabledAgentsStore {
 function writeDisabledAgentsStore(storePath: string, store: DisabledAgentsStore): void {
 	fs.mkdirSync(path.dirname(storePath), { recursive: true });
 	writeAgentFile(storePath, `${JSON.stringify(store, null, 2)}\n`);
+	if (Object.keys(store.disabledAgents).length === 0) {
+		fs.rmSync(storePath, { force: true });
+	}
 }
 
 function createEmptyStore(): DisabledAgentsStore {

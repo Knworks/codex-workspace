@@ -145,25 +145,28 @@
 
 ### 5.5 Sub Agents の管理
 
-- Sub Agents ビューは各ルート配下の `*.toml` を一覧表示する。
-- 各項目は `config.toml` に `[agents.<id>]` が存在するかどうかで有効/無効アイコンを切り替える。
+- Sub Agents ビューと Agents タブは共通の一覧処理を使い、実在する Agent TOML ファイルを表示する。認識済みルートの `*.toml` に加え、設定が参照する実在ファイルも含める。
+- 有効/無効の判定はファイル名ではなく、宣言元設定と role key、および `config_file` の参照先に基づく。
 - タイトルバー操作は新規作成、編集、削除、更新、フォルダを開く、同期、AGENTS Manager 起動とする。
 - enable / disable command は実装されているが、`package.json` のメニュー寄与には含めない。
 - 新規作成時は保存先ルートを選び、Agent 名、説明、テンプレート内容の順に入力する。
 - 作成・編集・有効化・設定整理では Agent TOML に `name`、`description`、`developer_instructions` を自動補完せず、テンプレートまたは既存ファイルの内容を保持する。
 - Agent 作成後、`config.toml` に description と `config_file` を含む `[agents.<name>]` block を自動追記または更新する。
-- 編集時はファイル名と description を更新し、`config.toml` の block と `config_file` を追従させる。
-- 削除時は TOML ファイルを削除し、`config.toml` の対応 block、disabled store、sync state の退避も削除する。
+- 編集時は選択した宣言の description を更新し、ファイル名変更時はそのファイルを参照するすべての宣言と退避の `config_file` を追従させる。無効化中の宣言は無効のまま保持する。
+- 削除時は実ファイルのパスで照合し、Base / Profile / Project の対応宣言と退避を削除してからファイルを削除する。同名の別ファイルの宣言は維持する。同期先への削除伝播に必要な sync state は維持する。
 - 無効化時は対応 block を `agents-disabled.json` に退避し、`config.toml` から削除する。
+- Explorer と Manager の有効化は共通処理を使い、対象ファイルに対応する退避 block があれば保存後に退避を除去する。退避がなければ実際のファイルパスを登録する。Agent TOML 自体は変更しない。
 - 退避・復元は子テーブル（未知の設定を含む）、引用付き role key、インライン宣言にも対応し、他の role の設定値を保持する。
 - 無効化は退避保存後に宣言元を更新し、再有効化は宣言元の保存成功後に退避を削除する。保存失敗時は元の宣言または復元可能な退避を残し、再試行できる。失敗・未変更では更新成功を通知しない。
-- Explorer command の有効化時は退避 block があれば復元し、description と `config_file` を実体へ同期する。Agent TOML 自体は変更しない。
 - AGENTS Manager は `Agents` タブで一覧詳細レイアウトを表示する。
-- 一覧の正本は Base `config.toml`、Profile V2 `<name>.config.toml`、認識済み Project `.codex/config.toml` 内の `[agents.<role>]` 宣言とする。Profile 列挙は共通処理を再利用する。
+- 一覧の正本は実ファイルとする。Base `config.toml`、Profile V2 `<name>.config.toml`、認識済み Project `.codex/config.toml` の `[agents.<role>]` 宣言を実ファイルへ対応付ける。Profile 列挙は共通処理を再利用する。
 - `config_file` の相対パスは宣言元設定のディレクトリを基準に解決し、絶対パスも扱う。role key はファイル名から独立して扱う。
 - 同名 role は宣言元設定ごとに別行として表示し、ON/OFF は選択した宣言元設定だけを更新する。Base の既存 disabled store を維持し、Profile ごと・Project ごとの退避を分離する。
-- 無効化した role は退避宣言から引き続き表示し、元の `config_file` を保持して再有効化できる。未登録 TOML は Manager の一覧に含めない。
-- `config_file` がない role は継承設定として表示し、Open で宣言元設定を開く。参照先ファイルが存在しない宣言も一覧に含める。
+- 無効化した role は実ファイルが残る間は OFF として表示し、元の `config_file` を保持して再有効化できる。未登録の実ファイルも OFF として表示し、有効化時に対応する Base または Project 設定へ実際のパスを登録する。
+- 未登録ファイルの一覧説明と新規有効化時の `description` は Agent TOML から読み取る。再有効化時も、退避した説明が空で実ファイルに説明がある場合は補完する。空でない宣言の説明を維持し、Agent TOML 本体は書き換えない。
+- `config_file` がない role、参照先ファイルがない宣言、退避データだけの項目は両画面に表示しない。既存の有効宣言は表示時に自動削除しない。
+- 一覧更新・同期後に、実ファイルがない退避や宣言元 Profile が削除された退避を整理する。最後の項目がなくなった退避ファイルは削除する。実ファイルが残る無効化中の退避は保持する。
+- Agent 操作と同期・全体更新後は Explorer と開いている Agents タブの両方を更新する。
 - 設定レイヤーを合成した effective Agent の完全再現は対象外とする。
 - 一覧は name / description / model / reasoningEffort / sandboxMode / path / location / toggle / open button を表示する。
 - 詳細ペインは model / reasoningEffort / sandboxMode / location / path と `developer_instructions` のプレビューを表示する。

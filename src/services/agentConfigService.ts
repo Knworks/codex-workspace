@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import * as toml from 'toml';
-import { extractAgentDeclaration } from './agentDeclarationService';
+import { extractAgentDeclaration, updateAgentDeclarationMetadata } from './agentDeclarationService';
 
 const AGENT_DESCRIPTION_PATTERN =
 	/^(\s*description\s*=\s*")((?:[^"\\]|\\.)*)(")(\s*#.*)?$/;
@@ -138,58 +138,7 @@ export function upsertAgentConfigMetadata(
 	description: string | undefined,
 	configFile: string,
 ): string {
-	const lines = contents.split(/\r?\n/);
-	const target = parseAgentBlocks(contents).find((block) => block.id === agentId);
-	if (!target) {
-		return appendAgentConfigRawBlock(
-			contents,
-			buildAgentConfigBlockWithPath(agentId, description ?? '', configFile),
-		);
-	}
-
-	const blockLines = lines.slice(target.startLine, target.endLine + 1);
-	const nextDescription = description ?? target.description ?? '';
-	const descriptionLine = `description = "${escapeTomlString(nextDescription)}"`;
-	const configFileLine = `config_file = "${escapeTomlString(configFile)}"`;
-	const descriptionIndex =
-		target.descriptionLineIndex !== undefined
-			? target.descriptionLineIndex - target.startLine
-			: undefined;
-	const configFileIndex =
-		target.configFileLineIndex !== undefined
-			? target.configFileLineIndex - target.startLine
-			: undefined;
-
-	if (descriptionIndex !== undefined) {
-		const match = blockLines[descriptionIndex]?.match(AGENT_DESCRIPTION_PATTERN);
-		if (match) {
-			blockLines[descriptionIndex] =
-				`${match[1]}${escapeTomlString(nextDescription)}${match[3]}${match[4] ?? ''}`;
-		}
-	} else {
-		blockLines.splice(1, 0, descriptionLine);
-	}
-
-	const insertionBaseIndex =
-		descriptionIndex !== undefined
-			? descriptionIndex + 1
-			: 2;
-	if (configFileIndex !== undefined) {
-		const match = blockLines[configFileIndex]?.match(AGENT_CONFIG_FILE_PATTERN);
-		if (match) {
-			blockLines[configFileIndex] =
-				`${match[1]}${escapeTomlString(configFile)}${match[3]}${match[4] ?? ''}`;
-		}
-	} else {
-		blockLines.splice(insertionBaseIndex, 0, configFileLine);
-	}
-
-	lines.splice(
-		target.startLine,
-		target.endLine - target.startLine + 1,
-		...blockLines,
-	);
-	return normalizeTomlContents(lines);
+	return updateAgentDeclarationMetadata(contents, agentId, description, configFile);
 }
 
 export function upsertAgentTomlMetadata(
