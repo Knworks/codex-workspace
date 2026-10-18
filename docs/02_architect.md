@@ -143,6 +143,8 @@ codex-workspace/
   - 作成時はテンプレートをそのまま保存し、編集・有効化・設定整理では Agent TOML の内容を保持する。`name`、`description`、`developer_instructions` は自動補完しない
   - 作成、編集、有効化後は `upsertAgentConfigMetadata()` で `description` と `config_file` を実体へ同期する
   - 無効化時は block を `agents-disabled.json` に退避する
+  - `agentDeclarationService.ts` は既存 `toml` パッケージの構文ノードと位置情報を使い、role の親・子テーブルをまとめて抽出する。インライン宣言は復元可能な role テーブルへ変換し、他の設定値を保持する
+  - `agentFileStore.ts` は同一ディレクトリの一時ファイルへ書き込んでから置き換える。無効化は退避保存、設定保存の順、有効化は設定保存、退避削除の順に処理し、失敗時も復旧データを保持する。Manager と Explorer は失敗・未変更を成功通知しない
   - 同期や整理の前後では `agentConfigRepairService.ts` と `agentSyncCleanupService.ts` が `config.toml` を補正する
   - `agentManagerService.ts` は Base、`profileConfigService.ts` が列挙する Profile V2、認識済み Project の設定を TOML parser で直接解析し、`[agents.<role>]` と退避済み宣言から一覧モデルを作る
   - 行 ID は宣言元設定パスと role key の組とし、`config_file` は宣言元設定のディレクトリを基準に解決する。ファイル名から role key を推定しない

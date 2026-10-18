@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import * as toml from 'toml';
+import { extractAgentDeclaration } from './agentDeclarationService';
 
 const AGENT_DESCRIPTION_PATTERN =
 	/^(\s*description\s*=\s*")((?:[^"\\]|\\.)*)(")(\s*#.*)?$/;
@@ -29,7 +30,9 @@ const AGENT_CONFIG_FILE_PATTERN =
  * Returns true when config.toml already has an `[agents.<agentId>]` block.
  */
 export function hasAgentConfigBlock(contents: string, agentId: string): boolean {
-	return parseAgentBlocks(contents).some((block) => block.id === agentId);
+	const agents = toml.parse(contents).agents as Record<string, unknown> | undefined;
+	const role = agents?.[agentId];
+	return !!role && typeof role === 'object' && !Array.isArray(role);
 }
 
 /**
@@ -98,18 +101,7 @@ export function extractAgentConfigBlock(
 	contents: string,
 	agentId: string,
 ): { contents: string; block?: string; removed: boolean } {
-	const lines = contents.split(/\r?\n/);
-	const target = parseAgentBlocks(contents).find((block) => block.id === agentId);
-	if (!target) {
-		return { contents, removed: false };
-	}
-	const removedLines = lines.slice(target.startLine, target.endLine + 1);
-	lines.splice(target.startLine, target.endLine - target.startLine + 1);
-	return {
-		contents: normalizeTomlContents(lines),
-		block: `${removedLines.join('\n').trimEnd()}\n`,
-		removed: true,
-	};
+	return extractAgentDeclaration(contents, agentId);
 }
 
 /**

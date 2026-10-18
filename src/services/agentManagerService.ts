@@ -19,6 +19,7 @@ import {
 } from './disabledAgentsStore';
 import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
 import { resolveCodexPaths } from './workspaceStatus';
+import { writeAgentFile } from './agentFileStore';
 
 export type AgentManagerRecord = {
 	id: string;
@@ -107,55 +108,57 @@ function getAgentManagerStorePath(configPath: string): string {
 		: path.join(path.dirname(storePath), `${path.basename(configPath)}.agents-disabled.json`);
 }
 
-export function disableAgentByName(_codexDir: string, configPath: string, agentName: string): void {
+export function disableAgentByName(_codexDir: string, configPath: string, agentName: string): { changed: boolean } {
 	const contents = fs.readFileSync(configPath, 'utf8');
 	const extracted = extractAgentConfigBlock(contents, agentName);
 	if (!extracted.removed || !extracted.block) {
-		return;
+		return { changed: false };
 	}
 	saveDisabledAgentBlock(
 		getAgentManagerStorePath(configPath),
 		agentName,
 		extracted.block,
 	);
-	fs.writeFileSync(
+	writeAgentFile(
 		configPath,
-		stabilizeManagedConfigToml(extracted.contents),
-		'utf8',
+		extracted.contents,
 	);
+	return { changed: true };
 }
 
 export function enableAgentByName(
 	_codexDir: string,
 	configPath: string,
 	agentName: string,
-): { overwritten: boolean } {
+): { overwritten: boolean; changed: boolean } {
 	const storePath = getAgentManagerStorePath(configPath);
 	const stashedBlock = getDisabledAgentBlock(storePath, agentName);
 	const contents = fs.readFileSync(configPath, 'utf8');
 	const alreadyExists = hasAgentConfigBlock(contents, agentName);
 	if (stashedBlock) {
-		takeDisabledAgentBlock(storePath, agentName);
+		if (!hasAgentConfigBlock(stashedBlock, agentName)) {
+			throw new Error(`Disabled agent backup does not contain role: ${agentName}`);
+		}
 		const nextContents = alreadyExists
 			? replaceAgentConfigRawBlock(contents, agentName, stashedBlock)
 			: appendAgentConfigRawBlock(contents, stashedBlock);
-		fs.writeFileSync(
+		toml.parse(nextContents);
+		writeAgentFile(
 			configPath,
-			stabilizeManagedConfigToml(nextContents),
-			'utf8',
+			nextContents,
 		);
-		return { overwritten: alreadyExists };
+		takeDisabledAgentBlock(storePath, agentName);
+		return { overwritten: alreadyExists, changed: true };
 	}
 	if (!alreadyExists) {
-		fs.writeFileSync(
+		writeAgentFile(
 			configPath,
 			stabilizeManagedConfigToml(
 				appendAgentConfigBlock(contents, agentName, '').contents,
 			),
-			'utf8',
 		);
 	}
-	return { overwritten: false };
+	return { overwritten: false, changed: !alreadyExists };
 }
 
 export function resolveAgentManagerPaths(): { codexDir: string; configPath: string } {

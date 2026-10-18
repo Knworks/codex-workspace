@@ -2491,17 +2491,29 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 			if (!record) { return; }
 			const configPath = record.configPath;
 			const { codexDir } = resolveAgentManagerPaths();
-			if (message.enabled) {
-				const result = enableAgentByName(codexDir, configPath, record.name);
-				if (result.overwritten) {
-					vscode.window.showInformationMessage(
-						messages.agentManagerOverwritten(record.name),
-					);
+			try {
+				let changed: boolean;
+				if (message.enabled) {
+					const result = enableAgentByName(codexDir, configPath, record.name);
+					changed = result.changed;
+					if (result.overwritten) {
+						vscode.window.showInformationMessage(
+							messages.agentManagerOverwritten(record.name),
+						);
+					}
+				} else {
+					changed = disableAgentByName(codexDir, configPath, record.name).changed;
 				}
-			} else {
-				disableAgentByName(codexDir, configPath, record.name);
+				if (changed) {
+					vscode.window.showInformationMessage(messages.agent.toggleUpdated);
+				} else {
+					vscode.window.showWarningMessage(message.enabled
+						? messages.agent.configExists(record.name) : messages.agent.notEnabled(record.name));
+				}
+			} catch (error) {
+				console.error(error);
+				vscode.window.showErrorMessage(messages.unexpectedError);
 			}
-			vscode.window.showInformationMessage(messages.agent.toggleUpdated);
 			this.onDidChangeAgents();
 			this.refresh();
 			return;

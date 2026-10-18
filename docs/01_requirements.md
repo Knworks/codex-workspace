@@ -155,6 +155,8 @@
 - 編集時はファイル名と description を更新し、`config.toml` の block と `config_file` を追従させる。
 - 削除時は TOML ファイルを削除し、`config.toml` の対応 block、disabled store、sync state の退避も削除する。
 - 無効化時は対応 block を `agents-disabled.json` に退避し、`config.toml` から削除する。
+- 退避・復元は子テーブル（未知の設定を含む）、引用付き role key、インライン宣言にも対応し、他の role の設定値を保持する。
+- 無効化は退避保存後に宣言元を更新し、再有効化は宣言元の保存成功後に退避を削除する。保存失敗時は元の宣言または復元可能な退避を残し、再試行できる。失敗・未変更では更新成功を通知しない。
 - Explorer command の有効化時は退避 block があれば復元し、description と `config_file` を実体へ同期する。Agent TOML 自体は変更しない。
 - AGENTS Manager は `Agents` タブで一覧詳細レイアウトを表示する。
 - 一覧の正本は Base `config.toml`、Profile V2 `<name>.config.toml`、認識済み Project `.codex/config.toml` 内の `[agents.<role>]` 宣言とする。Profile 列挙は共通処理を再利用する。
