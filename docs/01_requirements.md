@@ -149,7 +149,10 @@
 - タイトルバー操作は新規作成、編集、削除、更新、フォルダを開く、同期、AGENTS Manager 起動とする。
 - enable / disable command は実装されているが、`package.json` のメニュー寄与には含めない。
 - 新規作成時は保存先ルートを選び、Agent 名、説明、テンプレート内容の順に入力する。
-- 作成・編集・有効化・設定整理では Agent TOML に `name`、`description`、`developer_instructions` を自動補完せず、テンプレートまたは既存ファイルの内容を保持する。
+- 新規作成でテンプレートなしの場合だけ、名前・説明のコメントヘッダーと `name`、`description`、`developer_instructions` を初期生成する。対象は #24 で確認した Codex CLI `0.163.0` の単独 Agent 形式で、必須の3項目はコメントとは別に空白でない文字列として保存する。
+- 指示文の初期値には入力した説明を使う。説明が空または空白だけなら、必須の説明・指示文に編集を促す `TODO` を入れ、ヘッダーには入力値を保持する。モデル・権限は固定しない。
+- 名前は既存のファイル名正規化後の値を使う。引用符・改行・バックスラッシュ・制御文字を文字列とコメントでエスケープし、日本語を保持する。
+- テンプレート選択時（空のテンプレートを含む）・編集・有効化・設定整理では Agent TOML を自動補完せず、テンプレートまたは既存ファイルの内容を保持する。既存ファイルの一括修復・再生成は行わない。
 - Agent 作成後、`config.toml` に description と `config_file` を含む `[agents.<name>]` block を自動追記または更新する。
 - 編集時はファイル名と description を更新し、`config.toml` の block と `config_file` を追従させる。
 - 削除時は TOML ファイルを削除し、`config.toml` の対応 block、disabled store、sync state の退避も削除する。

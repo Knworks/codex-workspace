@@ -7,6 +7,7 @@ import { getWorkspaceStatus, resolveCodexPaths } from '../services/workspaceStat
 import { messages } from '../i18n';
 import { runSafely } from '../services/errorHandling';
 import { sanitizeName } from '../services/fileNaming';
+import { createAgentScaffold } from '../services/agentScaffold';
 import {
 	listTemplateCandidates,
 	readTemplateContents,
@@ -143,7 +144,7 @@ async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
 	if (templateContent === null) {
 		return;
 	}
-	const initialAgentContents = templateContent;
+	const initialAgentContents = templateContent ?? createAgentScaffold(agentName, description);
 
 	fs.mkdirSync(agentsDir, { recursive: true });
 	const agentFilePath = path.join(agentsDir, `${agentName}.toml`);
@@ -401,10 +402,10 @@ async function promptAgentDescription(defaultValue = ''): Promise<string | undef
 	});
 }
 
-async function pickTemplateContents(): Promise<string | null> {
+async function pickTemplateContents(): Promise<string | null | undefined> {
 	const templates = listTemplateCandidates();
 	if (templates.length === 0) {
-		return '';
+		return undefined;
 	}
 
 	const items: vscode.QuickPickItem[] = [
@@ -422,12 +423,12 @@ async function pickTemplateContents(): Promise<string | null> {
 		return null;
 	}
 	if (selection.label === messages.file.templateNone) {
-		return '';
+		return undefined;
 	}
 
 	const selected = templates.find((candidate) => candidate.label === selection.label);
 	if (!selected) {
-		return '';
+		return null;
 	}
 	return readTemplateContents(selected.fsPath);
 }

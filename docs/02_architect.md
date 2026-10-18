@@ -135,7 +135,10 @@ codex-workspace/
 
 - **Sub Agents 操作**
   - `agentCommands.ts` が add / edit / delete / enable / disable を担当する
-  - 作成時はテンプレートをそのまま保存し、編集・有効化・設定整理では Agent TOML の内容を保持する。`name`、`description`、`developer_instructions` は自動補完しない
+  - `agentCommands.ts` はテンプレート未指定を `undefined`、キャンセルを `null`、選択済み本文を文字列（空文字列を含む）として区別する。テンプレートが存在しない場合も未指定として扱う
+  - 新規かつテンプレートなしの場合だけ `agentScaffold.ts` でコメントヘッダーと必須の `name` / `description` / `developer_instructions` を生成する。#24 の Codex CLI `0.163.0` 単独 Agent 契約に合わせ、説明を指示文の初期値へ使う。空白だけの説明では説明・指示文を編集案内にし、モデル・権限は設定しない
+  - 名前はファイル名正規化後の値、ヘッダーの説明は入力値を使う。TOML basic string のエスケープで引用符・改行・バックスラッシュ・制御文字を表現し、コメントも1行に閉じ込めて設定行の混入を防ぐ
+  - 選択済みテンプレートは空でもそのまま保存し、編集・有効化・設定整理では Agent TOML の内容を保持する。これらの経路と既存ファイルへの必須項目の自動補完は行わない
   - 作成、編集、有効化後は `upsertAgentConfigMetadata()` で `description` と `config_file` を実体へ同期する
   - 無効化時は block を `agents-disabled.json` に退避する
   - 同期や整理の前後では `agentConfigRepairService.ts` と `agentSyncCleanupService.ts` が `config.toml` を補正する
