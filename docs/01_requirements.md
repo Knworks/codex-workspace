@@ -84,10 +84,11 @@
 - Core ビューは `config.toml`、`AGENTS.md`、存在時のみ `AGENTS.override.md` を表示する。
 - Core ビューは Codex Home 直下の `<name>.config.toml` を名前順に追加表示し、Profile V2 として区別する。各ファイルを VS Code エディタで開ける。一覧表示とOpen操作は App Server 接続や TOML の解析を必要としない。Profiles 専用タブは設けない。
 - Skills ビューは以下の順で Skill ルートを表示する。
-  - Project Skills: `workspace/.agents/skills` を優先し、存在しない場合は `workspace/.codex/skills`
-  - Workspace Skills: `~/.codex/skills`
+  - Project Skills: workspace から最寄りの `.git`（ディレクトリまたはファイル）がある階層まで、各階層の `.agents/skills` と `.codex/skills` を両方列挙する。Git 境界がなければ workspace のみを対象にする
+  - Workspace Skills: `$CODEX_HOME/skills`（未設定時は `~/.codex/skills`）
   - User Skills: `~/.agents/skills`
-  - System Skills: `~/.codex/skills/.system`
+  - System Skills: `$CODEX_HOME/skills/.system`（未設定時は `~/.codex/skills/.system`）
+  - 同じ root パスは重複列挙せず、異なる root の同名 Skill はファイルパスで区別する。新規 Project Skill の作成先は各階層の `.agents/skills` とする
 - Sub Agents ビューは以下の順で Agent ルートを表示する。
   - Project Agents: `workspace/.codex/agents` を優先し、存在しない場合は `workspace/.agents/agents`
   - Workspace Agents: `~/.codex/agents`
@@ -155,6 +156,8 @@
 - 削除時は実ファイルのパスで照合し、Base / Profile / Project の対応宣言と退避を削除してからファイルを削除する。同名の別ファイルの宣言は維持する。同期先への削除伝播に必要な sync state は維持する。
 - 無効化時は対応 block を `agents-disabled.json` に退避し、`config.toml` から削除する。
 - Explorer と Manager の有効化は共通処理を使い、対象ファイルに対応する退避 block があれば保存後に退避を除去する。退避がなければ実際のファイルパスを登録する。Agent TOML 自体は変更しない。
+- 退避・復元は子テーブル（未知の設定を含む）、引用付き role key、インライン宣言にも対応し、他の role の設定値を保持する。
+- 無効化は退避保存後に宣言元を更新し、再有効化は宣言元の保存成功後に退避を削除する。保存失敗時は元の宣言または復元可能な退避を残し、再試行できる。失敗・未変更では更新成功を通知しない。
 - AGENTS Manager は `Agents` タブで一覧詳細レイアウトを表示する。
 - 一覧の正本は実ファイルとする。Base `config.toml`、Profile V2 `<name>.config.toml`、認識済み Project `.codex/config.toml` の `[agents.<role>]` 宣言を実ファイルへ対応付ける。Profile 列挙は共通処理を再利用する。
 - `config_file` の相対パスは宣言元設定のディレクトリを基準に解決し、絶対パスも扱う。role key はファイル名から独立して扱う。
@@ -201,10 +204,11 @@
   - tool_timeout_sec
   - enabled_tools
   - disabled_tools
-- `enabled_tools` と `disabled_tools` の同時指定は保存不可とする。
+- `enabled_tools` と `disabled_tools` は同時に指定・保存できる。
 - 保存時は既存 block の未管理キーを保持する。
 - `env` / `http_headers` / `env_http_headers` は key-value 行編集で扱う。
-- `tools` は tool name ごとに `enabled` / `approval_mode` を持つ行編集で扱う。
+- `tools` は tool name ごとに `enabled` / `approval_mode` / `output_token_limit` を持つ行編集で扱う。`approval_mode` は `writes` を含み、`output_token_limit` は 0 以上の安全な整数とする。
+- 既存の `tools.*` ブロックの未知 key は、未削除の同名ツールを保存するときに保持する。
 - `env` は `[mcp_servers.<id>.env]` block と inline table の両方を読める。
 - `http_headers` / `env_http_headers` は companion block を優先し、inline table があれば読み込み対象に含める。
 - MCP Manager が UI で管理する companion block は `env` / `http_headers` / `env_http_headers` / `tools.*` のみとする。
@@ -224,13 +228,25 @@
   - Hooks
   - Plugins
 - History タブ
-  - `CODEX_HOME/sessions` または `~/.codex/sessions` 配下の `rollout-*.jsonl` を走査する
-  - `task_started` / `task_complete` と `turn_id` を使ってタスク単位に集約する
+  - App Server の Thread API を履歴の正本とし、共通 resolver が選択した `CODEX_HOME` で取得する
+  - Windows では履歴取得に伴うコマンドウィンドウを表示しない
+  - `thread/list` で active / archived をそれぞれ取得し、`nextCursor` に従って全ページを読み込む
+  - `thread/turns/list` / `thread/items/list` で turn / item の全ページを取得し、本文と時刻を既存の表示モデルへ変換する
+  - item ページングが未対応の場合は turn の全文を利用し、turn ページングが未対応の場合は `thread/read(includeTurns: true)` を利用する
+  - CLI が見つからない、または Thread API が未対応の場合に限り、`sessions` / `archived_sessions` の Legacy rollout 直接解析へ切り替える
+  - 通常の API エラーやタイムアウトはエラー通知で表示し、更新前の履歴を維持する。空の正常応答を Legacy 解析で置き換えない
   - 左ペインに `yyyy/mm/dd` ごとのカード一覧、右ペインにユーザー本文と assistant / reasoning タイムラインを表示する
   - `maxHistoryCount` が明示設定されている場合のみ件数制限する
   - `incrudeReasoningMessage` が false の場合 reasoning は非表示とする
+  - 検索、Markdown プレビュー、コピー操作を維持する。画面を閉じた場合や新しい更新を開始した場合は、古い非同期取得結果を反映しない
+  - 更新日時が新しい会話を優先し、turn のページを取得するたびに日時順の一覧へ追加する。取得中も検索・選択・コピーを操作でき、検索条件・選択・スクロール位置を維持する
+  - 取得中・完了・失敗を表示し、取得中の検索は取得済みの履歴を対象とする。途中で失敗しても取得済みの内容を残す
+  - 拡張機能の実行中は取得済みの本文を Codex Home ごとにメモリに保持し、再表示時にすぐ表示する。更新時は一覧を再取得し、更新日時等が同じ会話の本文を再利用する。実行中・更新直後・更新日時不明の会話は再取得し、削除の反映は取得完了時に行う
 - AGENTS Loading Chain タブ
   - workspace root を基準に Global / Project tier の `AGENTS.override.md`、`AGENTS.md`、fallback 候補を診断する
+  - 表示は VS Code workspace root と Base `config.toml` による推定であり、Codex 本体の実行結果ではない。Profile / Project layer、実 thread cwd、trust、読み込み上限を含む完全な実効状態は再現しない
+  - 共通 Codex Home resolver の Base `config.toml` にある `project_root_markers` を使用し、最寄りの marker がある祖先から workspace root までを探索する。未設定は `.git`、空配列または marker が見つからない場合は workspace root のみを対象とする
+  - Project tier の候補順は `AGENTS.override.md`、`AGENTS.md`、`project_doc_fallback_filenames` の設定順とする。fallback は前後の空白を除去し、空欄・重複・OS のパス構文を含む項目を除外する。各ディレクトリの最初の通常ファイルを選び、ディレクトリは選択しない。Global tier に fallback は追加しない
   - `Current` / `Ignored` / `Problems` に分類表示し、各候補の詳細を右ペインに表示する
 - Trusted Directory タブ
   - `[projects."<path>"]` のうち `trust_level = "trusted"` のみ表示する
@@ -295,6 +311,7 @@
 - 同名ファイルは更新日時が新しい側で上書きする。
 - 削除同期状態は `~/.codex/.codex-workspace/codex-sync.json` に記録する。
 - 旧状態ファイル `.codex/.codex-sync/state.json` があれば新形式へ移行する。
+- 削除履歴は同期範囲と正規化した同期元・同期先のパスの組み合わせごとに管理する。相手先を特定できない旧 scope 単位の履歴は保持しても削除判断に使用せず、各組み合わせの初回同期で現存ファイルを相互にコピーして新しい履歴を作る。
 - 隠しファイル、隠しフォルダ、`.codex-workspace` メタディレクトリは同期対象外とする。
 - Sub Agents 同期後は `reconcileAgentConfigAfterSync()` により `config.toml`、disabled store、sync state を追従させる。
 

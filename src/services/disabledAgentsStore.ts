@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { writeAgentFile } from './agentFileStore';
 
 export type DisabledAgentEntry = {
 	disabledAt: string;
@@ -111,22 +112,21 @@ function readDisabledAgentsStore(storePath: string): DisabledAgentsStore {
 	}
 	return {
 		version: STORE_VERSION,
-		disabledAgents: disabledAgents as Record<string, DisabledAgentEntry>,
+		disabledAgents: Object.assign(Object.create(null), disabledAgents) as Record<string, DisabledAgentEntry>,
 	};
 }
 
 function writeDisabledAgentsStore(storePath: string, store: DisabledAgentsStore): void {
+	fs.mkdirSync(path.dirname(storePath), { recursive: true });
+	writeAgentFile(storePath, `${JSON.stringify(store, null, 2)}\n`);
 	if (Object.keys(store.disabledAgents).length === 0) {
 		fs.rmSync(storePath, { force: true });
-		return;
 	}
-	fs.mkdirSync(path.dirname(storePath), { recursive: true });
-	fs.writeFileSync(storePath, `${JSON.stringify(store, null, 2)}\n`, 'utf8');
 }
 
 function createEmptyStore(): DisabledAgentsStore {
 	return {
 		version: STORE_VERSION,
-		disabledAgents: {},
+		disabledAgents: Object.create(null) as Record<string, DisabledAgentEntry>,
 	};
 }

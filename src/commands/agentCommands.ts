@@ -266,7 +266,11 @@ async function enableAgent(
 		vscode.window.showWarningMessage(messages.agent.configExists(agentId));
 		return;
 	}
-	enableAgentByName(codexDir, source, agentId, record?.configFile ?? toAgentConfigFilePath(source, agentFilePath));
+	const result = enableAgentByName(codexDir, source, agentId, record?.configFile ?? toAgentConfigFilePath(source, agentFilePath));
+	if (!result.changed) {
+		vscode.window.showWarningMessage(messages.agent.configExists(agentId));
+		return;
+	}
 	vscode.window.showInformationMessage(messages.agent.toggleUpdated);
 	agentProvider.refresh();
 }
@@ -283,7 +287,11 @@ async function disableAgent(
 		vscode.window.showWarningMessage(messages.agent.notEnabled(agentId));
 		return;
 	}
-	disableAgentByName(codexDir, source, agentId);
+	const result = disableAgentByName(codexDir, source, agentId);
+	if (!result.changed) {
+		vscode.window.showWarningMessage(messages.agent.notEnabled(agentId));
+		return;
+	}
 	vscode.window.showInformationMessage(messages.agent.toggleUpdated);
 	agentProvider.refresh();
 }

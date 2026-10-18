@@ -30,7 +30,9 @@ const AGENT_CONFIG_FILE_PATTERN =
  * Returns true when config.toml already has an `[agents.<agentId>]` block.
  */
 export function hasAgentConfigBlock(contents: string, agentId: string): boolean {
-	return parseAgentBlocks(contents).some((block) => block.id === agentId);
+	const agents = toml.parse(contents).agents as Record<string, unknown> | undefined;
+	const role = agents?.[agentId];
+	return !!role && typeof role === 'object' && !Array.isArray(role);
 }
 
 /**

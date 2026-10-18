@@ -98,14 +98,14 @@ suite('Agent inventory consistency', () => {
 			saveDisabledAgentBlock(store, 'stash', declaration(sources[0], target, 'stash'));
 			const before = sources.map((source) => fs.readFileSync(source, 'utf8'));
 			const backup = fs.readFileSync(store, 'utf8');
-			const originalWrite = fs.writeFileSync;
+			const originalRename = fs.renameSync;
 			let failed = false;
-			fs.writeFileSync = ((file, ...args) => {
-				if (String(file) === sources[1] && !failed) { failed = true; throw new Error('test save failure'); }
-				return originalWrite(file, ...args);
-			}) as typeof originalWrite;
+			fs.renameSync = (from, to) => {
+				if (String(to) === sources[1] && !failed) { failed = true; throw new Error('test save failure'); }
+				return originalRename(from, to);
+			};
 			try { assert.throws(() => deleteAgentFile(target, sources[0], locations), /test save failure/); }
-			finally { fs.writeFileSync = originalWrite; }
+			finally { fs.renameSync = originalRename; }
 			assert.strictEqual(fs.existsSync(target), true);
 			assert.deepStrictEqual(sources.map((source) => fs.readFileSync(source, 'utf8')), before);
 			assert.strictEqual(fs.readFileSync(store, 'utf8'), backup);

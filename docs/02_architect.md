@@ -52,6 +52,8 @@ codex-workspace/
 │   │   ├── fileTreeService.ts
 │   │   ├── historyPanel.ts
 │   │   ├── historyService.ts
+│   │   ├── historyAppServerClient.ts
+│   │   ├── threadHistoryService.ts
 │   │   ├── mcpManagerPanel.ts
 │   │   ├── mcpManagerService.ts
 │   │   ├── orchestrationService.ts
@@ -99,6 +101,9 @@ codex-workspace/
   - 隠しファイルは除外する
   - ソートは「folder 優先 + 名前昇順」
   - Skills のみ複数 root をフラットに表示する
+  - `skillLocations.ts` は workspace から最寄りの `.git` 境界まで各階層の `.agents/skills` と `.codex/skills` を独立 root として追加する。`.git` ファイルにも対応し、境界がなければ workspace のみを対象にする
+  - User scope の保存場所は共通 resolver による `$CODEX_HOME/skills` と `~/.agents/skills` の両方を扱い、既存の Workspace / User 表示ラベルを維持する。同じ root パスは重複排除し、同名 Skill の行・Open・トグルはファイルパスで区別する
+  - Project の新規作成候補は各階層の `.agents/skills` に限定する。`.codex/skills` は探索対象として追加する
   - Skills の `SKILL.md` と Skill root folder には有効/無効状態アイコンを付与する
 
 - **Sub Agents Explorer**
@@ -138,6 +143,8 @@ codex-workspace/
   - 作成時はテンプレートをそのまま保存し、編集・有効化・設定整理では Agent TOML の内容を保持する。`name`、`description`、`developer_instructions` は自動補完しない
   - 作成・編集では `upsertAgentConfigMetadata()` でメタデータを更新する。有効化は Manager と共通処理で対象ファイルの退避を復元し、退避がなければ実際のパスを登録する
   - 無効化時は block を `agents-disabled.json` に退避する
+  - `agentDeclarationService.ts` は既存 `toml` パッケージの構文ノードと位置情報を使い、role の親・子テーブルをまとめて抽出する。インライン宣言は復元可能な role テーブルへ変換し、他の設定値を保持する
+  - `agentFileStore.ts` は同一ディレクトリの一時ファイルへ書き込んでから置き換える。無効化は退避保存、設定保存の順、有効化は設定保存、退避削除の順に処理し、失敗時も復旧データを保持する。Manager と Explorer は失敗・未変更を成功通知しない
   - 同期や整理の前後では `agentConfigRepairService.ts` と `agentSyncCleanupService.ts` が `config.toml` を補正する
   - `agentManagerService.ts` は Base、`profileConfigService.ts` が列挙する Profile V2、認識済み Project の設定を解析し、実在ファイルへ対応付けた共通一覧を作る。ルート内の未登録 TOML は OFF として補う
   - 行 ID は宣言元設定パスと role key の組とし、`config_file` は宣言元設定のディレクトリを基準に解決する。ファイル名から role key を推定しない
@@ -165,8 +172,18 @@ codex-workspace/
 
 - **Codex Manager**
   - `historyPanel.ts` がタブ付き Core WebviewPanel を提供する
-  - History タブは `historyService.ts` から `HistoryIndex` を構築する
+  - History タブは `threadHistoryService.ts` で Thread API のページを読み込み、`HistoryIndex` を非同期に構築する。`thread/list` は active / archived を個別に取得し、turn / item のページも `nextCursor` がなくなるまで取得する
+  - `historyAppServerClient.ts` が `codex app-server` の stdio JSON-RPC 接続を管理する。共通 resolver のホームを `CODEX_HOME` に渡し、experimental API を有効にして初期化する。要求 ID ごとの応答照合・タイムアウト・終了時の解放を行う
+  - Windows は PATH 上または npm パッケージ同梱の `codex.exe` を `windowsHide: true` で直接起動する。npm の JavaScript ランチャーによる非表示設定なしの子プロセス起動を避ける
+  - item ページング未対応時は turn の全文、turn ページング未対応時は `thread/read` を利用する。Legacy 解析は `historyService.ts` の `buildLegacyHistoryIndex()` に分離し、CLI 不在または Thread API 未対応時に限って利用する。通常エラーは画面に通知する
+  - 取得中も検索・選択操作を維持し、更新の世代とキャンセル通知により古い取得結果や閉じた画面への反映を防ぐ。検索対象の全文を維持するため、表示件数の制限は取得した index に適用する
+  - `thread/list(sortKey: updated_at)` の active / archived 結果を更新日時順に統合し、`thread/turns/list(sortDirection: desc)` のページ取得時に途中結果を通知する。画面への反映は100ms間隔にまとめ、完了・失敗時は保留分を反映する。表示済みカードを基準に一覧のスクロールを補正し、変更のない選択本文を再描画しない
+  - `ThreadHistoryCache` は Manager が保持するメモリ内キャッシュで、Codex Home と thread ID ごとに完全取得した本文と更新日時・作成日時・path を保持する。初期表示で再利用した後、一覧の再取得で変更を検証する。active・直近2秒以内の更新・更新日時不明は本文を再取得し、成功した取得の終端で削除済み thread をキャッシュから除去する。途中失敗・キャンセルでは完全取得済みの本文を残し、未完の本文を再利用対象にしない
   - AGENTS Loading Chain は `coreDiagnosticsService.ts` が Global / Project tier の `AGENTS.override.md`、`AGENTS.md`、`project_doc_fallback_filenames` を診断し、`Active` / `Skipped` / `Missing` / `Error` 状態を作る
+  - 共通 `resolveCodexPaths()` の Base `config.toml` を一度読み、`project_root_markers` と fallback 名を解決する。root marker は指定配列が既定 `.git` を置き換え、最寄りの祖先を採用する。空配列・一致なしは workspace root のみ、設定ファイルの欠落・解析失敗は既定値を使用する
+  - fallback は trim 後に空欄・標準候補との重複・重複名・OS のパス構文を除外し、設定順を維持する。通常ファイルの最初の候補を採用し、その読み取りエラーで後続候補へ切り替えない
+  - これは workspace root と Base 設定による推定であり、Profile / Project layer、実 thread cwd、trust、`project_doc_max_bytes` を含む Codex 本体の実効読み込み結果は再現しない。App Server の `config/read` は使用しない
+  - 既知ルールの参照元（2026-10-12 確認）: <https://github.com/openai/codex/blob/6e5f665feb9b71e1500a5721036fbdb8e871f4b0/codex-rs/core/src/agents_md.rs>、<https://github.com/openai/codex/blob/6e5f665feb9b71e1500a5721036fbdb8e871f4b0/codex-rs/config/src/project_root_markers.rs>
   - Trusted Directory、Feature Flags、Hooks は `coreDiagnosticsService.ts` と `coreManagerConfigService.ts` を用いる
   - Plugins タブは `pluginService.ts` で cache / marketplace / manifest 情報を集約し、`[plugins."<id>"]` の有効状態を切り替える
 
@@ -175,6 +192,7 @@ codex-workspace/
   - Core 同期対象は `AGENTS.md`、`AGENTS.override.md`、`config.toml`
   - 隠しパスと `.codex-workspace` メタディレクトリは除外する
   - 管理状態は `.codex-workspace/codex-sync.json` に保存する
+  - 削除履歴のキーは `pair:` に scope・`path.resolve()` した同期元・同期先を並べた JSON 配列を続けた形式とする。旧 scope 単位のキーは相手先を識別できないため削除判定に使わず、新しい組み合わせの初回同期で履歴を作成する
   - Sub Agents 同期後は `agentSyncCleanupService.ts` で `config.toml`、disabled store、sync state を補正する
 
 - **`Organize config.toml`**
@@ -275,7 +293,8 @@ codex-workspace/
   - 上部: search / clear / refresh
   - 左ペイン: server list, add / delete / save / cancel
   - 右ペイン: server detail form
-  - 詳細フォーム: `env` / `httpHeaders` / `envHttpHeaders` は key-value rows、`tools` は tool name + enabled + approval_mode rows
+  - 詳細フォーム: `env` / `httpHeaders` / `envHttpHeaders` は key-value rows、`tools` は tool name + enabled + approval_mode（`writes` を含む）+ output_token_limit rows
+  - 保存時は元の同名 `tools.*` ブロックから未知 key の TOML 文を保持し、既知の編集項目を再構築する。
 
 - **Codex Manager**
   - タブ: History / AGENTS Loading Chain / Trusted Directory / Feature Flags / Hooks / Plugins
@@ -364,7 +383,7 @@ flowchart TB
   - `agentConfigRepairService.test.ts` / `disabledAgentsStore.test.ts`: Agent metadata 修復と disabled store
   - `orchestrationService.test.ts` / `agentManagerPanel.test.ts`: workflow 保存・検証・prompt 生成と AGENTS Manager orchestration UI
   - `mcpService.test.ts` / `mcpManagerService.test.ts` / `mcpManagerPanel.test.ts`: MCP 読み書きとパネル挙動
-  - `historyService.test.ts` / `historyPanel.test.ts`: 履歴抽出と Core Webview state
+  - `historyService.test.ts` / `threadHistoryService.test.ts` / `historyAppServerClient.test.ts` / `historyPanel.test.ts`: Legacy 履歴抽出、Thread API のページングと fallback、JSON-RPC 通信、Core Webview state と非同期更新
   - `coreDiagnosticsService.test.ts` / `coreManagerConfigService.test.ts`: Core 診断と設定更新
   - `pluginService.test.ts`: Plugin manifest / marketplace 読み取り
   - `petService.test.ts` / `settings.test.ts`: Pet 定義と設定値の正規化

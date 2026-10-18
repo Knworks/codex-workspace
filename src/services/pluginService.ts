@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import { parse as parseToml } from 'toml';
 import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
+import { scanTomlTableLines } from './tomlTableHeaders';
 import { resolveCodexPaths } from './workspaceStatus';
 import { resolvePluginCacheRoot } from './codexPaths';
 
@@ -121,7 +122,7 @@ type DiscoveryOptions = {
 type Manifest = Record<string, unknown>;
 
 const PLUGIN_CONFIG_HEADER_PATTERN =
-	/^\s*\[plugins\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.@/-]+))\]\s*$/;
+	/^\s*\[plugins\.(?:"((?:[^"\\]|\\.)*)"|([A-Za-z0-9_.@/-]+))\]\s*(?:#.*)?$/;
 const ENABLED_PATTERN = /^(\s*enabled\s*=\s*)(true|false)(\s*#.*)?$/i;
 const SECRET_KEY_PATTERN = /(secret|token|bearer|oauth|password|passwd|api[_-]?key|access[_-]?key)/i;
 
@@ -561,6 +562,7 @@ function parsePluginConfigBlocks(contents: string): Array<{
 	enabledLineIndex?: number;
 }> {
 	const lines = contents.split(/\r?\n/);
+	const { headers, valueLines } = scanTomlTableLines(lines);
 	const blocks: Array<{
 		id: string;
 		startLineIndex: number;
@@ -570,8 +572,7 @@ function parsePluginConfigBlocks(contents: string): Array<{
 	}> = [];
 	let current: typeof blocks[number] | undefined;
 	for (let index = 0; index < lines.length; index += 1) {
-		const headerMatch = lines[index].match(/^\s*\[[^\]]+\]\s*$/);
-		if (headerMatch) {
+		if (headers.has(index)) {
 			if (current) {
 				current.endLineIndex = index - 1;
 				current = undefined;
@@ -587,7 +588,7 @@ function parsePluginConfigBlocks(contents: string): Array<{
 			}
 			continue;
 		}
-		if (!current) {
+		if (!current || !valueLines.has(index)) {
 			continue;
 		}
 		const enabledMatch = lines[index].match(ENABLED_PATTERN);
