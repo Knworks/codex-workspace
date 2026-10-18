@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { parse } from '@iarna/toml';
 import * as toml from 'toml';
 import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
 import { scanTomlTableLines } from './tomlTableHeaders';
@@ -39,6 +40,12 @@ export type McpValidationResult = {
 	ok: boolean;
 	errors: string[];
 };
+
+class McpArgsParseError extends Error {
+	constructor(serverId: string) {
+		super(`Cannot read args for MCP server "${serverId}": expected a valid TOML string array. Configuration was not saved.`);
+	}
+}
 
 type McpBlock = {
 	id: string;
@@ -218,7 +225,15 @@ export function saveMcpServer(
 	const targetCompanions = previousId
 		? blocks.filter((block) => block.parentId === previousId && block.settingName)
 		: [];
-	const existingModel = target ? blockToModel(target, targetCompanions) : undefined;
+	let existingModel: McpFormModel | undefined;
+	try {
+		existingModel = target ? blockToModel(target, targetCompanions) : undefined;
+	} catch (error) {
+		if (error instanceof McpArgsParseError) {
+			return { ok: false, errors: [error.message] };
+		}
+		throw error;
+	}
 	const effectiveModel: McpFormModel = {
 		...model,
 		httpHeaders: model.httpHeaders ?? existingModel?.httpHeaders ?? [],
@@ -343,9 +358,9 @@ function parseMcpBlocks(contents: string): McpBlock[] {
 }
 
 function blockToModel(block: McpBlock, companionBlocks: McpBlock[]): McpFormModel {
-	const values = readBlockValues(block.lines);
+	const values = readMcpValues(block);
 	const hasUrl = typeof values.url === 'string';
-	const args = Array.isArray(values.args) ? values.args : [];
+	const args = values.args;
 	const enabledTools = Array.isArray(values.enabled_tools) ? values.enabled_tools : [];
 	const disabledTools = Array.isArray(values.disabled_tools) ? values.disabled_tools : [];
 	const envBlock = companionBlocks.find((candidate) => candidate.settingName === 'env');
@@ -403,6 +418,23 @@ function toToolEntry(block: McpBlock): McpToolEntry | undefined {
 		approvalMode,
 		...(typeof values.output_token_limit === 'number' ? { outputTokenLimit: values.output_token_limit } : {}),
 	};
+}
+
+function readMcpValues(block: McpBlock): Record<string, unknown> & { args: string[] } {
+	let values: Record<string, unknown>;
+	try {
+		// Parse the entire body so multiline values and comments follow TOML rules.
+		values = parse(block.lines.slice(1).join('\n'));
+	} catch {
+		throw new McpArgsParseError(block.id);
+	}
+	if (!Object.hasOwn(values, 'args')) {
+		return { ...values, args: [] };
+	}
+	if (!Array.isArray(values.args) || !values.args.every((arg) => typeof arg === 'string')) {
+		throw new McpArgsParseError(block.id);
+	}
+	return { ...values, args: values.args };
 }
 
 function readBlockValues(lines: string[]): Record<string, unknown> {
@@ -478,19 +510,20 @@ function readEnvBlockEntries(lines: string[]): McpEnvEntry[] {
 }
 
 function buildMcpBlock(model: McpFormModel, previous?: McpBlock): string {
-	const preserved = new Map<string, string>();
+	const preserved: { keys: string[]; text: string }[] = [];
 	if (previous) {
-		const { valueLines } = scanTomlTableLines(previous.lines);
-		for (let index = 1; index < previous.lines.length; index += 1) {
-			const key = previous.lines[index].match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/)?.[1];
-			if (!key || !valueLines.has(index)) {
+		let pending: string[] = [];
+		for (const line of previous.lines.slice(1)) {
+			pending.push(line);
+			let values: Record<string, unknown>;
+			try {
+				values = parse(pending.join('\n'));
+			} catch {
+				// The already-validated body may contain an incomplete multiline value.
 				continue;
 			}
-			const value = [previous.lines[index]];
-			while (index + 1 < previous.lines.length && !valueLines.has(index + 1)) {
-				value.push(previous.lines[++index]);
-			}
-			preserved.set(key, value.join('\n'));
+			preserved.push({ keys: Object.keys(values), text: pending.join('\n') });
+			pending = [];
 		}
 	}
 	const controlled = new Set([
@@ -534,9 +567,9 @@ function buildMcpBlock(model: McpFormModel, previous?: McpBlock): string {
 	if (model.disabledTools.length > 0) {
 		lines.push(`disabled_tools = ${formatStringArray(model.disabledTools)}`);
 	}
-	for (const [key, line] of preserved) {
-		if (!controlled.has(key)) {
-			lines.push(line);
+	for (const entry of preserved) {
+		if (entry.keys.length > 0 && entry.keys.every((key) => !controlled.has(key))) {
+			lines.push(entry.text);
 		}
 	}
 	return lines.join('\n');
@@ -557,7 +590,8 @@ function formatHeaderKey(value: string): string {
 }
 
 function formatStringArray(values: string[]): string {
-	return `[${values.map((value) => `"${escapeTomlString(value)}"`).join(', ')}]`;
+	// JSON basic-string escapes are valid TOML; DEL also requires escaping in TOML.
+	return `[${values.map((value) => JSON.stringify(value).replace(/\u007f/g, '\\u007f')).join(', ')}]`;
 }
 
 function buildMcpEnvBlock(model: McpFormModel): string {
