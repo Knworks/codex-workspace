@@ -44,23 +44,33 @@ export function refreshAgentManagerRecords(configPath: string, locations: AgentL
 	return listAgentManagerRecords(configPath, locations);
 }
 
-export function listAgentManagerRecords(
+/** Enumerate declarations without UI file filtering or undeclared-file synthesis. */
+export function listAgentDeclarationRecords(
 	configPath: string,
 	locations: AgentLocation[] = getAgentLocations(),
+	includeDetails: boolean = true,
 ): AgentManagerRecord[] {
 	const sources = listAgentConfigSources(configPath, locations);
 	const records = sources.flatMap((source) => {
 		const contents = fs.existsSync(source.configPath) ? fs.readFileSync(source.configPath, 'utf8') : '';
 		const roles = parseAgentRoleDeclarations(contents);
 		const storePath = getAgentManagerStorePath(source.configPath);
-		const declared = roles.map((role) => createRecord(role, source.configPath, source.location, true));
+		const details = includeDetails ? undefined : {};
+		const declared = roles.map((role) => createRecord(role, source.configPath, source.location, true, details));
 		for (const key of listDisabledAgentIds(storePath)) {
 			if (roles.some((role) => role.name === key)) { continue; }
 			const role = parseAgentRoleDeclarations(getDisabledAgentBlock(storePath, key) ?? '').find((item) => item.name === key);
-			if (role) { declared.push(createRecord(role, source.configPath, source.location, false)); }
+			if (role) { declared.push(createRecord(role, source.configPath, source.location, false, details)); }
 		}
-		return declared.filter((record) => record.configFile && isAgentFile(record.agentPath));
+		return declared;
 	});
+	return records;
+}
+
+export function listAgentManagerRecords(configPath: string, locations: AgentLocation[] = getAgentLocations()): AgentManagerRecord[] {
+	const sources = listAgentConfigSources(configPath, locations);
+	const records = listAgentDeclarationRecords(configPath, locations)
+		.filter((record) => record.configFile && isAgentFile(record.agentPath));
 	// Files without a declaration are available but OFF. A backup alone never creates a row.
 	for (const location of locations) {
 		if (!fs.existsSync(location.rootPath)) { continue; }
@@ -273,6 +283,17 @@ export function getAgentManagerStorePath(configPath: string): string {
 
 export function disableAgentByName(_codexDir: string, configPath: string, agentName: string): { changed: boolean } {
 	const contents = fs.readFileSync(configPath, 'utf8');
+	const role = parseAgentRoleDeclarations(contents).find((item) => item.name === agentName);
+	if (role?.configFile) {
+		const agentPath = resolveAgentConfigFile(configPath, role.configFile);
+		const relative = path.relative(path.join(path.dirname(configPath), 'agents'), agentPath);
+		if (relative !== '' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative) && agentPath.endsWith('.toml') && fs.existsSync(agentPath)) {
+			const definition = toml.parse(fs.readFileSync(agentPath, 'utf8')) as Record<string, unknown>;
+			if (['name', 'description', 'developer_instructions'].every((key) => typeof definition[key] === 'string' && definition[key].trim())) {
+				throw new Error('Cannot disable this declaration: CLI 0.163.0 would rediscover its standalone Agent file.');
+			}
+		}
+	}
 	const extracted = extractAgentConfigBlock(contents, agentName);
 	if (!extracted.removed || !extracted.block) {
 		return { changed: false };
