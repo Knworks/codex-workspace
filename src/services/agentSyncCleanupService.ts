@@ -39,6 +39,7 @@ export function reconcileAgentConfigAfterSync(
 	let configuredAgentIds = new Set(listConfiguredAgentIds(configContents));
 	const removedAgentIds: string[] = [];
 	const addedAgentIds: string[] = [];
+	const restoredAgentIds: string[] = [];
 
 	for (const agentId of configuredAgentIds) {
 		if (existingAgentIds.has(agentId)) {
@@ -71,7 +72,7 @@ export function reconcileAgentConfigAfterSync(
 			configContents = appendAgentConfigRawBlock(configContents, stashedBlock.block);
 			configuredAgentIds.add(agentId);
 			addedAgentIds.push(agentId);
-			takeDisabledAgentBlock(storePath, agentId);
+			restoredAgentIds.push(agentId);
 			continue;
 		}
 		const appended = appendAgentConfigBlock(configContents, agentId, '');
@@ -105,6 +106,7 @@ export function reconcileAgentConfigAfterSync(
 			!existingAgentIds.has(agentId) &&
 			getDisabledAgentEntry(storePath, agentId)?.source === 'config.toml',
 	);
+	for (const agentId of restoredAgentIds) { takeDisabledAgentBlock(storePath, agentId); }
 	for (const agentId of removedAgentIds) {
 		removeSyncStateEntry(codexDir, 'agents', `${agentId}.toml`);
 	}

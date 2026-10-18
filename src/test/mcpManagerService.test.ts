@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { parse } from 'toml';
 import { parse as parseToml } from '@iarna/toml';
+import * as toml from 'toml';
 import {
 	deleteMcpServer,
 	listMcpFormModels,
@@ -19,6 +20,13 @@ function withTempDir(run: (root: string) => void): void {
 		fs.rmSync(tempDir, { recursive: true, force: true });
 	}
 }
+
+type ParsedMcpConfig = {
+	mcp_servers: Record<string, {
+		enabled?: boolean;
+		tools: Record<string, Record<string, unknown>>;
+	}>;
+};
 
 function parseTestConfig(source: string): {
 	model?: unknown;
@@ -130,6 +138,52 @@ suite('MCP manager service', () => {
 			});
 		});
 	}
+
+
+	test('keeps commented server boundaries when listing, saving and deleting', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			const source = [
+				'[mcp_servers.first]',
+				'command = "first-command"',
+				'notes = """',
+				'[mcp_servers.fake] # text only',
+				'command = "not-a-command"',
+				'"""',
+				'[mcp_servers.second] # valid header comment',
+				'command = "second-command"',
+				'enabled = false',
+				'[mcp_servers."second.name".env] # companion',
+				'TOKEN = "value#tag"',
+				'[mcp_servers."second.name"] # quoted key',
+				'command = "quoted-command"',
+				'[notes]',
+				'text = """',
+				'[mcp_servers.fake] # text only',
+				'command = "not-a-server"',
+				'"""',
+			].join('\n');
+			fs.writeFileSync(configPath, source, 'utf8');
+			const before = toml.parse(source) as { mcp_servers: Record<string, unknown>; notes: unknown };
+			const models = listMcpFormModels(configPath);
+			assert.deepStrictEqual(models.map((model) => [model.id, model.command, model.enabled]), [
+				['first', 'first-command', true],
+				['second', 'second-command', false],
+				['second.name', 'quoted-command', true],
+			]);
+			assert.strictEqual(saveMcpServer(configPath, models[0], 'first').ok, true);
+			const afterSave = toml.parse(fs.readFileSync(configPath, 'utf8')) as typeof before;
+			assert.deepStrictEqual(afterSave.mcp_servers.first, before.mcp_servers.first);
+			assert.deepStrictEqual(afterSave.mcp_servers.second, before.mcp_servers.second);
+			assert.deepStrictEqual(afterSave.mcp_servers['second.name'], before.mcp_servers['second.name']);
+			assert.deepStrictEqual(afterSave.notes, before.notes);
+			assert.strictEqual(deleteMcpServer(configPath, 'first'), true);
+			const afterDelete = toml.parse(fs.readFileSync(configPath, 'utf8')) as typeof before;
+			assert.deepStrictEqual(afterDelete.mcp_servers.second, before.mcp_servers.second);
+			assert.deepStrictEqual(afterDelete.mcp_servers['second.name'], before.mcp_servers['second.name']);
+			assert.deepStrictEqual(afterDelete.notes, before.notes);
+		});
+	});
 
 	test('listMcpFormModels reads stdio and http servers', () => {
 		withTempDir((root) => {
@@ -402,7 +456,7 @@ suite('MCP manager service', () => {
 		});
 	});
 
-	test('validateMcpModel rejects mutually exclusive tools', () => {
+	test('validateMcpModel accepts allow-list and deny-list together', () => {
 		const result = validateMcpModel({
 			id: 'github',
 			transport: 'stdio',
@@ -415,8 +469,76 @@ suite('MCP manager service', () => {
 			enabled: true,
 		}, []);
 
-		assert.strictEqual(result.ok, false);
-		assert.ok(result.errors.includes('toolsMutuallyExclusive'));
+		assert.strictEqual(result.ok, true);
+		assert.deepStrictEqual(result.errors, []);
+	});
+
+	test('read-save-read preserves current tool settings and unknown TOML values', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			fs.writeFileSync(configPath, [
+				'[mcp_servers.example]',
+				'command = "example-mcp"',
+				'enabled_tools = ["read", "write"]',
+				'disabled_tools = ["write"]',
+				'[mcp_servers.example.tools.read]',
+				'enabled = true',
+				'approval_mode = "writes"',
+				'output_token_limit = 4_096',
+				'future_option = { mode = "custom", count = 2 }',
+				'"future-key" = [',
+				'  "first", "second",',
+				']',
+				"future_text = '''",
+				'enabled = false',
+				"'''",
+				'[mcp_servers.example.tools.write]',
+				'future_only = true',
+			].join('\n'), 'utf8');
+			const original = toml.parse(fs.readFileSync(configPath, 'utf8')) as ParsedMcpConfig;
+			const model = listMcpFormModels(configPath)[0];
+			assert.strictEqual(model.tools?.[0].approvalMode, 'writes');
+			assert.strictEqual(model.tools?.[0].outputTokenLimit, 4096);
+			assert.strictEqual(saveMcpServer(configPath, model, model.id).ok, true);
+			assert.deepStrictEqual(toml.parse(fs.readFileSync(configPath, 'utf8')), original);
+			assert.deepStrictEqual(listMcpFormModels(configPath)[0], model);
+
+			model.id = 'renamed';
+			model.env = [{ key: 'MODE', value: 'test' }];
+			model.tools = [model.tools![1], { name: 'read', enabled: false, approvalMode: 'prompt', outputTokenLimit: 0 }];
+			assert.strictEqual(saveMcpServer(configPath, model, 'example').ok, true);
+			const edited = (toml.parse(fs.readFileSync(configPath, 'utf8')) as ParsedMcpConfig).mcp_servers.renamed;
+			assert.deepStrictEqual({ ...edited.tools.read }, {
+				...original.mcp_servers.example.tools.read,
+				enabled: false, approval_mode: 'prompt', output_token_limit: 0,
+			});
+			assert.deepStrictEqual({ ...edited.tools.write }, { future_only: true });
+
+			model.tools = [{ name: 'read' }];
+			model.enabled = false;
+			assert.strictEqual(saveMcpServer(configPath, model, 'renamed').ok, true);
+			const cleared = (toml.parse(fs.readFileSync(configPath, 'utf8')) as ParsedMcpConfig).mcp_servers.renamed;
+			assert.strictEqual(cleared.enabled, false);
+			assert.strictEqual(cleared.tools.read.output_token_limit, undefined);
+			assert.strictEqual(cleared.tools.read.approval_mode, undefined);
+			assert.strictEqual(cleared.tools.read.enabled, undefined);
+			assert.deepStrictEqual(cleared.tools.read.future_option, original.mcp_servers.example.tools.read.future_option);
+			assert.strictEqual(cleared.tools.write, undefined);
+			assert.strictEqual(deleteMcpServer(configPath, 'renamed'), true);
+			assert.deepStrictEqual(listMcpFormModels(configPath), []);
+		});
+	});
+
+	test('output limits require a tool name and a non-negative safe integer', () => {
+		const model = {
+			id: 'example', transport: 'stdio' as const, command: 'example-mcp',
+			args: [], url: '', env: [], enabledTools: [], disabledTools: [], enabled: true,
+		};
+		for (const limit of [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+			assert.ok(validateMcpModel({ ...model, tools: [{ name: 'read', outputTokenLimit: limit }] }, []).errors.includes('toolOutputTokenLimitInvalid'));
+		}
+		assert.ok(validateMcpModel({ ...model, tools: [{ name: '', outputTokenLimit: 0 }] }, []).errors.includes('toolNameRequired'));
+		assert.strictEqual(validateMcpModel({ ...model, tools: [{ name: 'read', outputTokenLimit: 0, approvalMode: 'writes' }] }, []).ok, true);
 	});
 
 	test('validateMcpModel rejects env rows without keys', () => {
