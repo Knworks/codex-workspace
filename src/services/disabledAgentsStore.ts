@@ -116,6 +116,10 @@ function readDisabledAgentsStore(storePath: string): DisabledAgentsStore {
 }
 
 function writeDisabledAgentsStore(storePath: string, store: DisabledAgentsStore): void {
+	if (Object.keys(store.disabledAgents).length === 0) {
+		fs.rmSync(storePath, { force: true });
+		return;
+	}
 	fs.mkdirSync(path.dirname(storePath), { recursive: true });
 	fs.writeFileSync(storePath, `${JSON.stringify(store, null, 2)}\n`, 'utf8');
 }

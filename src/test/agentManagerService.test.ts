@@ -74,23 +74,24 @@ suite('Agent manager service', () => {
 		});
 	});
 
-	test('shows missing role files and roles without config_file without scanning unregistered files', () => {
+	test('shows only existing Agent files and includes unregistered files as OFF', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, 'config.toml');
 			fs.mkdirSync(path.join(root, 'agents'));
 			fs.writeFileSync(path.join(root, 'agents', 'unregistered.toml'), 'model = "test"');
 			fs.writeFileSync(configPath, '[agents.missing]\nconfig_file = "missing.toml"\n[agents.inherited]\ndescription = "Default settings"\n');
-			const records = listAgentManagerRecords(configPath, []);
-			assert.deepStrictEqual(records.map((record) => record.name), ['missing', 'inherited']);
-			assert.strictEqual(records[0].agentPath, path.join(root, 'missing.toml'));
-			assert.strictEqual(records[1].agentPath, configPath);
-			assert.ok(records.every((record) => record.model === '継承'));
+			const records = listAgentManagerRecords(configPath, [{ kind: 'workspace', label: 'Workspace Agents', rootPath: path.join(root, 'agents'), priority: 2 }]);
+			assert.deepStrictEqual(records.map((record) => record.name), ['unregistered']);
+			assert.strictEqual(records[0].enabled, false);
+			assert.strictEqual(records[0].agentPath, path.join(root, 'agents', 'unregistered.toml'));
+			assert.strictEqual(records[0].model, 'test');
 		});
 	});
 
 	test('quoted role keys and header comments survive disable and enable', () => {
 		withTempDir((root) => {
 			const configPath = path.join(root, 'config.toml');
+			fs.writeFileSync(path.join(root, 'other.toml'), '');
 			fs.writeFileSync(configPath, "[agents.'code reviewer'] # role\ndescription = 'Review'\nconfig_file = 'other.toml'\n");
 			disableAgentByName(root, configPath, 'code reviewer');
 			assert.strictEqual(listAgentManagerRecords(configPath, [])[0].enabled, false);

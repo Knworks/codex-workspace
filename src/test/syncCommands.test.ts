@@ -476,7 +476,31 @@ suite('Sync commands', () => {
 		});
 	});
 
-	test('syncAgents restores previous description when a tracked agent file returns', async () => {
+	test('syncAgents keeps a disabled alias when its differently named physical file still exists', async () => {
+		await withTempHome(async (homeDir) => {
+			await activateExtension();
+			const codexDir = path.join(homeDir, '.codex');
+			const agentsDir = path.join(codexDir, 'agents');
+			fs.mkdirSync(agentsDir, { recursive: true });
+			fs.writeFileSync(path.join(codexDir, 'config.toml'), '');
+			fs.writeFileSync(path.join(agentsDir, 'physical.toml'), '');
+			const storePath = getDisabledAgentsStorePath(codexDir);
+			const block = '[agents.alias]\nconfig_file = "agents/physical.toml"\n';
+			saveDisabledAgentBlock(storePath, 'alias', block);
+			const originalWarning = vscode.window.showWarningMessage;
+			(vscode.window as unknown as { showWarningMessage: typeof originalWarning }).showWarningMessage = async () => 'OK';
+			try {
+				await withSyncFolderSetting('agentFolder', path.join(homeDir, 'sync-alias'), async () => {
+					await vscode.commands.executeCommand('codex-workspace.syncAgents');
+				});
+			} finally { (vscode.window as unknown as { showWarningMessage: typeof originalWarning }).showWarningMessage = originalWarning; }
+			assert.strictEqual(fs.readFileSync(path.join(codexDir, 'config.toml'), 'utf8'), '');
+			const store = JSON.parse(fs.readFileSync(storePath, 'utf8')) as { disabledAgents: { alias: { block: string } } };
+			assert.strictEqual(store.disabledAgents.alias.block, block);
+		});
+	});
+
+	test('syncAgents discards deleted-file backups and registers a returning file from its current contents', async () => {
 		await withTempHome(async (homeDir) => {
 			await activateExtension();
 
@@ -518,13 +542,10 @@ suite('Sync commands', () => {
 
 			const configContents = fs.readFileSync(configPath, 'utf8');
 			assert.ok(configContents.includes('[agents.reviewer]'));
-			assert.ok(configContents.includes('description = "Original description"'));
-			assert.ok(!configContents.includes('description = ""'));
+			assert.ok(!configContents.includes('description = "Original description"'));
+			assert.ok(configContents.includes('description = ""'));
 			const storePath = getDisabledAgentsStorePath(codexDir);
-			const store = JSON.parse(fs.readFileSync(storePath, 'utf8')) as {
-				disabledAgents?: Record<string, unknown>;
-			};
-			assert.strictEqual(store.disabledAgents?.reviewer, undefined);
+			assert.strictEqual(fs.existsSync(storePath), false);
 		});
 	});
 
@@ -568,10 +589,7 @@ suite('Sync commands', () => {
 			}
 
 			assert.ok(!fs.existsSync(path.join(agentsDir, 'reviewer.toml')));
-			const store = JSON.parse(fs.readFileSync(disabledStorePath, 'utf8')) as {
-				disabledAgents?: Record<string, unknown>;
-			};
-			assert.strictEqual(store.disabledAgents?.reviewer, undefined);
+			assert.strictEqual(fs.existsSync(disabledStorePath), false);
 			const syncStatePath = path.join(codexDir, '.codex-workspace', 'codex-sync.json');
 			const syncState = JSON.parse(fs.readFileSync(syncStatePath, 'utf8')) as {
 				agents?: Record<string, unknown>;

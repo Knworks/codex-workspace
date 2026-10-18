@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { CodexTreeItem } from '../models/treeItems';
+import { listAgentManagerRecords } from '../services/agentManagerService';
 
 type EnvSnapshot = {
 	HOME?: string;
@@ -184,6 +185,28 @@ function mockQuickPickTextInputs(
 }
 
 suite('Agent commands', () => {
+	test('Explorer toggles a Profile alias using its declaration identity instead of its file name', async () => {
+		await withTempHome(async (homeDir) => {
+			const { agentsDir, configPath, codexDir } = createWorkspace(homeDir);
+			const target = path.join(agentsDir, 'physical.toml');
+			fs.writeFileSync(target, '');
+			const declaration = '[agents.role_alias]\nconfig_file = "agents/physical.toml"\n';
+			fs.writeFileSync(configPath, declaration);
+			const profilePath = path.join(codexDir, 'review.config.toml');
+			fs.writeFileSync(profilePath, declaration);
+			await activateExtension();
+			const item = createAgentItem(target);
+			item.agentRecord = listAgentManagerRecords(configPath).find((record) => record.configPath === profilePath);
+			assert.ok(item.agentRecord);
+			await vscode.commands.executeCommand('codex-workspace.disableAgent', item);
+			assert.strictEqual(fs.readFileSync(configPath, 'utf8'), declaration);
+			assert.ok(!fs.readFileSync(profilePath, 'utf8').includes('role_alias'));
+			await vscode.commands.executeCommand('codex-workspace.enableAgent', item);
+			assert.strictEqual(fs.readFileSync(configPath, 'utf8'), declaration);
+			assert.ok(fs.readFileSync(profilePath, 'utf8').includes('agents/physical.toml'));
+			assert.strictEqual(fs.existsSync(path.join(codexDir, '.codex-workspace', 'review.config.toml.agents-disabled.json')), false);
+		});
+	});
 	test('addAgent executes name -> description -> template and creates empty file', async () => {
 		await withTempHome(async (homeDir) => {
 			const { codexDir, agentsDir, configPath } = createWorkspace(homeDir);
@@ -540,10 +563,7 @@ suite('Agent commands', () => {
 			assert.ok(!fs.existsSync(targetPath));
 			const nextConfig = fs.readFileSync(configPath, 'utf8');
 			assert.ok(!nextConfig.includes('[agents.to_delete]'));
-			const disabledStore = JSON.parse(
-				fs.readFileSync(disabledStorePath, 'utf8'),
-			) as { disabledAgents: Record<string, unknown> };
-			assert.strictEqual(disabledStore.disabledAgents.to_delete, undefined);
+			assert.strictEqual(fs.existsSync(disabledStorePath), false);
 			const syncState = JSON.parse(fs.readFileSync(syncStatePath, 'utf8')) as {
 				agents?: Record<string, unknown>;
 			};
@@ -641,10 +661,7 @@ suite('Agent commands', () => {
 			const nextAgentContents = fs.readFileSync(targetPath, 'utf8');
 			assert.ok(!nextAgentContents.includes('name = "restorable"'));
 
-			const store = JSON.parse(fs.readFileSync(storePath, 'utf8')) as {
-				disabledAgents: Record<string, unknown>;
-			};
-			assert.strictEqual(store.disabledAgents.restorable, undefined);
+			assert.strictEqual(fs.existsSync(storePath), false);
 		});
 	});
 
