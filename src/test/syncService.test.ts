@@ -22,6 +22,20 @@ function setMtime(targetPath: string, mtimeMs: number): void {
 	fs.utimesSync(targetPath, time, time);
 }
 
+function readSyncState(codexRoot: string): Record<string, Record<string, true>> {
+	const statePath = path.join(codexRoot, '.codex-workspace', 'codex-sync.json');
+	return JSON.parse(fs.readFileSync(statePath, 'utf8')) as Record<string, Record<string, true>>;
+}
+
+function pairState(
+	state: Record<string, Record<string, true>>,
+	scope: string,
+	source: string,
+	target: string,
+): Record<string, true> | undefined {
+	return state[`pair:${JSON.stringify([scope, path.resolve(source), path.resolve(target)])}`];
+}
+
 suite('Sync service', () => {
 	test('syncDirectoryBidirectional copies newer file to older side', () => {
 		withTempDir((root) => {
@@ -97,21 +111,16 @@ suite('Sync service', () => {
 			assert.ok(fs.existsSync(path.join(targetDir, 'old.md')));
 			const statePath = path.join(codexRoot, '.codex-workspace', 'codex-sync.json');
 			assert.ok(fs.existsSync(statePath));
-			const initialState = JSON.parse(
-				fs.readFileSync(statePath, 'utf8'),
-			) as Record<string, Record<string, unknown>>;
-			assert.ok(initialState.templates);
-			assert.ok(initialState.templates['old.md']);
+			const initialState = readSyncState(codexRoot);
+			assert.strictEqual(pairState(initialState, 'templates', codexDir, targetDir)?.['old.md'], true);
 
 			fs.rmSync(codexFile);
 			syncDirectoryBidirectional('templates', codexRoot, codexDir, targetDir);
 
 			assert.ok(!fs.existsSync(path.join(targetDir, 'old.md')));
 			assert.ok(!fs.existsSync(targetDir));
-			const finalState = JSON.parse(
-				fs.readFileSync(statePath, 'utf8'),
-			) as Record<string, Record<string, unknown>>;
-			assert.ok(!finalState.templates?.['old.md']);
+			const finalState = readSyncState(codexRoot);
+			assert.strictEqual(pairState(finalState, 'templates', codexDir, targetDir)?.['old.md'], undefined);
 		});
 	});
 
@@ -205,6 +214,59 @@ suite('Sync service', () => {
 		});
 	});
 
+	test('core sync keeps files when switching A to B to A', () => {
+		withTempDir((root) => {
+			const codexRoot = path.join(root, '.codex');
+			const targetA = path.join(root, 'A');
+			const targetB = path.join(root, 'B');
+			fs.mkdirSync(codexRoot);
+			for (const name of ['config.toml', 'AGENTS.md', 'AGENTS.override.md']) {
+				fs.writeFileSync(path.join(codexRoot, name), name);
+			}
+
+			syncCoreFilesBidirectional(codexRoot, targetA);
+			syncCoreFilesBidirectional(codexRoot, targetB);
+			syncCoreFilesBidirectional(codexRoot, path.join(root, 'B', '..', 'A'));
+			for (const name of ['config.toml', 'AGENTS.md', 'AGENTS.override.md']) {
+				assert.strictEqual(fs.readFileSync(path.join(codexRoot, name), 'utf8'), name);
+				assert.strictEqual(fs.readFileSync(path.join(targetA, name), 'utf8'), name);
+				assert.strictEqual(fs.readFileSync(path.join(targetB, name), 'utf8'), name);
+			}
+			const state = readSyncState(codexRoot);
+			assert.strictEqual(pairState(state, 'core', codexRoot, targetA)?.['config.toml'], true);
+			assert.strictEqual(pairState(state, 'core', codexRoot, targetB)?.['config.toml'], true);
+			assert.strictEqual(Object.keys(state).length, 2);
+		});
+	});
+
+	test('directory sync isolates destination and source changes within a scope', () => {
+		withTempDir((root) => {
+			const codexRoot = path.join(root, '.codex');
+			const sourceA = path.join(codexRoot, 'prompts');
+			const sourceB = path.join(codexRoot, 'other-prompts');
+			const targetA = path.join(root, 'A');
+			const targetB = path.join(root, 'B');
+			fs.mkdirSync(sourceA, { recursive: true });
+			fs.mkdirSync(sourceB);
+			fs.writeFileSync(path.join(sourceA, 'a.md'), 'from A');
+			fs.writeFileSync(path.join(sourceB, 'a.md'), 'from B');
+
+			syncDirectoryBidirectional('prompts', codexRoot, sourceA, targetA);
+			syncDirectoryBidirectional('prompts', codexRoot, sourceA, targetB);
+			fs.rmSync(path.join(targetB, 'a.md'));
+			syncDirectoryBidirectional('prompts', codexRoot, sourceB, targetB);
+			syncDirectoryBidirectional('prompts', codexRoot, sourceA, targetA);
+			assert.strictEqual(fs.readFileSync(path.join(sourceA, 'a.md'), 'utf8'), 'from A');
+			assert.strictEqual(fs.readFileSync(path.join(targetA, 'a.md'), 'utf8'), 'from A');
+			assert.strictEqual(fs.readFileSync(path.join(sourceB, 'a.md'), 'utf8'), 'from B');
+			assert.strictEqual(fs.readFileSync(path.join(targetB, 'a.md'), 'utf8'), 'from B');
+			const state = readSyncState(codexRoot);
+			assert.strictEqual(pairState(state, 'prompts', sourceA, targetA)?.['a.md'], true);
+			assert.strictEqual(pairState(state, 'prompts', sourceA, targetB)?.['a.md'], true);
+			assert.strictEqual(pairState(state, 'prompts', sourceB, targetB)?.['a.md'], true);
+		});
+	});
+
 	test('removeSyncStateEntry removes tracked path from scope', () => {
 		withTempDir((root) => {
 			const codexRoot = path.join(root, '.codex');
@@ -214,17 +276,12 @@ suite('Sync service', () => {
 			fs.writeFileSync(path.join(codexDir, 'reviewer.toml'), 'x', 'utf8');
 
 			syncDirectoryBidirectional('agents', codexRoot, codexDir, targetDir);
-			const statePath = path.join(codexRoot, '.codex-workspace', 'codex-sync.json');
-			const initialState = JSON.parse(
-				fs.readFileSync(statePath, 'utf8'),
-			) as Record<string, Record<string, unknown>>;
-			assert.ok(initialState.agents?.['reviewer.toml']);
+			const initialState = readSyncState(codexRoot);
+			assert.strictEqual(pairState(initialState, 'agents', codexDir, targetDir)?.['reviewer.toml'], true);
 
 			removeSyncStateEntry(codexRoot, 'agents', 'reviewer.toml');
-			const nextState = JSON.parse(
-				fs.readFileSync(statePath, 'utf8'),
-			) as Record<string, Record<string, unknown>>;
-			assert.ok(!nextState.agents?.['reviewer.toml']);
+			const nextState = readSyncState(codexRoot);
+			assert.strictEqual(pairState(nextState, 'agents', codexDir, targetDir)?.['reviewer.toml'], undefined);
 		});
 	});
 
@@ -286,6 +343,70 @@ suite('Sync service', () => {
 			const newStatePath = path.join(codexRoot, '.codex-workspace', 'codex-sync.json');
 			assert.ok(fs.existsSync(newStatePath));
 			assert.ok(!fs.existsSync(legacyStatePath));
+		});
+	});
+
+	test('legacy scope-only history does not delete core or directory files', () => {
+		withTempDir((root) => {
+			const codexRoot = path.join(root, '.codex');
+			const promptsDir = path.join(codexRoot, 'prompts');
+			const coreTarget = path.join(root, 'core-target');
+			const promptsTarget = path.join(root, 'prompts-target');
+			fs.mkdirSync(promptsDir, { recursive: true });
+			fs.writeFileSync(path.join(codexRoot, 'config.toml'), 'safe = true');
+			fs.writeFileSync(path.join(promptsDir, 'keep.md'), 'keep');
+			fs.writeFileSync(path.join(promptsDir, '.hidden.md'), 'hidden');
+			fs.mkdirSync(path.join(promptsDir, '.codex-workspace'));
+			fs.writeFileSync(path.join(promptsDir, '.codex-workspace', 'meta.json'), 'meta');
+			const legacyPath = path.join(codexRoot, '.codex-sync', 'state.json');
+			fs.mkdirSync(path.dirname(legacyPath));
+			fs.writeFileSync(legacyPath, JSON.stringify({ core: { 'config.toml': true }, prompts: { 'keep.md': true } }));
+
+			syncCoreFilesBidirectional(codexRoot, coreTarget);
+			syncDirectoryBidirectional('prompts', codexRoot, promptsDir, promptsTarget);
+			assert.strictEqual(fs.readFileSync(path.join(codexRoot, 'config.toml'), 'utf8'), 'safe = true');
+			assert.strictEqual(fs.readFileSync(path.join(coreTarget, 'config.toml'), 'utf8'), 'safe = true');
+			assert.strictEqual(fs.readFileSync(path.join(promptsDir, 'keep.md'), 'utf8'), 'keep');
+			assert.strictEqual(fs.readFileSync(path.join(promptsTarget, 'keep.md'), 'utf8'), 'keep');
+			assert.ok(!fs.existsSync(path.join(promptsTarget, '.hidden.md')));
+			assert.ok(!fs.existsSync(path.join(promptsTarget, '.codex-workspace')));
+			assert.ok(!fs.existsSync(legacyPath));
+			const state = readSyncState(codexRoot);
+			assert.strictEqual(pairState(state, 'core', codexRoot, coreTarget)?.['config.toml'], true);
+			assert.strictEqual(pairState(state, 'prompts', promptsDir, promptsTarget)?.['keep.md'], true);
+		});
+	});
+
+	test('scope-only history at the current state path cannot delete a core file', () => {
+		withTempDir((root) => {
+			const codexRoot = path.join(root, '.codex');
+			const targetDir = path.join(root, 'new-target');
+			fs.mkdirSync(path.join(codexRoot, '.codex-workspace'), { recursive: true });
+			fs.writeFileSync(path.join(codexRoot, 'config.toml'), 'preserved');
+			fs.writeFileSync(
+				path.join(codexRoot, '.codex-workspace', 'codex-sync.json'),
+				JSON.stringify({ core: { 'config.toml': true } }),
+			);
+			syncCoreFilesBidirectional(codexRoot, targetDir);
+			assert.strictEqual(fs.readFileSync(path.join(codexRoot, 'config.toml'), 'utf8'), 'preserved');
+			assert.strictEqual(fs.readFileSync(path.join(targetDir, 'config.toml'), 'utf8'), 'preserved');
+		});
+	});
+
+	test('removing a tracked entry clears every destination in the scope', () => {
+		withTempDir((root) => {
+			const codexRoot = path.join(root, '.codex');
+			const codexDir = path.join(codexRoot, 'agents');
+			const targetA = path.join(root, 'A');
+			const targetB = path.join(root, 'B');
+			fs.mkdirSync(codexDir, { recursive: true });
+			fs.writeFileSync(path.join(codexDir, 'reviewer.toml'), 'agent');
+			syncDirectoryBidirectional('agents', codexRoot, codexDir, targetA);
+			syncDirectoryBidirectional('agents', codexRoot, codexDir, targetB);
+			removeSyncStateEntry(codexRoot, 'agents', 'reviewer.toml');
+			const state = readSyncState(codexRoot);
+			assert.strictEqual(pairState(state, 'agents', codexDir, targetA)?.['reviewer.toml'], undefined);
+			assert.strictEqual(pairState(state, 'agents', codexDir, targetB)?.['reviewer.toml'], undefined);
 		});
 	});
 

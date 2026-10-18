@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import * as toml from 'toml';
 import {
 	appendAgentConfigRawBlock,
 	appendAgentConfigBlock,
@@ -21,6 +22,30 @@ import {
 } from '../services/agentConfigService';
 
 suite('Agent config service', () => {
+	test('metadata updates a quoted path even when description must be inserted, preserving comments and child settings', () => {
+		const original = "[agents.'review role'] # role\nconfig_file = 'old.toml' # path\n[agents.'review role'.options]\nvalue = 3\n";
+		const updated = upsertAgentConfigMetadata(original, 'review role', 'Updated', 'agents/new.toml');
+		const parsed = toml.parse(updated) as { agents: Record<string, { description: string; config_file: string; options: { value: number } }> };
+		assert.strictEqual(parsed.agents['review role'].config_file, 'agents/new.toml');
+		assert.strictEqual(parsed.agents['review role'].description, 'Updated');
+		assert.strictEqual(parsed.agents['review role'].options.value, 3);
+		assert.ok(updated.includes('# path'));
+		assert.ok(updated.includes('# role'));
+	});
+
+	test('metadata updates inline and multiline declarations without creating duplicate role keys', () => {
+		for (const original of [
+			'agents = { reviewer = { config_file = "old.toml", description = "Old" }, other = { config_file = "other.toml" } }\n',
+			'[agents.reviewer]\nconfig_file = """old.toml"""\ndescription = """Old\n[agents.fake]\n"""\n[agents.other]\nconfig_file = "other.toml"\n',
+		]) {
+			const updated = upsertAgentConfigMetadata(original, 'reviewer', 'New', 'new.toml');
+			const parsed = toml.parse(updated) as { agents: Record<string, { description: string; config_file: string }> };
+			assert.strictEqual(parsed.agents.reviewer.config_file, 'new.toml');
+			assert.strictEqual(parsed.agents.reviewer.description, 'New');
+			assert.strictEqual(parsed.agents.other.config_file, 'other.toml');
+			assert.deepStrictEqual(Object.keys(parsed.agents).sort(), ['other', 'reviewer']);
+		}
+	});
 	function normalizeConfigPath(value: string): string {
 		return value.replace(/\\/g, '/');
 	}

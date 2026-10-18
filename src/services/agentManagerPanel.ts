@@ -4,7 +4,7 @@ import {
 	AgentManagerRecord,
 	disableAgentByName,
 	enableAgentByName,
-	listAgentManagerRecords,
+	refreshAgentManagerRecords,
 	resolveAgentManagerPaths,
 } from './agentManagerService';
 import {
@@ -446,8 +446,19 @@ function buildHtml(
 			white-space: pre-wrap;
 			overflow-wrap: anywhere;
 		}
+		.switch {
+			position: relative;
+		}
 		.switch input {
-			display: none;
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			margin: 0;
+			opacity: 0;
+		}
+		.switch input:focus-visible + span {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 3px;
 		}
 		.switch span {
 			display: inline-block;
@@ -1258,7 +1269,7 @@ function buildHtml(
 				'<div class="agent-actions">' +
 					'<span class="location">' + escapeHtmlClient(agent.locationLabel) + '</span>' +
 					'<label class="switch">' +
-						'<input type="checkbox" data-agent-id="' + escapeHtmlClient(agent.id) + '" ' + (agent.enabled ? 'checked' : '') + ' />' +
+						'<input type="checkbox" aria-label="' + escapeHtmlClient(agent.name + ' (' + agent.locationLabel + ')') + '" data-agent-id="' + escapeHtmlClient(agent.id) + '" ' + (agent.enabled ? 'checked' : '') + ' />' +
 						'<span></span>' +
 					'</label>' +
 					'<button class="icon-button" type="button" data-open-path="' + escapeHtmlClient(agent.agentPath) + '" title="${escapeHtml(messages.agentManagerOpen)}" aria-label="${escapeHtml(messages.agentManagerOpen)}"><span class="codicon codicon-file-text" aria-hidden="true"></span></button>' +
@@ -2211,7 +2222,11 @@ function buildHtml(
 				vscode.postMessage({ type: 'openAgent', agentPath: openButton.dataset.openPath });
 				return;
 			}
-			const row = target ? target.closest('[data-agent-id]') : null;
+			// Keep the input attached until its native change event has been delivered.
+			if (target && target.closest('.switch')) {
+				return;
+			}
+			const row = target ? target.closest('.agent-row') : null;
 			if (row && row.dataset && row.dataset.agentId) {
 				appState.selectedAgentId = row.dataset.agentId;
 				renderAgentsList();
@@ -2491,17 +2506,31 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 			if (!record) { return; }
 			const configPath = record.configPath;
 			const { codexDir } = resolveAgentManagerPaths();
-			if (message.enabled) {
-				const result = enableAgentByName(codexDir, configPath, record.name);
-				if (result.overwritten) {
-					vscode.window.showInformationMessage(
-						messages.agentManagerOverwritten(record.name),
-					);
+			try {
+				let changed: boolean;
+				if (message.enabled) {
+					const result = enableAgentByName(codexDir, configPath, record.name, record.configFile);
+					changed = result.changed;
+					if (result.overwritten) {
+						vscode.window.showInformationMessage(
+							messages.agentManagerOverwritten(record.name),
+						);
+					}
+				} else {
+					changed = disableAgentByName(codexDir, configPath, record.name).changed;
 				}
-			} else {
-				disableAgentByName(codexDir, configPath, record.name);
+				if (changed) {
+					vscode.window.showInformationMessage(messages.agent.toggleUpdated);
+				} else {
+					vscode.window.showWarningMessage(message.enabled
+						? messages.agent.configExists(record.name) : messages.agent.notEnabled(record.name));
+				}
+			} catch (error) {
+				console.error(error);
+				void vscode.window.showErrorMessage(messages.unexpectedError);
+				this.refresh();
+				return;
 			}
-			vscode.window.showInformationMessage(messages.agent.toggleUpdated);
 			this.onDidChangeAgents();
 			this.refresh();
 			return;
@@ -2688,7 +2717,7 @@ export class AgentManagerPanelManager implements vscode.Disposable {
 
 	private readRecords(): AgentManagerRecord[] {
 		const { configPath } = resolveAgentManagerPaths();
-		return listAgentManagerRecords(configPath);
+		return refreshAgentManagerRecords(configPath);
 	}
 
 	private postToWebview(message: Record<string, unknown>): void {

@@ -1,10 +1,12 @@
 import * as assert from 'assert';
-import * as fs from 'fs';
+import fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as toml from 'toml';
+import { listCliAgentRecords } from '../services/cliAgentService';
 import { CodexTreeItem } from '../models/treeItems';
+import { listAgentManagerRecords } from '../services/agentManagerService';
 
 type EnvSnapshot = {
 	HOME?: string;
@@ -185,6 +187,36 @@ function mockQuickPickTextInputs(
 }
 
 suite('Agent commands', () => {
+	test('Explorer toggles a Profile alias using its declaration identity instead of its file name', async () => {
+		await withTempHome(async (homeDir) => {
+			const { agentsDir, configPath, codexDir } = createWorkspace(homeDir);
+			const target = path.join(agentsDir, 'physical.toml');
+			fs.writeFileSync(target, '');
+			const declaration = '[agents.role_alias]\nconfig_file = "agents/physical.toml"\n';
+			fs.writeFileSync(configPath, declaration);
+			const profilePath = path.join(codexDir, 'review.config.toml');
+			fs.writeFileSync(profilePath, declaration);
+			await activateExtension();
+			const item = createAgentItem(target);
+			item.agentRecord = listAgentManagerRecords(configPath).find((record) => record.configPath === profilePath);
+			assert.ok(item.agentRecord);
+			const originalInfo = vscode.window.showInformationMessage;
+			let unchangedInfos = 0;
+			vscode.window.showInformationMessage = (async () => { unchangedInfos += 1; }) as typeof originalInfo;
+			try {
+				await vscode.commands.executeCommand('codex-workspace.enableAgent', item);
+				assert.strictEqual(unchangedInfos, 0);
+				assert.strictEqual(fs.readFileSync(profilePath, 'utf8'), declaration);
+			} finally { vscode.window.showInformationMessage = originalInfo; }
+			await vscode.commands.executeCommand('codex-workspace.disableAgent', item);
+			assert.strictEqual(fs.readFileSync(configPath, 'utf8'), declaration);
+			assert.ok(!fs.readFileSync(profilePath, 'utf8').includes('role_alias'));
+			await vscode.commands.executeCommand('codex-workspace.enableAgent', item);
+			assert.strictEqual(fs.readFileSync(configPath, 'utf8'), declaration);
+			assert.ok(fs.readFileSync(profilePath, 'utf8').includes('agents/physical.toml'));
+			assert.strictEqual(fs.existsSync(path.join(codexDir, '.codex-workspace', 'review.config.toml.agents-disabled.json')), false);
+		});
+	});
 	test('addAgent executes name -> description -> template and scaffolds without template', async () => {
 		await withTempHome(async (homeDir) => {
 			const { codexDir, agentsDir, configPath } = createWorkspace(homeDir);
@@ -241,6 +273,11 @@ suite('Agent commands', () => {
 			assert.ok(config.includes('[agents.reviewer]'));
 			assert.ok(config.includes('description = "Security reviewer"'));
 			assert.ok(config.includes('config_file = "agents/reviewer.toml"'));
+			const cliRecord = listCliAgentRecords(configPath).find((record) => record.agentPath === createdPath);
+			assert.ok(cliRecord);
+			assert.strictEqual(cliRecord.name, 'reviewer');
+			assert.strictEqual(cliRecord.availability, 'available');
+			assert.strictEqual(cliRecord.enabled, true);
 		});
 	});
 
@@ -286,6 +323,11 @@ suite('Agent commands', () => {
 					assert.strictEqual(contents, scenario.template);
 				} else {
 					const parsed = toml.parse(contents);
+					const cliRecord = listCliAgentRecords(configPath).find((record) => record.agentPath === createdPath);
+					assert.ok(cliRecord);
+					assert.strictEqual(cliRecord.name, '作成_agent');
+					assert.strictEqual(cliRecord.availability, 'available');
+					assert.strictEqual(cliRecord.enabled, true);
 					assert.strictEqual(parsed.name, '作成_agent');
 					assert.deepStrictEqual(Object.keys(parsed).sort(), ['description', 'developer_instructions', 'name']);
 					if (scenario.description.trim()) {
@@ -605,10 +647,7 @@ suite('Agent commands', () => {
 			assert.ok(!fs.existsSync(targetPath));
 			const nextConfig = fs.readFileSync(configPath, 'utf8');
 			assert.ok(!nextConfig.includes('[agents.to_delete]'));
-			const disabledStore = JSON.parse(
-				fs.readFileSync(disabledStorePath, 'utf8'),
-			) as { disabledAgents: Record<string, unknown> };
-			assert.strictEqual(disabledStore.disabledAgents.to_delete, undefined);
+			assert.strictEqual(fs.existsSync(disabledStorePath), false);
 			const syncState = JSON.parse(fs.readFileSync(syncStatePath, 'utf8')) as {
 				agents?: Record<string, unknown>;
 			};
@@ -706,10 +745,55 @@ suite('Agent commands', () => {
 			const nextAgentContents = fs.readFileSync(targetPath, 'utf8');
 			assert.ok(!nextAgentContents.includes('name = "restorable"'));
 
-			const store = JSON.parse(fs.readFileSync(storePath, 'utf8')) as {
-				disabledAgents: Record<string, unknown>;
-			};
-			assert.strictEqual(store.disabledAgents.restorable, undefined);
+			assert.strictEqual(fs.existsSync(storePath), false);
+		});
+	});
+
+	test('Explorer enable and disable failures retain recovery data without success notification', async () => {
+		await withTempHome(async (homeDir) => {
+			const { codexDir, agentsDir, configPath } = createWorkspace(homeDir);
+			const targetPath = path.join(agentsDir, 'reviewer.toml');
+			fs.writeFileSync(targetPath, 'model = "keep"\n');
+			const declaration = '[agents.reviewer]\ndescription = "keep"\nconfig_file = "agents/reviewer.toml"\n[agents.reviewer.features]\nshell_tool = false\n';
+			fs.writeFileSync(configPath, declaration);
+			await activateExtension();
+			const originalRename = fs.renameSync;
+			const originalInfo = vscode.window.showInformationMessage;
+			const originalError = vscode.window.showErrorMessage;
+			let infos = 0;
+			let errors = 0;
+			vscode.window.showInformationMessage = (async () => { infos += 1; }) as typeof originalInfo;
+			vscode.window.showErrorMessage = (async () => { errors += 1; }) as typeof originalError;
+			try {
+				fs.renameSync = (source, destination) => {
+					if (String(destination) === configPath) { throw new Error('EACCES injected'); }
+					originalRename(source, destination);
+				};
+				await vscode.commands.executeCommand('codex-workspace.disableAgent', createAgentItem(targetPath));
+				assert.strictEqual(infos, 0);
+				assert.strictEqual(errors, 1);
+				assert.strictEqual(fs.readFileSync(configPath, 'utf8'), declaration);
+				fs.renameSync = originalRename;
+				await vscode.commands.executeCommand('codex-workspace.disableAgent', createAgentItem(targetPath));
+				const storePath = path.join(codexDir, '.codex-workspace', 'agents-disabled.json');
+				const backup = fs.readFileSync(storePath, 'utf8');
+				const disabled = fs.readFileSync(configPath, 'utf8');
+				infos = 0;
+				fs.renameSync = () => { throw new Error('EACCES injected'); };
+				await vscode.commands.executeCommand('codex-workspace.enableAgent', createAgentItem(targetPath));
+				assert.strictEqual(errors, 2);
+				assert.strictEqual(infos, 0);
+				assert.strictEqual(fs.readFileSync(configPath, 'utf8'), disabled);
+				assert.strictEqual(fs.readFileSync(storePath, 'utf8'), backup);
+				fs.renameSync = originalRename;
+				await vscode.commands.executeCommand('codex-workspace.enableAgent', createAgentItem(targetPath));
+				assert.ok(fs.readFileSync(configPath, 'utf8').includes('shell_tool = false'));
+				assert.strictEqual(infos, 1);
+			} finally {
+				fs.renameSync = originalRename;
+				vscode.window.showInformationMessage = originalInfo;
+				vscode.window.showErrorMessage = originalError;
+			}
 		});
 	});
 
