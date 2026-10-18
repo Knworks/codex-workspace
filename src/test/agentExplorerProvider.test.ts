@@ -1,96 +1,53 @@
 import * as assert from 'assert';
-import * as path from 'path';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import * as vscode from 'vscode';
 import { getUnavailableLabel } from '../services/workspaceStatus';
-import {
-	AgentExplorerProvider,
-	parseEnabledAgentIds,
-} from '../views/agentExplorerProvider';
-
-const contextStub = {} as vscode.ExtensionContext;
+import { AgentExplorerProvider } from '../views/agentExplorerProvider';
+import { AgentLocation } from '../services/agentLocations';
+import { disableAgentByName } from '../services/agentManagerService';
+import { listManagedAgentRecords } from '../services/managedAgentService';
+import { CodexTreeItem } from '../models/treeItems';
 
 suite('Agent explorer provider', () => {
-	test('returns only .toml files with open command and status icons', () => {
-		const provider = new AgentExplorerProvider(
-			contextStub,
-			() => ({ isAvailable: true }),
-			() => [
-				{
-					name: 'beta.toml',
-					fullPath: path.join('root', 'agents', 'beta.toml'),
-					isFile: true,
-				},
-				{
-					name: 'alpha.toml',
-					fullPath: path.join('root', 'agents', 'alpha.toml'),
-					isFile: true,
-				},
-				{
-					name: 'README.md',
-					fullPath: path.join('root', 'agents', 'README.md'),
-					isFile: true,
-				},
-				{
-					name: 'nested',
-					fullPath: path.join('root', 'agents', 'nested'),
-					isFile: false,
-				},
-			],
-			() => new Set(['alpha']),
-			() => [
-				{
-					kind: 'workspace',
-					label: 'Workspace Agents',
-					rootPath: path.join('root', 'agents'),
-					priority: 2,
-				},
-			],
-		);
-
-		const items = provider.getChildren() as vscode.TreeItem[];
-		assert.deepStrictEqual(
-			items.map((item) => item.label),
-			['alpha.toml', 'beta.toml'],
-		);
-		assert.strictEqual(items[0].command?.command, 'codex-workspace.openFile');
-		assert.strictEqual(items[1].command?.command, 'codex-workspace.openFile');
-		assert.strictEqual(items[0].contextValue, 'codex-agent-file');
-		assert.strictEqual(items[1].contextValue, 'codex-agent-file');
-		assert.strictEqual(items[0].description, 'Workspace Agents');
-
-		assert.ok(items[0].iconPath instanceof vscode.ThemeIcon);
-		assert.strictEqual((items[0].iconPath as vscode.ThemeIcon).id, 'hubot');
-		assert.strictEqual((items[0].iconPath as vscode.ThemeIcon).color, undefined);
-
-		assert.ok(items[1].iconPath instanceof vscode.ThemeIcon);
-		assert.strictEqual((items[1].iconPath as vscode.ThemeIcon).id, 'circle-slash');
-		assert.strictEqual(
-			(items[1].iconPath as vscode.ThemeIcon).color?.id,
-			'disabledForeground',
-		);
+	test('uses the same actual files, declaration identities and state as the Agents tab', () => {
+		const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-inventory-'));
+		try {
+			const agentsDir = path.join(root, 'agents');
+			fs.mkdirSync(agentsDir);
+			fs.writeFileSync(path.join(agentsDir, 'alpha.toml'), '');
+			fs.writeFileSync(path.join(agentsDir, 'beta.toml'), '');
+			fs.writeFileSync(path.join(agentsDir, 'ignored.toml.bak'), '');
+			fs.writeFileSync(path.join(agentsDir, 'README.md'), '');
+			fs.mkdirSync(path.join(agentsDir, 'directory.toml'));
+			const configPath = path.join(root, 'config.toml');
+			const profilePath = path.join(root, 'review.config.toml');
+			const block = `[agents.'review role'] # alias\ndescription = 'Review'\nconfig_file = 'agents/alpha.toml'\n`;
+			fs.writeFileSync(configPath, block + '[agents.ghost]\nconfig_file = "missing.toml"\n[agents.inline]\ndescription = "No file"\n');
+			fs.writeFileSync(profilePath, block);
+			const locations: AgentLocation[] = [{ kind: 'workspace', label: 'Workspace Agents', rootPath: agentsDir, priority: 2 }];
+			disableAgentByName(root, profilePath, 'review role');
+			const provider = new AgentExplorerProvider({} as vscode.ExtensionContext, () => ({ isAvailable: true }),
+				() => listManagedAgentRecords(configPath, locations), () => locations);
+			const items = provider.getChildren() as CodexTreeItem[];
+			const records = listManagedAgentRecords(configPath, locations);
+			assert.strictEqual(items.length, 5);
+			assert.deepStrictEqual(items.map((item) => item.id), records.map((record) => record.id));
+			assert.deepStrictEqual(items.map((item) => item.agentRecord?.enabled), [true, false, true, false, false]);
+			assert.deepStrictEqual(items.map((item) => (item.iconPath as vscode.ThemeIcon).id), ['hubot', 'warning', 'hubot', 'circle-slash', 'question']);
+			assert.ok(String(items[3].description).includes('Profile: review'));
+			assert.strictEqual(items[1].fsPath, configPath);
+			assert.strictEqual(items[0].command?.command, 'codex-workspace.openFile');
+			assert.strictEqual(items[0].contextValue, 'codex-agent-file');
+		} finally { fs.rmSync(root, { recursive: true, force: true }); }
 	});
 
 	test('returns unavailable item when not available', () => {
-		const provider = new AgentExplorerProvider(
-			contextStub,
-			() => ({ isAvailable: false, reason: 'missing' }),
-			() => [],
-			() => new Set<string>(),
-			() => [],
-		);
+		const provider = new AgentExplorerProvider({} as vscode.ExtensionContext,
+			() => ({ isAvailable: false, reason: 'missing' }), () => []);
 		const items = provider.getChildren() as vscode.TreeItem[];
 		assert.strictEqual(items.length, 1);
 		assert.strictEqual(items[0].label, getUnavailableLabel('missing'));
 	});
-
-	test('parseEnabledAgentIds parses normal and quoted headers', () => {
-		const parsed = parseEnabledAgentIds([
-			'[agents.alpha]',
-			'description = "Alpha"',
-			'[agents."beta-prod"]',
-			'description = "Beta"',
-		].join('\n'));
-		assert.deepStrictEqual(Array.from(parsed).sort(), ['alpha', 'beta-prod']);
-	});
-
 });

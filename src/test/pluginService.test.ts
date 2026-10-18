@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { parse as parseToml } from 'toml';
 import {
 	canWritePluginConfig,
 	listPluginRecords,
@@ -133,6 +134,48 @@ suite('Plugin service', () => {
 
 			setPluginEnabled(configPath, 'demo@market', true);
 			assert.ok(fs.readFileSync(configPath, 'utf8').includes('enabled = true'));
+		});
+	});
+
+	test('changes only the selected plugin across commented headers and multiline text', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			fs.mkdirSync(path.dirname(configPath), { recursive: true });
+			const source = [
+				'[plugins."demo"] # selected',
+				'enabled = false',
+				'notes = """',
+				'[mcp_servers.fake] # text only',
+				'enabled = true',
+				'"""',
+				'[mcp_servers.other] # unrelated server',
+				'command = "node#tool"',
+				'enabled = false',
+				'[plugins."later"]',
+				'enabled = false',
+			].join('\n');
+			fs.writeFileSync(configPath, source, 'utf8');
+			const before = parseToml(source) as { plugins: Record<string, { enabled: boolean; notes?: string }>; mcp_servers: unknown };
+			setPluginEnabled(configPath, 'demo', true);
+			const after = parseToml(fs.readFileSync(configPath, 'utf8')) as typeof before;
+			assert.strictEqual(after.plugins.demo.enabled, true);
+			assert.strictEqual(after.plugins.demo.notes, before.plugins.demo.notes);
+			assert.deepStrictEqual(after.mcp_servers, before.mcp_servers);
+			assert.deepStrictEqual(after.plugins.later, before.plugins.later);
+		});
+	});
+
+	test('keeps a preceding MCP table when the selected plugin header has a comment', () => {
+		withTempDir((root) => {
+			const configPath = path.join(root, 'config.toml');
+			fs.mkdirSync(path.dirname(configPath), { recursive: true });
+			const source = '[mcp_servers.other]\ncommand = "node"\nenabled = false\n[plugins."demo"] # selected\nenabled = false\n';
+			fs.writeFileSync(configPath, source, 'utf8');
+			const before = parseToml(source);
+			setPluginEnabled(configPath, 'demo', true);
+			const after = parseToml(fs.readFileSync(configPath, 'utf8')) as { plugins: { demo: { enabled: boolean } }; mcp_servers: unknown };
+			assert.strictEqual(after.plugins.demo.enabled, true);
+			assert.deepStrictEqual(after.mcp_servers, before.mcp_servers);
 		});
 	});
 

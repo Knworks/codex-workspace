@@ -9,7 +9,10 @@ import { AgentLocation, getAgentLocations } from './agentLocations';
 import {
 	getDisabledAgentEntry,
 	getDisabledAgentsStorePath,
+	listDisabledAgentIds,
+	getDisabledAgentBlock,
 } from './disabledAgentsStore';
+import { parseAgentRoleDeclarations, sameAgentPath } from './agentManagerService';
 
 /**
  * Rebuilds config.toml agent metadata from actual agent files.
@@ -34,6 +37,10 @@ export function repairAgentConfigContents(
 	const seenAgentIds = new Set<string>();
 	let nextContents = contents;
 	const storePath = getDisabledAgentsStorePath(path.dirname(configPath));
+	const declaredFiles = parseAgentRoleDeclarations(contents)
+		.concat(listDisabledAgentIds(storePath).flatMap((key) => parseAgentRoleDeclarations(getDisabledAgentBlock(storePath, key) ?? '')))
+		.filter((role) => role.configFile)
+		.map((role) => path.resolve(path.dirname(configPath), role.configFile));
 
 	for (const location of locations) {
 		if (!fs.existsSync(location.rootPath)) {
@@ -50,6 +57,8 @@ export function repairAgentConfigContents(
 			);
 
 		for (const agentFilePath of agentFiles) {
+			// A role can have a different name from its file, including while disabled.
+			if (declaredFiles.some((file) => sameAgentPath(file, agentFilePath))) { continue; }
 			const agentId = path.basename(agentFilePath, path.extname(agentFilePath));
 			if (seenAgentIds.has(agentId)) {
 				continue;

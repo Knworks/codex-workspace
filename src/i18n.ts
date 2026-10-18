@@ -52,6 +52,20 @@ function localize(
 }
 
 export const messages = {
+	agentRegister: localize('message.agentRegister', 'Register'),
+	agentConfigSourceLabel: localize('message.agentConfigSourceLabel', 'Configuration source'),
+	agentDefinitionFormatLabel: localize('message.agentDefinitionFormatLabel', 'Definition format'),
+	agentRoleKeyLabel: localize('message.agentRoleKeyLabel', 'Declaration role'),
+	agentRegistrationSource: localize('message.agentRegistrationSource', 'Select the configuration source for this Agent'),
+	agentDescriptionRequired: localize('message.agentDescriptionRequired', 'A non-empty description is required.'),
+	agentStatuses: {
+		available: localize('message.agentStatusAvailable', 'Available'),
+		disabled: localize('message.agentStatusDisabled', 'Disabled'),
+		candidate: localize('message.agentStatusCandidate', 'Registration candidate'),
+		invalid: localize('message.agentStatusInvalid', 'Invalid definition'),
+		missing: localize('message.agentStatusMissing', 'Missing reference'),
+		unverified: localize('message.agentStatusUnverified', 'Unverified'),
+	},
 	selectionRequired: localize(
 		'message.selectionRequired',
 		'Please select a target.',
@@ -615,7 +629,7 @@ export const messages = {
 	),
 	mcpManagerDescriptionTools: localize(
 		'message.mcpManagerDescriptionTools',
-		'Per-tool settings. Each row can override enabled and approval_mode for one tool.',
+		'Per-tool settings. Each row can override enabled, approval_mode, and output_token_limit for one tool.',
 	),
 	mcpManagerDescriptionRequired: localize(
 		'message.mcpManagerDescriptionRequired',
@@ -690,7 +704,11 @@ export const messages = {
 	),
 	mcpValidationToolApprovalModeInvalid: localize(
 		'message.mcpValidationToolApprovalModeInvalid',
-		'Tool approval_mode must be auto, prompt, or approve.',
+		'Tool approval_mode must be auto, prompt, approve, or writes.',
+	),
+	mcpValidationToolOutputTokenLimitInvalid: localize(
+		'message.mcpValidationToolOutputTokenLimitInvalid',
+		'Tool output_token_limit must be a non-negative safe integer.',
 	),
 	coreViewAgentsChainTab: localize(
 		'message.coreViewAgentsChainTab',
@@ -1005,6 +1023,9 @@ export const messages = {
 	),
 	historyCopy: localize('message.historyCopy', 'Copy'),
 	historyCopied: localize('message.historyCopied', 'Copied to clipboard.'),
+	historyLoadFailed: localize('message.historyLoadFailed', 'Failed to load conversation history.'),
+	historyLoading: localize('message.historyLoading', 'Loading history: {0} entries. Search covers loaded entries.'),
+	historyLoaded: localize('message.historyLoaded', 'History loaded: {0} entries.'),
 	historyUserLabel: localize('message.historyUserLabel', 'User'),
 	historyAssistantLabel: localize(
 		'message.historyAssistantLabel',

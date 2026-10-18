@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import * as toml from 'toml';
 import { SkillLocation, getSkillLocations } from './skillLocations';
 import { stabilizeManagedConfigToml } from './configTomlOrganizerService';
 
@@ -126,12 +127,12 @@ export function setSkillEnabled(
 		const separator = contents.trim().length > 0 ? '\n\n' : '';
 		const nextBlock = [
 			'[[skills.config]]',
-			`path = '${escapeTomlSingleQuotedString(skillPath)}'`,
+			`path = ${serializeTomlString(skillPath)}`,
 			'enabled = false',
 		].join('\n');
 		fs.writeFileSync(
 			configPath,
-			stabilizeManagedConfigToml(`${contents}${separator}${nextBlock}\n`),
+			prepareSkillConfigToml(`${contents}${separator}${nextBlock}\n`),
 			'utf8',
 		);
 		return;
@@ -144,7 +145,7 @@ export function setSkillEnabled(
 		];
 		fs.writeFileSync(
 			configPath,
-			stabilizeManagedConfigToml(nextLines.join('\n')),
+			prepareSkillConfigToml(nextLines.join('\n')),
 			'utf8',
 		);
 		return;
@@ -158,7 +159,7 @@ export function setSkillEnabled(
 				`${match[1]}false${match[3] ?? ''}`;
 			fs.writeFileSync(
 				configPath,
-				stabilizeManagedConfigToml(lines.join('\n')),
+				prepareSkillConfigToml(lines.join('\n')),
 				'utf8',
 			);
 			return;
@@ -168,13 +169,23 @@ export function setSkillEnabled(
 	lines.splice(existing.endLineIndex + 1, 0, 'enabled = false');
 	fs.writeFileSync(
 		configPath,
-		stabilizeManagedConfigToml(lines.join('\n')),
+		prepareSkillConfigToml(lines.join('\n')),
 		'utf8',
 	);
 }
 
-function escapeTomlSingleQuotedString(value: string): string {
-	return value.replace(/'/g, "''");
+function serializeTomlString(value: string): string {
+	// Literal strings cannot escape apostrophes or control characters.
+	if (!/['\u0000-\u001f\u007f]/.test(value)) {
+		return `'${value}'`;
+	}
+	return JSON.stringify(value).replace(/\u007f/g, '\\u007f');
+}
+
+function prepareSkillConfigToml(contents: string): string {
+	const stabilized = stabilizeManagedConfigToml(contents);
+	toml.parse(stabilized);
+	return stabilized;
 }
 
 function parseSkillConfigBlocks(contents: string): Array<{
@@ -225,7 +236,10 @@ function parseSkillConfigBlocks(contents: string): Array<{
 		}
 		const pathMatch = line.match(PATH_PATTERN);
 		if (pathMatch) {
-			current.pathValue = pathMatch[3];
+			const pathValue: unknown = toml.parse(line).path;
+			if (typeof pathValue === 'string') {
+				current.pathValue = pathValue;
+			}
 			continue;
 		}
 		const enabledMatch = line.match(ENABLED_PATTERN);

@@ -7,32 +7,27 @@ import { getWorkspaceStatus, resolveCodexPaths } from '../services/workspaceStat
 import { messages } from '../i18n';
 import { runSafely } from '../services/errorHandling';
 import { sanitizeName } from '../services/fileNaming';
+import { createAgentScaffold } from '../services/agentScaffold';
 import {
 	listTemplateCandidates,
 	readTemplateContents,
 } from '../services/templateService';
 import { promptTextInputWithQuickPick } from '../services/textInputQuickPick';
 import {
-	appendAgentConfigRawBlock,
-	extractAgentConfigBlock,
-	getAgentDescription,
-	hasAgentConfigBlock,
-	readAgentTomlDescription,
 	toAgentConfigFilePath,
-	upsertAgentConfigBlock,
 	upsertAgentConfigMetadata,
 } from '../services/agentConfigService';
-import {
-	getDisabledAgentsStorePath,
-	saveDisabledAgentBlock,
-	takeDisabledAgentBlock,
-} from '../services/disabledAgentsStore';
 import { stabilizeManagedConfigToml } from '../services/configTomlOrganizerService';
 import { AgentExplorerProvider } from '../views/agentExplorerProvider';
+import { AgentManagerRecord, parseAgentRoleDeclarations } from '../services/agentManagerService';
+import { deleteManagedAgent, editManagedAgent, resolveManagedAgent, setManagedAgentEnabled } from '../services/managedAgentService';
+import { registerAgentCandidate } from '../services/managedAgentActions';
+import { readAgentDefinition } from '../services/cliAgentService';
 
 type AgentCommandContext = {
 	getSelection: () => CodexTreeItem | undefined;
 	agentProvider: AgentExplorerProvider;
+	onDidChangeAgents?: () => void;
 };
 
 export function registerAgentCommands(
@@ -49,6 +44,7 @@ export function registerAgentCommands(
 					return;
 				}
 				await addAgent(agentProvider);
+				config.onDidChangeAgents?.();
 			}),
 		),
 	);
@@ -65,7 +61,8 @@ export function registerAgentCommands(
 					if (!ensureSelection(selection) || !selection.fsPath) {
 						return;
 					}
-					await editAgent(selection.fsPath, agentProvider);
+					await editAgent(selection.fsPath, agentProvider, selection.agentRecord);
+					config.onDidChangeAgents?.();
 				}),
 		),
 	);
@@ -82,7 +79,8 @@ export function registerAgentCommands(
 					if (!ensureSelection(selection) || !selection.fsPath) {
 						return;
 					}
-					await deleteAgent(selection.fsPath, agentProvider);
+					await deleteAgent(selection.fsPath, agentProvider, selection.agentRecord);
+					config.onDidChangeAgents?.();
 				}),
 		),
 	);
@@ -99,7 +97,8 @@ export function registerAgentCommands(
 					if (!ensureSelection(selection) || !selection.fsPath) {
 						return;
 					}
-					await enableAgent(selection.fsPath, agentProvider);
+					await enableAgent(selection.fsPath, agentProvider, selection.agentRecord);
+					config.onDidChangeAgents?.();
 				}),
 		),
 	);
@@ -116,7 +115,8 @@ export function registerAgentCommands(
 					if (!ensureSelection(selection) || !selection.fsPath) {
 						return;
 					}
-					await disableAgent(selection.fsPath, agentProvider);
+					await disableAgent(selection.fsPath, agentProvider, selection.agentRecord);
+					config.onDidChangeAgents?.();
 				}),
 		),
 	);
@@ -126,11 +126,11 @@ export function registerAgentCommands(
 }
 
 async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
-	const { codexDir, configPath } = resolveCodexPaths();
 	const agentsDir = await pickAgentLocationRoot(agentProvider);
 	if (!agentsDir) {
 		return;
 	}
+	const configPath = path.join(path.dirname(agentsDir), 'config.toml');
 	const agentName = await promptAgentName();
 	if (!agentName) {
 		return;
@@ -143,7 +143,7 @@ async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
 	if (templateContent === null) {
 		return;
 	}
-	const initialAgentContents = templateContent;
+	const initialAgentContents = templateContent ?? createAgentScaffold(agentName, description);
 
 	fs.mkdirSync(agentsDir, { recursive: true });
 	const agentFilePath = path.join(agentsDir, `${agentName}.toml`);
@@ -154,12 +154,13 @@ async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
 
 	fs.writeFileSync(agentFilePath, initialAgentContents, 'utf8');
 
-	const configContents = fs.readFileSync(configPath, 'utf8');
-	if (hasAgentConfigBlock(configContents, agentName)) {
+	const configContents = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
+	if (parseAgentRoleDeclarations(configContents).some((role) => role.name === agentName)) {
 		vscode.window.showWarningMessage(messages.agent.configExists(agentName));
 		agentProvider.refresh();
 		return;
 	}
+	if (!readAgentDefinition(agentFilePath, true).reason) { agentProvider.refresh(); return; }
 
 	fs.writeFileSync(
 		configPath,
@@ -179,24 +180,21 @@ async function addAgent(agentProvider: AgentExplorerProvider): Promise<void> {
 async function editAgent(
 	agentFilePath: string,
 	agentProvider: AgentExplorerProvider,
+	record?: AgentManagerRecord,
 ): Promise<void> {
-	const { configPath } = resolveCodexPaths();
-	const currentName = path.basename(agentFilePath, path.extname(agentFilePath));
-	const configContents = fs.readFileSync(configPath, 'utf8');
-	const currentDescription = getAgentDescription(configContents, currentName) ?? '';
+	const configPath = resolveCodexPaths().configPath;
+	const target = resolveManagedAgent(configPath, record ? { id: record.id } : { agentPath: agentFilePath });
+	const currentName = path.basename(target.agentPath).replace(/\.toml(?:\.disabled)?$/, '');
 
 	const nextName = await promptAgentName(currentName);
 	if (!nextName) {
 		return;
 	}
-	const nextDescription = await promptAgentDescription(currentDescription);
+	const nextDescription = await promptAgentDescription(target.description);
 	if (nextDescription === undefined) {
 		return;
 	}
-	const currentAgentContents = fs.readFileSync(agentFilePath, 'utf8');
-	const nextAgentContents = currentAgentContents;
-
-	const nextFilePath = path.join(path.dirname(agentFilePath), `${nextName}.toml`);
+	const nextFilePath = path.join(path.dirname(target.agentPath), `${nextName}.toml${target.agentPath.endsWith('.disabled') ? '.disabled' : ''}`);
 	if (
 		!isSamePath(agentFilePath, nextFilePath) &&
 		fs.existsSync(nextFilePath)
@@ -204,46 +202,17 @@ async function editAgent(
 		vscode.window.showWarningMessage(messages.agent.fileExists(nextName));
 		return;
 	}
-	if (
-		currentName !== nextName &&
-		hasAgentConfigBlock(configContents, nextName)
-	) {
-		vscode.window.showWarningMessage(messages.agent.configExists(nextName));
-		return;
-	}
-
-	if (!isSamePath(agentFilePath, nextFilePath)) {
-		fs.renameSync(agentFilePath, nextFilePath);
-	}
-	fs.writeFileSync(nextFilePath, nextAgentContents, 'utf8');
-
-	const updatedConfig = upsertAgentConfigBlock(
-		configContents,
-		currentName,
-		nextName,
-		nextDescription,
-	);
-	const repairedConfig = upsertAgentConfigMetadata(
-		updatedConfig,
-		nextName,
-		nextDescription,
-		toAgentConfigFilePath(configPath, nextFilePath),
-	);
-	fs.writeFileSync(
-		configPath,
-		stabilizeManagedConfigToml(repairedConfig),
-		'utf8',
-	);
+	editManagedAgent(configPath, target.id, nextFilePath, nextDescription);
 	agentProvider.refresh();
 }
 
 async function deleteAgent(
 	agentFilePath: string,
 	agentProvider: AgentExplorerProvider,
+	record?: AgentManagerRecord,
 ): Promise<void> {
-	const { codexDir, configPath } = resolveCodexPaths();
-	const agentId = path.basename(agentFilePath, path.extname(agentFilePath));
-	const storePath = getDisabledAgentsStorePath(codexDir);
+	const { configPath } = resolveCodexPaths();
+	const target = resolveManagedAgent(configPath, record ? { id: record.id } : { agentPath: agentFilePath });
 	const location = agentProvider.getLocationForPath(agentFilePath);
 	const warning =
 		location?.kind === 'user'
@@ -257,20 +226,7 @@ async function deleteAgent(
 	if (choice !== messages.dialogOk) {
 		return;
 	}
-	fs.rmSync(agentFilePath, { force: true });
-
-	const configContents = fs.readFileSync(configPath, 'utf8');
-	const extracted = extractAgentConfigBlock(configContents, agentId);
-	if (extracted.removed) {
-		fs.writeFileSync(
-			configPath,
-			stabilizeManagedConfigToml(extracted.contents),
-			'utf8',
-		);
-	}
-
-	// Delete stale disabled backup to avoid resurrecting deleted agents.
-	takeDisabledAgentBlock(storePath, agentId);
+	deleteManagedAgent(configPath, target.id);
 	agentProvider.refresh();
 }
 
@@ -298,31 +254,15 @@ async function pickAgentLocationRoot(
 async function enableAgent(
 	agentFilePath: string,
 	agentProvider: AgentExplorerProvider,
+	record?: AgentManagerRecord,
 ): Promise<void> {
-	const { codexDir, configPath } = resolveCodexPaths();
-	const storePath = getDisabledAgentsStorePath(codexDir);
-	const agentId = path.basename(agentFilePath, path.extname(agentFilePath));
-	const configContents = fs.readFileSync(configPath, 'utf8');
-	if (hasAgentConfigBlock(configContents, agentId)) {
-		vscode.window.showWarningMessage(messages.agent.configExists(agentId));
+	const { configPath } = resolveCodexPaths();
+	const target = resolveManagedAgent(configPath, record ? { id: record.id } : { agentPath: agentFilePath });
+	const changed = target.definitionFormat === 'candidate'
+		? await registerAgentCandidate(configPath, target) : setManagedAgentEnabled(configPath, target.id, true);
+	if (!changed) {
 		return;
 	}
-
-	const stashedBlock = takeDisabledAgentBlock(storePath, agentId);
-	const restoredContents = stashedBlock
-		? appendAgentConfigRawBlock(configContents, stashedBlock)
-		: configContents;
-	const nextContents = upsertAgentConfigMetadata(
-		restoredContents,
-		agentId,
-		readAgentTomlDescription(agentFilePath),
-		toAgentConfigFilePath(configPath, agentFilePath),
-	);
-	fs.writeFileSync(
-		configPath,
-		stabilizeManagedConfigToml(nextContents),
-		'utf8',
-	);
 	vscode.window.showInformationMessage(messages.agent.toggleUpdated);
 	agentProvider.refresh();
 }
@@ -330,23 +270,14 @@ async function enableAgent(
 async function disableAgent(
 	agentFilePath: string,
 	agentProvider: AgentExplorerProvider,
+	record?: AgentManagerRecord,
 ): Promise<void> {
-	const { codexDir, configPath } = resolveCodexPaths();
-	const storePath = getDisabledAgentsStorePath(codexDir);
-	const agentId = path.basename(agentFilePath, path.extname(agentFilePath));
-	const configContents = fs.readFileSync(configPath, 'utf8');
-	const extracted = extractAgentConfigBlock(configContents, agentId);
-	if (!extracted.removed || !extracted.block) {
-		vscode.window.showWarningMessage(messages.agent.notEnabled(agentId));
+	const { configPath } = resolveCodexPaths();
+	const target = resolveManagedAgent(configPath, record ? { id: record.id } : { agentPath: agentFilePath });
+	if (!setManagedAgentEnabled(configPath, target.id, false)) {
+		vscode.window.showWarningMessage(messages.agent.notEnabled(target.name));
 		return;
 	}
-
-	fs.writeFileSync(
-		configPath,
-		stabilizeManagedConfigToml(extracted.contents),
-		'utf8',
-	);
-	saveDisabledAgentBlock(storePath, agentId, extracted.block);
 	vscode.window.showInformationMessage(messages.agent.toggleUpdated);
 	agentProvider.refresh();
 }
@@ -401,10 +332,10 @@ async function promptAgentDescription(defaultValue = ''): Promise<string | undef
 	});
 }
 
-async function pickTemplateContents(): Promise<string | null> {
+async function pickTemplateContents(): Promise<string | null | undefined> {
 	const templates = listTemplateCandidates();
 	if (templates.length === 0) {
-		return '';
+		return undefined;
 	}
 
 	const items: vscode.QuickPickItem[] = [
@@ -422,12 +353,12 @@ async function pickTemplateContents(): Promise<string | null> {
 		return null;
 	}
 	if (selection.label === messages.file.templateNone) {
-		return '';
+		return undefined;
 	}
 
 	const selected = templates.find((candidate) => candidate.label === selection.label);
 	if (!selected) {
-		return '';
+		return null;
 	}
 	return readTemplateContents(selected.fsPath);
 }

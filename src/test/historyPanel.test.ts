@@ -2,15 +2,18 @@ import * as assert from 'assert';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import vm from 'vm';
 import * as vscode from 'vscode';
 import { HistoryPanelManager } from '../services/historyPanel';
-import { HistoryIndex } from '../services/historyService';
+import { HistoryIndex, createHistoryIndex } from '../services/historyService';
+import { readThreadHistoryIndex } from '../services/threadHistoryService';
 
 type FakePanelHandle = {
 	panel: vscode.WebviewPanel;
 	getRevealCount: () => number;
 	sendMessage: (message: unknown) => void;
 	getPostedMessages: () => unknown[];
+	getProgressMessages: () => Array<{ loading: boolean; failed: boolean; count: number }>;
 	waitForPostedMessage: (index: number) => Promise<unknown>;
 };
 
@@ -19,14 +22,19 @@ function createFakePanel(): FakePanelHandle {
 	let disposeListener: (() => void) | undefined;
 	let receiveListener: ((message: unknown) => void) | undefined;
 	const postedMessages: unknown[] = [];
+	const progressMessages: Array<{ loading: boolean; failed: boolean; count: number }> = [];
 	const messageWaiters = new Map<number, (message: unknown) => void>();
 	const webview = {
 		html: '',
 		cspSource: 'vscode-webview://test',
 		asWebviewUri: (uri: vscode.Uri) => uri,
 		postMessage: async (message: unknown) => {
-			postedMessages.push(message);
-			messageWaiters.get(postedMessages.length - 1)?.(message);
+			if ((message as { type: string }).type === 'historyProgress') {
+				progressMessages.push(message as { loading: boolean; failed: boolean; count: number });
+			} else {
+				postedMessages.push(message);
+				messageWaiters.get(postedMessages.length - 1)?.(message);
+			}
 			return true;
 		},
 		onDidReceiveMessage: (listener: (message: unknown) => void) => {
@@ -54,6 +62,7 @@ function createFakePanel(): FakePanelHandle {
 		getRevealCount: () => revealCount,
 		sendMessage: (message: unknown) => receiveListener?.(message),
 		getPostedMessages: () => postedMessages,
+		getProgressMessages: () => progressMessages,
 		waitForPostedMessage: (index) => index < postedMessages.length
 			? Promise.resolve(postedMessages[index])
 			: new Promise((resolve) => messageWaiters.set(index, resolve)),
@@ -61,6 +70,230 @@ function createFakePanel(): FakePanelHandle {
 }
 
 suite('History panel manager', () => {
+	test('incremental history keeps selection, search and copy usable and reports loading and failure', async () => {
+		const panel = createFakePanel();
+		const makeTurn = (id: string, timestamp: number) => ({
+			turnId: id, sessionId: id, filePath: '', year: '2026', month: '10', day: '13', dateKey: '2026/10/13',
+			localTime: '[10:00:00]', sortTimestampMs: timestamp, userMessage: id, agentMessages: ['answer'], reasoningMessages: [],
+		});
+		let publish!: (index: HistoryIndex) => void;
+		let reject!: (error: Error) => void;
+		const copied: string[] = [];
+		const errors: string[] = [];
+		const manager = new HistoryPanelManager(() => panel.panel, (_signal, onProgress) => {
+			publish = onProgress!;
+			return new Promise<HistoryIndex>((_resolve, fail) => { reject = fail; });
+		}, async (text) => { copied.push(text); }, async () => undefined, () => undefined,
+			() => false, undefined, undefined, (error) => { errors.push(error); });
+		try {
+			manager.show(); panel.sendMessage({ type: 'ready' });
+			publish(createHistoryIndex([makeTurn('older', 1)]));
+			assert.strictEqual(panel.getProgressMessages().at(-1)?.loading, true);
+			panel.sendMessage({ type: 'selectTurn', turnId: 'older' });
+			panel.sendMessage({ type: 'search', query: 'older' });
+			panel.sendMessage({ type: 'copyText', text: 'answer' });
+			await new Promise<void>((resolve) => setTimeout(resolve, 110));
+			publish(createHistoryIndex([makeTurn('older', 1), makeTurn('newer', 2)]));
+			const last = panel.getPostedMessages().at(-1) as { payload: { appliedQuery: string; selectedTurn: { turnId: string }; days: Array<{ turns: unknown[] }> } };
+			assert.strictEqual(last.payload.appliedQuery, 'older');
+			assert.strictEqual(last.payload.selectedTurn.turnId, 'older');
+			assert.strictEqual(last.payload.days[0].turns.length, 1);
+			assert.deepStrictEqual(copied, ['answer']);
+			panel.sendMessage({ type: 'clearSearch' });
+			panel.sendMessage({ type: 'selectTurn', turnId: 'older' });
+			await new Promise<void>((resolve) => setTimeout(resolve, 110));
+			publish(createHistoryIndex([makeTurn('older', 1), makeTurn('newer', 2), makeTurn('newest', 3)]));
+			assert.strictEqual((panel.getPostedMessages().at(-1) as typeof last).payload.selectedTurn.turnId, 'older');
+			reject(new Error('later page failed'));
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			assert.deepStrictEqual(errors, ['later page failed']);
+			assert.strictEqual(panel.getProgressMessages().at(-1)?.failed, true);
+			assert.strictEqual(panel.getProgressMessages().at(-1)?.count, 3);
+		} finally { manager.dispose(); }
+	});
+
+	test('flushes the last incremental result on error and ignores callbacks from cancelled loads', async () => {
+		const panel = createFakePanel();
+		const requests: Array<{ publish: (index: HistoryIndex) => void; reject: (error: Error) => void }> = [];
+		const manager = new HistoryPanelManager(() => panel.panel, (_signal, publish) =>
+			new Promise<HistoryIndex>((_resolve, reject) => { requests.push({ publish: publish!, reject }); }),
+			undefined, undefined, undefined, undefined, undefined, undefined, () => undefined);
+		try {
+			manager.show(); panel.sendMessage({ type: 'ready' });
+			requests[0].publish({ days: [], turns: [] });
+			requests[0].publish(createHistoryIndex([{
+				turnId: 'last', sessionId: 'last', filePath: '', year: '2026', month: '10', day: '13', dateKey: '2026/10/13',
+				localTime: '[10:00:00]', sortTimestampMs: 1, userMessage: 'last', agentMessages: [], reasoningMessages: [],
+			}]));
+			requests[0].reject(new Error('failed'));
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			assert.strictEqual(panel.getProgressMessages().at(-1)?.count, 1);
+			panel.sendMessage({ type: 'refreshTab', tab: 'history' });
+			const count = panel.getPostedMessages().length;
+			requests[0].publish({ days: [], turns: [] });
+			assert.strictEqual(panel.getPostedMessages().length, count);
+			manager.dispose();
+			requests[1].publish({ days: [], turns: [] });
+			requests[1].reject(new Error('cancelled'));
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			assert.strictEqual(panel.getPostedMessages().length, count);
+		} finally { manager.dispose(); }
+	});
+
+	test('API history reaches list selection, search, Markdown preview and copy buttons', async () => {
+		const fakePanel = createFakePanel();
+		const copied: string[] = [];
+		const errors: string[] = [];
+		let fail = false;
+		const manager = new HistoryPanelManager(() => fakePanel.panel, () => readThreadHistoryIndex({
+			async request(method, params) {
+				if (fail) { throw new Error('API unavailable'); }
+				if (method === 'thread/list') {
+					return { data: [{ id: params.archived ? 'archive' : 'active', createdAt: 1791800000 }] };
+				}
+				if (method === 'thread/turns/list') {
+					return { data: [{ id: 'turn', startedAt: params.threadId === 'archive' ? 1791790000 : 1791800000, items: [] }] };
+				}
+				assert.strictEqual(method, 'thread/items/list');
+				return { data: [
+					{ turnId: 'turn', item: { type: 'userMessage', content: [{ type: 'text', text: `${params.threadId} **question**` }] } },
+					{ turnId: 'turn', item: { type: 'agentMessage', text: '# Answer\n\n`result` <script>unsafe</script>' } },
+				] };
+			},
+			dispose() {},
+		}), async (text) => { copied.push(text); }, async () => undefined,
+		() => undefined, () => false, undefined, undefined, (error) => { errors.push(error); });
+
+		// Execute the generated webview script with DOM event/markup doubles.
+		// This exercises rendering and messaging without claiming browser layout coverage.
+		class ElementDouble {
+			private markup = '';
+			get innerHTML(): string { return this.markup; }
+			set innerHTML(value: string) { this.markup = value; this.children = []; this.scrollTop = 0; }
+			textContent = '';
+			value = '';
+			dataset: Record<string, string> = {};
+			open = false;
+			scrollTop = 0;
+			children: ElementDouble[] = [];
+			listeners = new Map<string, () => void>();
+			addEventListener(event: string, listener: () => void): void { this.listeners.set(event, listener); }
+			appendChild(child: ElementDouble): void { this.children.push(child); }
+			setAttribute(): void {}
+			querySelectorAll(): ElementDouble[] { return []; }
+			click(): void { this.listeners.get('click')?.(); }
+		}
+		const elements = new Map<string, ElementDouble>();
+		const element = (id: string): ElementDouble => {
+			if (!elements.has(id)) { elements.set(id, new ElementDouble()); }
+			return elements.get(id)!;
+		};
+		let receive: ((event: { data: unknown }) => void) | undefined;
+		let posted = 0;
+		const deliver = (): void => {
+			const messages = fakePanel.getPostedMessages();
+			while (posted < messages.length) { receive?.({ data: messages[posted++] }); }
+		};
+		const settle = async (): Promise<void> => {
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			deliver();
+		};
+		try {
+			manager.show();
+			const script = /<script nonce="[^"]+">([\s\S]*?)<\/script>/.exec(fakePanel.panel.webview.html)?.[1];
+			assert.ok(script);
+			vm.runInNewContext(script, {
+				acquireVsCodeApi: () => ({ postMessage: (message: unknown) => fakePanel.sendMessage(message) }),
+				document: {
+					getElementById: element, querySelectorAll: () => [], addEventListener: () => undefined,
+					createElement: () => new ElementDouble(),
+				},
+				window: { addEventListener: (_event: string, listener: typeof receive) => { receive = listener; } },
+			});
+			await settle();
+			const cards = element('treeArea').children[0].children[1].children;
+			assert.strictEqual(cards.length, 2);
+			assert.ok(cards[0].children[0].innerHTML.includes('active **question**'));
+			cards[1].click();
+			deliver();
+			assert.ok(element('previewArea').innerHTML.includes('archive <strong>question</strong>'));
+			assert.ok(element('previewArea').innerHTML.includes('<h1>Answer</h1>'));
+			assert.ok(element('previewArea').innerHTML.includes('<code>result</code>'));
+			assert.ok(element('previewArea').innerHTML.includes('&lt;script&gt;unsafe&lt;/script&gt;'));
+			element('previewArea').scrollTop = 240;
+			element('treeArea').scrollTop = 100;
+			fakePanel.sendMessage({ type: 'selectTurn', turnId: 'archive:turn' });
+			deliver();
+			assert.strictEqual(element('previewArea').scrollTop, 240);
+			assert.strictEqual(element('treeArea').scrollTop, 100);
+			element('copyUserButton').click();
+			element('copyAssistantButton-0').click();
+			await settle();
+			assert.deepStrictEqual(copied, ['archive **question**', '# Answer\n\n`result` <script>unsafe</script>']);
+			element('searchInput').value = 'archive';
+			element('searchInput').listeners.get('input')?.();
+			deliver();
+			const filtered = fakePanel.getPostedMessages().at(-1) as { payload: { days: Array<{ turns: Array<{ turnId: string }> }> } };
+			assert.deepStrictEqual(filtered.payload.days.flatMap((day) => day.turns.map((turn) => turn.turnId)), ['archive:turn']);
+			element('clearButton').click();
+			deliver();
+			const beforeFailure = element('previewArea').innerHTML;
+			fail = true;
+			fakePanel.sendMessage({ type: 'refreshTab', tab: 'history' });
+			await settle();
+			assert.deepStrictEqual(errors, ['API unavailable']);
+			assert.strictEqual(element('previewArea').innerHTML, beforeFailure);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('loads API history asynchronously and reports errors while retaining the previous result', async () => {
+		const fakePanel = createFakePanel();
+		const errors: string[] = [];
+		let fail = false;
+		const manager = new HistoryPanelManager(() => fakePanel.panel, async () => {
+			if (fail) {
+				throw new Error('Storage read failed');
+			}
+			return { days: [], turns: [] };
+		}, undefined, undefined, undefined, undefined, undefined, undefined, (message) => { errors.push(message); });
+		manager.show();
+		fakePanel.sendMessage({ type: 'ready' });
+		assert.strictEqual(fakePanel.getPostedMessages().length, 0);
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		assert.strictEqual((fakePanel.getPostedMessages()[0] as { type: string }).type, 'state');
+		fail = true;
+		fakePanel.sendMessage({ type: 'refreshTab', tab: 'history' });
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		assert.deepStrictEqual(errors, ['Storage read failed']);
+		assert.strictEqual(fakePanel.getPostedMessages().length, 1);
+		manager.dispose();
+	});
+
+	test('ignores stale asynchronous refreshes and cancels requests on refresh and disposal', async () => {
+		const fakePanel = createFakePanel();
+		const requests: Array<{ resolve: (index: HistoryIndex) => void; signal?: AbortSignal }> = [];
+		const manager = new HistoryPanelManager(() => fakePanel.panel, (signal) =>
+			new Promise<HistoryIndex>((resolve) => { requests.push({ resolve, signal }); }),
+		);
+		manager.show();
+		fakePanel.sendMessage({ type: 'ready' });
+		fakePanel.sendMessage({ type: 'refreshTab', tab: 'history' });
+		assert.strictEqual(requests[0].signal?.aborted, true);
+		requests[1].resolve({ days: [], turns: [] });
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		requests[0].resolve({ days: [], turns: [] });
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		assert.strictEqual(fakePanel.getPostedMessages().length, 1);
+		fakePanel.sendMessage({ type: 'refreshTab', tab: 'history' });
+		manager.dispose();
+		assert.strictEqual(requests[2].signal?.aborted, true);
+		requests[2].resolve({ days: [], turns: [] });
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		assert.strictEqual(fakePanel.getPostedMessages().length, 1);
+	});
+
 	test('hooks panels display known handlers and read-only unknown definitions safely', () => {
 		const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hooks-panel-'));
 		const originalHome = process.env.CODEX_HOME;
@@ -158,7 +391,7 @@ suite('History panel manager', () => {
 		const calls: string[][] = [];
 		const manager = new HistoryPanelManager(
 			() => fakePanel.panel,
-			undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+			undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
 			async (args) => {
 				calls.push(args);
 				if (args[1] === 'enable') {
@@ -200,7 +433,7 @@ suite('History panel manager', () => {
 		let calls = 0;
 		const manager = new HistoryPanelManager(
 			() => fakePanel.panel,
-			undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+			undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
 			async () => {
 				calls += 1;
 				return calls === 1
@@ -226,7 +459,7 @@ suite('History panel manager', () => {
 		const fakePanel = createFakePanel();
 		const manager = new HistoryPanelManager(
 			() => fakePanel.panel,
-			undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+			undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
 			async () => { throw new Error('CLI unavailable <script>'); },
 		);
 		try {
@@ -253,7 +486,7 @@ suite('History panel manager', () => {
 			const calls: string[][] = [];
 			const manager = new HistoryPanelManager(
 				() => fakePanel.panel,
-				undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+				undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
 				async (args) => {
 					calls.push(args);
 					return 'active stable true\nlegacy deprecated true\nremoved_flag removed false';
@@ -311,7 +544,7 @@ suite('History panel manager', () => {
 
 		assert.strictEqual(createCount, 1);
 		assert.strictEqual(fakePanel.getRevealCount(), 1);
-		assert.ok(fakePanel.panel.webview.html.includes('grid-template-columns: 30% 70%'));
+		assert.ok(fakePanel.panel.webview.html.includes('grid-template-columns: minmax(0, 3fr) minmax(0, 7fr)'));
 		assert.ok(
 			fakePanel.panel.webview.html.includes(
 				'<button id="clearButton" class="copy-button" type="button"></button>',
@@ -529,7 +762,7 @@ suite('History panel manager', () => {
 				loadCount += 1;
 				return index;
 			},
-			undefined, undefined, undefined, undefined, undefined, undefined,
+			undefined, undefined, undefined, undefined, undefined, undefined, undefined,
 			async () => 'new_cli_feature stable true',
 		);
 		manager.show();
