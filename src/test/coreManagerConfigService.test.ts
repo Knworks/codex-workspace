@@ -27,7 +27,12 @@ async function withTempDirAsync(run: (root: string) => Promise<void>): Promise<v
 	try {
 		await run(tempDir);
 	} finally {
-		fs.rmSync(tempDir, { recursive: true, force: true });
+		await fs.promises.rm(tempDir, {
+			recursive: true,
+			force: true,
+			maxRetries: 10,
+			retryDelay: 100,
+		});
 	}
 }
 
